@@ -37,26 +37,43 @@ export interface MarkdownEditorHandle {
 }
 
 interface MarkdownEditorProps {
+  /** id del nodo dueño del artículo. Se captura en mount para evitar
+   *  que un markdownUpdated tardío guarde el body viejo sobre el nuevo. */
+  nodeId: string
   defaultValue: string
-  onChange: (markdown: string) => void
+  onChange: (nodeId: string, markdown: string) => void
   onWikiLinkClick: (uuid: string) => void
   editorRef?: React.MutableRefObject<MarkdownEditorHandle | null>
 }
 
 export function MarkdownEditor({
+  nodeId,
   defaultValue,
   onChange,
   onWikiLinkClick,
   editorRef,
 }: MarkdownEditorProps) {
-  const hostRef = useRef<HTMLDivElement>(null)
+const hostRef = useRef<HTMLDivElement>(null)
   const onChangeRef = useRef(onChange)
   const onWikiClickRef = useRef(onWikiLinkClick)
+  // CRÍTICO: capturar nodeId UNA vez al mount. NO reasignar en cada render.
+  // Si reasignáramos, el editor viejo durante el swap heredaría el nodeId
+  // del nuevo artículo y un markdownUpdated tardío sobreescribiría el
+  // contenido recién sembrado del nuevo (ver git blame).
+  const nodeIdRef = useRef(nodeId)
   onChangeRef.current = onChange
   onWikiClickRef.current = onWikiLinkClick
 
   useEffect(() => {
     if (!hostRef.current) return
+
+    const onChangeForNode = (_id: string, md: string) => {
+      // Usa el nodeId de la instancia actual del editor, no el del padre.
+      // El padre podría haber cambiado a otro artículo durante un swap,
+      // pero ESTE editor debe seguir guardando bajo su propio nodeId.
+      void _id
+      onChangeRef.current(nodeIdRef.current, md)
+    }
 
     const crepe = new Crepe({
       root: hostRef.current,
@@ -103,7 +120,12 @@ export function MarkdownEditor({
       .addFeature((editor) => editor.use(wikiLinkPlugin(onWikiClickRef.current)))
 
     crepe.on((listener) => {
-      listener.markdownUpdated((_ctx, md) => onChangeRef.current(md))
+      listener.markdownUpdated((_ctx, md) => {
+        // Usamos el nodeId capturado al mount (NO reasignado), para evitar
+        // que un markdownUpdated tardío del editor viejo guarde el body viejo
+        // sobre el contenido recién sembrado del nuevo artículo.
+        onChangeForNode(nodeIdRef.current, md)
+      })
     })
 
     crepe.create().then(() => {

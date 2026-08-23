@@ -48,9 +48,14 @@ function App() {
   const article = useArticle(selected?.kind === 'article' ? selected.id : null)
   const backlinks = useBacklinks(selected?.kind === 'article' ? selected.id : null)
 
-  // Si hay fila → su body; si no (null o undefined), seedBody del que
-  // acabamos de crear; en blanco si no hay nada todavía.
-  const currentBody = article
+  // El hook useArticle puede devolver stale data durante la primera
+  // render tras cambiar selectedId (visto en Chrome DevTools: al pasar
+  // de P1 a E1, useArticle devolvía la fila de P1 mientras selected era
+  // E1). Solo usamos article si su node_id coincide con el seleccionado;
+  // si no, caemos al seedBody del recién creado.
+  const articleMatches =
+    article && selected?.kind === 'article' && article.node_id === selected.id
+  const currentBody = articleMatches
     ? article.body_md
     : (selected?.kind === 'article' ? (seedBody ?? '') : '')
 
@@ -206,8 +211,9 @@ function App() {
                 </div>
                 <MarkdownEditor
                   key={selected.id}
+                  nodeId={selected.id}
                   defaultValue={currentBody}
-                  onChange={(md) => saveArticle(selected.id, md)}
+                  onChange={(nodeId, md) => saveArticle(nodeId, md)}
                   onWikiLinkClick={selectArticle}
                   editorRef={editorRef}
                 />
