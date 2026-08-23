@@ -1,8 +1,10 @@
-import { useState } from 'react'
-import { useAllNodes, useArticle } from './hooks/useNodes'
+import { useEffect, useState } from 'react'
+import { useAllNodes, useArticle, useStoragePersisted } from './hooks/useNodes'
 import { TreeView } from './components/tree/TreeView'
 import { Breadcrumbs } from './components/tree/Breadcrumbs'
 import { MarkdownEditor } from './components/editor/MarkdownEditor'
+import { PortabilityBar } from './components/portability/PortabilityBar'
+import { ensurePersistentStorage } from './pwa/persistence'
 import {
   createNode,
   renameNode,
@@ -15,6 +17,11 @@ function App() {
   const nodes = useAllNodes()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [moveMode, setMoveMode] = useState(false)
+  const storagePersisted = useStoragePersisted()
+
+  useEffect(() => {
+    void ensurePersistentStorage()
+  }, [])
 
   const selected = nodes.find((n) => n.id === selectedId) ?? null
   const article = useArticle(selected?.kind === 'article' ? selected.id : null)
@@ -66,6 +73,11 @@ function App() {
   return (
     <div className="layout">
       <aside className="sidebar">
+        {storagePersisted === false && (
+          <div className="persistence-warning">
+            ⚠ Almacenamiento no persistente: exporta backups con regularidad.
+          </div>
+        )}
         <div className="toolbar">
           <button onClick={() => onCreate('folder')}>+ Carpeta</button>
           <button onClick={() => onCreate('article')}>+ Artículo</button>
@@ -80,6 +92,7 @@ function App() {
           </button>
           {moveMode && <button onClick={() => setMoveMode(false)}>Cancelar</button>}
         </div>
+        <PortabilityBar />
         <TreeView
           nodes={nodes}
           selectedId={selectedId}

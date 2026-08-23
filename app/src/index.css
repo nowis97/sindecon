@@ -111,3 +111,34 @@ body {
 .muted {
   color: #777;
 }
+
+.portability {
+  display: flex;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 8px;
+}
+
+.portability button {
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.portability button:disabled {
+  opacity: 0.4;
+}
+
+.persistence-warning {
+  background: #fff3cd;
+  border: 1px solid #e0c060;
+  color: #664d03;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}

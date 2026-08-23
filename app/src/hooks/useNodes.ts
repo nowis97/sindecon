@@ -24,3 +24,13 @@ export function useArticle(nodeId: string | null): ArticleRow | null | undefined
     undefined,
   )
 }
+
+/** true/false = resultado registrado · undefined = aún sin registrar. */
+export function useStoragePersisted(): boolean | undefined {
+  return useLiveQuery(
+    async () => (await db.meta.get('storage_persist'))?.value as
+      | boolean
+      | undefined,
+    [],
+  )
+}

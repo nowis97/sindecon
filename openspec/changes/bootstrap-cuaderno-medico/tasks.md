@@ -13,9 +13,9 @@ Ordenadas por fases del roadmap (ver design.md). Cada fase deja la app usable.
 
 ## 2. V0.2 — Seguro de vida (antes de contenido real)
 
-- [ ] 2.1 Solicitar `navigator.storage.persist()` al primer arranque y mostrar aviso permanente si se deniega (spec offline-shell); verificar estado persistido en DevTools → Application
-- [ ] 2.2 Export a zip (jszip): estructura espejo del árbol, `.md` con frontmatter (`id`, `tags`, `order`, `updated_at`), `assets/`, `_manifest.json` con `export_format_version: 1` y `_deleted.json` (spec data-portability); verificar abriendo el zip y leyendo un `.md` en editor externo
-- [ ] 2.3 Import con fusión por uuid: inserta nuevos, actualiza solo si `updated_at` entrante es más reciente, aplica tombstones (nunca reemplaza); verificar importando un export con ediciones manuales conflictivas y comprobando que ganan los datos más recientes
+- [x] 2.1 Solicitar `navigator.storage.persist()` al primer arranque y mostrar aviso permanente si se deniega (spec offline-shell); verificar estado persistido en DevTools → Application
+- [x] 2.2 Export a zip (jszip): estructura espejo del árbol, `.md` con frontmatter (`id`, `tags`, `order`, `updated_at`), `assets/`, `_manifest.json` con `export_format_version: 1` y `_deleted.json` (spec data-portability); verificar abriendo el zip y leyendo un `.md` en editor externo
+- [x] 2.3 Import con fusión por uuid: inserta nuevos, actualiza solo si `updated_at` entrante es más reciente, aplica tombstones (nunca reemplaza); verificar importando un export con ediciones manuales conflictivas y comprobando que ganan los datos más recientes
 
 ## 3. V0.3 — Contenido rico + plantillas
 
