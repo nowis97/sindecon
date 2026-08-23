@@ -48,17 +48,6 @@ export async function listChildren(parentId: string | null): Promise<NodeRow[]> 
   return rows.sort((a, b) => a.order - b.order)
 }
 
-export async function getNode(id: string): Promise<NodeRow | undefined> {
-  const node = await db.nodes.get(id)
-  return node && node.deleted_at === null ? node : undefined
-}
-
-/** Borrado suave (tombstone) de un solo nodo. */
-export async function softDeleteNode(id: string): Promise<void> {
-  await db.nodes.update(id, { deleted_at: Date.now(), updated_at: Date.now() })
-}
-
-/** Renombrar. */
 export async function renameNode(id: string, title: string): Promise<void> {
   await db.nodes.update(id, { title, updated_at: Date.now() })
 }

@@ -113,6 +113,80 @@ describe('export/import portable', () => {
     expect((await db.nodes.get(fa.id))?.deleted_at).not.toBeNull()
   })
 
+  it('valida el flujo bidireccional PC ↔ Móvil con capturas de Inbox sin pérdida de datos', async () => {
+    // 1. Simulación Dispositivo Móvil: Captura notas en Inbox
+    const mobileCapture = await createNode({
+      kind: 'article',
+      title: 'Foto ECG urgencias',
+    })
+    await saveArticle(mobileCapture.id, '![Foto](asset://mock-asset)\n\nRitmo sinusal con extrasístoles.')
+    
+    const mobileZip = await buildExportZip()
+    const mobileBuf = await mobileZip.generateAsync({ type: 'nodebuffer' })
+
+    // 2. Simulación Dispositivo PC: Crea categorías y temas
+    await clearDb()
+    const { tema, fa } = await seedTree()
+    expect(await listChildren(null)).toHaveLength(2)
+
+    // 3. PC importa el export del móvil
+    const reportPC = await importFromZip(mobileBuf)
+    expect(reportPC.nodesAdded).toBe(1)
+    expect(reportPC.articlesAdded).toBe(1)
+
+    // Verificamos que en PC existen tanto las capturas del móvil como los datos elaborados de PC
+    const importedCapture = await db.nodes.get(mobileCapture.id)
+    expect(importedCapture?.title).toBe('Foto ECG urgencias')
+    expect((await db.nodes.get(fa.id))?.title).toBe('Fibrilación auricular')
+    expect((await db.nodes.get(tema.id))?.title).toBe('Medicina Interna')
+
+    // 4. PC edita un artículo y exporta hacia el móvil
+    await new Promise((r) => setTimeout(r, 10))
+    await saveArticle(fa.id, '# FA actualizada en PC con dosis definitivas')
+    const pcZip = await buildExportZip()
+    const pcBuf = await pcZip.generateAsync({ type: 'nodebuffer' })
+
+    // 5. Móvil recibe export de PC: Debe actualizar FA y mantener su captura local
+    await clearDb()
+    // Restaurar estado inicial del móvil
+    await db.nodes.add(mobileCapture)
+    await db.articles.add({
+      node_id: mobileCapture.id,
+      body_md: '![Foto](asset://mock-asset)\n\nRitmo sinusal con extrasístoles.',
+      tags: ['captura'],
+    })
+
+    const reportMobile = await importFromZip(pcBuf)
+    expect(reportMobile.nodesAdded).toBeGreaterThanOrEqual(4) // Categorías y artículos de PC
+    expect(reportMobile.nodesSkipped + reportMobile.nodesUpdated).toBeGreaterThanOrEqual(1)
+
+    const mobileFA = await db.articles.get(fa.id)
+    expect(mobileFA?.body_md).toContain('actualizada en PC con dosis definitivas')
+    const mobileCapt = await db.nodes.get(mobileCapture.id)
+    expect(mobileCapt?.title).toBe('Foto ECG urgencias')
+  })
+
+  it('reporte de importación refleja con precisión nodos añadidos, actualizados, eliminados y omitidos', async () => {
+    const { fa } = await seedTree()
+    const buf1 = await (await buildExportZip()).generateAsync({ type: 'nodebuffer' })
+
+    // Reimport idéntico: 0 añadidos, todos omitidos
+    const report1 = await importFromZip(buf1)
+    expect(report1.nodesAdded).toBe(0)
+    expect(report1.articlesAdded).toBe(0)
+    expect(report1.nodesSkipped).toBe(5)
+
+    // Modificamos fecha remota para forzar actualización
+    await new Promise((r) => setTimeout(r, 10))
+    await saveArticle(fa.id, '# FA versión 2')
+    const buf2 = await (await buildExportZip()).generateAsync({ type: 'nodebuffer' })
+
+    // Volvemos la versión local a la anterior
+    await db.nodes.update(fa.id, { updated_at: 1000 })
+    const report2 = await importFromZip(buf2)
+    expect(report2.nodesUpdated).toBe(1)
+  })
+
   it('rechaza formatos con versión desconocida', async () => {
     await seedTree()
     const zip = await buildExportZip()
@@ -125,3 +199,4 @@ describe('export/import portable', () => {
     await expect(importFromZip(new Uint8Array([1, 2, 3]))).rejects.toThrow()
   })
 })
+

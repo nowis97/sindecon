@@ -9,6 +9,8 @@ import { useBacklinks } from './hooks/useBacklinks'
 import { TreeView } from './components/tree/TreeView'
 import { Breadcrumbs } from './components/tree/Breadcrumbs'
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/editor/MarkdownEditor'
+import { ArticleReader } from './components/reader/ArticleReader'
+import { QuickCapture } from './components/capture/QuickCapture'
 import { PortabilityBar } from './components/portability/PortabilityBar'
 import { SearchBox } from './components/search/SearchBox'
 import { TagInput } from './components/search/TagInput'
@@ -21,6 +23,7 @@ import {
   deleteNodeCascade,
 } from './db/nodes'
 import { saveArticle } from './db/articles'
+import { ensureInboxFolder } from './db/inbox'
 import {
   fillTitlePlaceholder,
   seedTemplatesIfNeeded,
@@ -31,6 +34,8 @@ function App() {
   const templates = useTemplates()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [moveMode, setMoveMode] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const storagePersisted = useStoragePersisted()
   const editorRef = useRef<MarkdownEditorHandle | null>(null)
 
@@ -42,16 +47,13 @@ function App() {
   useEffect(() => {
     void ensurePersistentStorage()
     void seedTemplatesIfNeeded()
+    void ensureInboxFolder()
   }, [])
 
   const selected = nodes.find((n) => n.id === selectedId) ?? null
   const article = useArticle(selected?.kind === 'article' ? selected.id : null)
   const backlinks = useBacklinks(selected?.kind === 'article' ? selected.id : null)
 
-  // El hook useArticle puede devolver stale data o estar en vuelo durante
-  // la transición de selectedId. Solo consideramos el artículo listo si
-  // tenemos seedBody, si useArticle devolvió la fila con node_id coincidente,
-  // o si resolvió a null (artículo en blanco aún sin fila en db.articles).
   const articleMatches =
     Boolean(article && selected?.kind === 'article' && article.node_id === selected.id)
   const isArticleReady = Boolean(
@@ -74,6 +76,7 @@ function App() {
     setSelectedId(id)
     setMoveMode(false)
     setSeedBody(null)
+    setSidebarOpen(false)
   }
 
   const onCreate = async (kind: 'folder' | 'article') => {
@@ -88,6 +91,8 @@ function App() {
     })
     setSelectedId(node.id)
     setSeedBody(null)
+    setIsEditMode(true)
+    setSidebarOpen(false)
   }
 
   const onCreateFromTemplate = async (templateTitle: string) => {
@@ -105,6 +110,8 @@ function App() {
     await saveArticle(node.id, body)
     setSeedBody(body)
     setSelectedId(node.id)
+    setIsEditMode(true)
+    setSidebarOpen(false)
   }
 
   const onRename = async () => {
@@ -136,115 +143,193 @@ function App() {
   }
 
   return (
-    <div className="layout">
-      <aside className="sidebar">
-        {storagePersisted === false && (
-          <div className="persistence-warning">
-            ⚠ Almacenamiento no persistente: exporta backups con regularidad.
-          </div>
-        )}
-        <div className="toolbar">
-          <button onClick={() => onCreate('folder')}>+ Carpeta</button>
-          <button onClick={() => onCreate('article')}>+ Artículo</button>
-          <select
-            className="template-select"
-            defaultValue=""
-            onChange={(e) => {
-              const v = e.currentTarget.value
-              e.currentTarget.value = ''
-              if (v) void onCreateFromTemplate(v)
-            }}
-            title={
-              templates.length > 0
-                ? 'Nuevo artículo desde plantilla'
-                : 'Sembrando plantillas…'
-            }
-          >
-            <option value="" disabled>
-              {templates.length > 0 ? '+ desde plantilla' : 'cargando…'}
-            </option>
-            {templates.map((t) => (
-              <option key={t.node.id} value={t.node.title}>
-                {t.node.title}
-              </option>
-            ))}
-          </select>
-          <button onClick={onRename} disabled={!selected}>
-            Renombrar
-          </button>
-          <button onClick={() => setMoveMode(true)} disabled={!selected}>
-            Mover
-          </button>
-          <button onClick={onDelete} disabled={!selected}>
-            Eliminar
-          </button>
-          {moveMode && (
-            <button onClick={() => setMoveMode(false)}>Cancelar</button>
-          )}
-        </div>
-        <div className="sidebar-search">
+    <div className="app-container">
+      <header className="mobile-topbar">
+        <button
+          type="button"
+          className="btn-menu-toggle"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          aria-label="Abrir menú de temas"
+        >
+          ☰ {sidebarOpen ? 'Cerrar' : 'Temas'}
+        </button>
+        <div className="topbar-search">
           <SearchBox onSelect={selectArticle} />
         </div>
-        <PortabilityBar />
-        <TreeView
-          nodes={nodes}
-          selectedId={selectedId}
-          onSelect={selectArticle}
-          moveMode={moveMode}
-          onMoveTarget={onMoveTarget}
-        />
-      </aside>
+        <QuickCapture onCaptureSaved={selectArticle} />
+      </header>
 
-      <main className="content">
-        <Breadcrumbs nodes={nodes} selectedId={selectedId} onSelect={setSelectedId} />
-        {selected ? (
-          <div>
-            <h1>{selected.title}</h1>
-            {selected.kind === 'folder' && <p className="muted">Carpeta</p>}
-            {selected.kind === 'article' && isArticleReady && (
-              <>
-                <div className="article-meta">
-                  <TagInput articleId={selected.id} tags={articleMatches ? (article?.tags ?? []) : []} />
-                </div>
-                <div className="article-toolbar">
-                  <WikiLinkPicker
-                    onPick={(text) => {
-                      editorRef.current?.insertAtCursor(text)
-                      editorRef.current?.focus()
-                    }}
-                  />
-                </div>
-                <MarkdownEditor
-                  key={selected.id}
-                  nodeId={selected.id}
-                  defaultValue={currentBody}
-                  onChange={(nodeId, md) => saveArticle(nodeId, md)}
-                  onWikiLinkClick={selectArticle}
-                  editorRef={editorRef}
-                />
-                {backlinks.length > 0 && (
-                  <aside className="backlinks">
-                    <h3>Artículos que enlazan aquí</h3>
-                    <ul>
-                      {backlinks.map((b) => (
-                        <li key={b.id}>
-                          <button onClick={() => selectArticle(b.id)}>
-                            {b.title}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </aside>
-                )}
-              </>
+      <div className={`layout ${sidebarOpen ? 'sidebar-open' : ''}`}>
+        {sidebarOpen && (
+          <div
+            className="sidebar-backdrop"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+        <aside className="sidebar">
+          <div className="sidebar-header-desktop">
+            <h2 className="app-title">🩺 Cuaderno Médico</h2>
+            <QuickCapture onCaptureSaved={selectArticle} />
+          </div>
+
+          {storagePersisted === false && (
+            <div className="persistence-warning">
+              ⚠ Almacenamiento no persistente: exporta backups con regularidad.
+            </div>
+          )}
+
+          <div className="toolbar">
+            <button onClick={() => onCreate('folder')}>+ Carpeta</button>
+            <button onClick={() => onCreate('article')}>+ Artículo</button>
+            <select
+              className="template-select"
+              defaultValue=""
+              onChange={(e) => {
+                const v = e.currentTarget.value
+                e.currentTarget.value = ''
+                if (v) void onCreateFromTemplate(v)
+              }}
+              title={
+                templates.length > 0
+                  ? 'Nuevo artículo desde plantilla'
+                  : 'Sembrando plantillas…'
+              }
+            >
+              <option value="" disabled>
+                {templates.length > 0 ? '+ desde plantilla' : 'cargando…'}
+              </option>
+              {templates.map((t) => (
+                <option key={t.node.id} value={t.node.title}>
+                  {t.node.title}
+                </option>
+              ))}
+            </select>
+            <button onClick={onRename} disabled={!selected}>
+              Renombrar
+            </button>
+            <button onClick={() => setMoveMode(true)} disabled={!selected}>
+              Mover
+            </button>
+            <button onClick={onDelete} disabled={!selected}>
+              Eliminar
+            </button>
+            {moveMode && (
+              <button onClick={() => setMoveMode(false)}>Cancelar</button>
             )}
           </div>
-        ) : (
-          <p className="muted">
-            Selecciona o crea algo en el árbol, o usa la búsqueda ↑
-          </p>
-        )}
-      </main>
+
+          <div className="sidebar-search desktop-only-search">
+            <SearchBox onSelect={selectArticle} />
+          </div>
+
+          <PortabilityBar />
+
+          <TreeView
+            nodes={nodes}
+            selectedId={selectedId}
+            onSelect={selectArticle}
+            moveMode={moveMode}
+            onMoveTarget={onMoveTarget}
+          />
+        </aside>
+
+        <main className="content">
+          <Breadcrumbs
+            nodes={nodes}
+            selectedId={selectedId}
+            onSelect={(id) => {
+              setSelectedId(id)
+              setSidebarOpen(false)
+            }}
+          />
+
+          {selected ? (
+            <div className="article-container">
+              <div className="article-header-row">
+                <h1 className="article-title">{selected.title}</h1>
+                {selected.kind === 'article' && (
+                  <div className="view-mode-toggle">
+                    <button
+                      type="button"
+                      className={`btn-mode ${!isEditMode ? 'active' : ''}`}
+                      onClick={() => setIsEditMode(false)}
+                    >
+                      👁 Lector
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn-mode ${isEditMode ? 'active' : ''}`}
+                      onClick={() => setIsEditMode(true)}
+                    >
+                      ✏ Editor
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {selected.kind === 'folder' && <p className="muted">Carpeta</p>}
+
+              {selected.kind === 'article' && isArticleReady && (
+                <>
+                  <div className="article-meta">
+                    <TagInput
+                      articleId={selected.id}
+                      tags={articleMatches ? (article?.tags ?? []) : []}
+                    />
+                  </div>
+
+                  {isEditMode ? (
+                    <>
+                      <div className="article-toolbar">
+                        <WikiLinkPicker
+                          onPick={(text) => {
+                            editorRef.current?.insertAtCursor(text)
+                            editorRef.current?.focus()
+                          }}
+                        />
+                      </div>
+                      <MarkdownEditor
+                        key={selected.id}
+                        nodeId={selected.id}
+                        defaultValue={currentBody}
+                        onChange={(nodeId, md) => saveArticle(nodeId, md)}
+                        onWikiLinkClick={selectArticle}
+                        editorRef={editorRef}
+                      />
+                    </>
+                  ) : (
+                    <ArticleReader
+                      markdown={currentBody}
+                      onWikiLinkClick={selectArticle}
+                    />
+                  )}
+
+                  {backlinks.length > 0 && (
+                    <aside className="backlinks">
+                      <h3>Artículos que enlazan aquí</h3>
+                      <ul>
+                        {backlinks.map((b) => (
+                          <li key={b.id}>
+                            <button onClick={() => selectArticle(b.id)}>
+                              📄 {b.title}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </aside>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <p className="muted">
+                Selecciona o crea algo en el árbol, o usa la búsqueda ↑
+              </p>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   )
 }

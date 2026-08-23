@@ -18,16 +18,21 @@ export function useSearchIndex(): { articles: IndexedArticle[]; titleOf: Map<str
   )
   return useMemo(() => {
     const titleOf = new Map<string, string>()
-    const articleKinds = new Set(['article'])
+    const articleMap = new Map((articles ?? []).map((a) => [a.node_id, a]))
+    const indexed: IndexedArticle[] = []
+
     for (const n of nodes ?? []) {
-      if (articleKinds.has(n.kind)) titleOf.set(n.id, n.title)
+      if (n.kind === 'article') {
+        titleOf.set(n.id, n.title)
+        const a = articleMap.get(n.id)
+        indexed.push({
+          id: n.id,
+          title: n.title,
+          body: a?.body_md ?? '',
+          tags: (a?.tags ?? []).join(' '),
+        })
+      }
     }
-    const indexed: IndexedArticle[] = (articles ?? []).map((a) => ({
-      id: a.node_id,
-      title: titleOf.get(a.node_id) ?? '(sin título)',
-      body: a.body_md,
-      tags: a.tags.join(' '),
-    }))
     return { articles: indexed, titleOf }
   }, [articles, nodes])
 }

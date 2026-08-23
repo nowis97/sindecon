@@ -11,16 +11,7 @@ export function SearchBox({ onSelect }: SearchBoxProps) {
   const results = useSearchResults(q)
   const { articles } = useSearchIndex()
 
-  const articleTagText = (id: string): string => {
-    const a = articles.find((x) => x.id === id)
-    if (!a) return ''
-    return a.tags
-  }
-
-  const tagList = (id: string): string[] =>
-    articleTagText(id)
-      .split(' ')
-      .filter(Boolean)
+  const tagMap = new Map(articles.map((a) => [a.id, a.tags]))
 
   return (
     <div className="search-box">
@@ -36,17 +27,20 @@ export function SearchBox({ onSelect }: SearchBoxProps) {
           {results.length === 0 ? (
             <li className="muted">Sin coincidencias para «{q}»</li>
           ) : (
-            results.map((r) => (
-              <SearchResultRow
-                key={r.id}
-                r={r}
-                tags={tagList(r.id)}
-                onPick={() => {
-                  onSelect(r.id)
-                  setQ('')
-                }}
-              />
-            ))
+            results.map((r) => {
+              const tags = (tagMap.get(r.id) ?? '').split(' ').filter(Boolean)
+              return (
+                <SearchResultRow
+                  key={r.id}
+                  r={r}
+                  tags={tags}
+                  onPick={() => {
+                    onSelect(r.id)
+                    setQ('')
+                  }}
+                />
+              )
+            })
           )}
         </ul>
       )}

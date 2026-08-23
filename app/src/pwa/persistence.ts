@@ -16,8 +16,3 @@ export async function ensurePersistentStorage(): Promise<boolean> {
   await db.meta.put({ key: KEY, value: granted })
   return granted
 }
-
-export async function getStoragePersisted(): Promise<boolean | undefined> {
-  const row = await db.meta.get(KEY)
-  return row?.value as boolean | undefined
-}

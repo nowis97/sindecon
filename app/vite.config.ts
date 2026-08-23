@@ -37,5 +37,6 @@ export default defineConfig({
   test: {
     // domain/ es lógica pura: tests en node, sin DOM
     environment: 'node',
+    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**'],
   },
 })

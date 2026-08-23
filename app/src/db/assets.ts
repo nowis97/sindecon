@@ -22,7 +22,3 @@ export async function getAssetBlob(id: string): Promise<Blob | undefined> {
 export async function setAssetOwner(id: string, nodeId: string): Promise<void> {
   await db.assets.update(id, { node_id: nodeId })
 }
-
-export async function deleteAsset(id: string): Promise<void> {
-  await db.assets.delete(id)
-}

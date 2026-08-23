@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from './db'
-import { createNode, softDeleteNode, listChildren, getNode, renameNode, moveNode, deleteNodeCascade } from './nodes'
+import { createNode, listChildren, renameNode, moveNode, deleteNodeCascade } from './nodes'
 
 beforeEach(async () => {
   await Promise.all([
@@ -43,19 +43,6 @@ describe('capa de datos: nodos', () => {
 
     const raices = await listChildren(null)
     expect(raices.map((r) => r.title)).toEqual(['Cardio', 'Otro tema'])
-  })
-
-  it('softDeleteNode deja tombstone y excluye el nodo de las consultas', async () => {
-    const n = await createNode({ kind: 'article', title: 'Borrado' })
-    await softDeleteNode(n.id)
-
-    // tombstone presente en la tabla (necesario para la fusión)
-    const crudo = await db.nodes.get(n.id)
-    expect(crudo?.deleted_at).not.toBeNull()
-
-    // pero invisible para la capa de consulta
-    expect(await getNode(n.id)).toBeUndefined()
-    expect(await listChildren(null)).toEqual([])
   })
 
   it('renameNode actualiza título y updated_at', async () => {
