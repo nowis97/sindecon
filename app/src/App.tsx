@@ -1,14 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   useAllNodes,
   useArticle,
   useStoragePersisted,
   useTemplates,
 } from './hooks/useNodes'
+import { useBacklinks } from './hooks/useBacklinks'
 import { TreeView } from './components/tree/TreeView'
 import { Breadcrumbs } from './components/tree/Breadcrumbs'
-import { MarkdownEditor } from './components/editor/MarkdownEditor'
+import { MarkdownEditor, type MarkdownEditorHandle } from './components/editor/MarkdownEditor'
 import { PortabilityBar } from './components/portability/PortabilityBar'
+import { SearchBox } from './components/search/SearchBox'
+import { TagInput } from './components/search/TagInput'
+import { WikiLinkPicker } from './components/search/WikiLinkPicker'
 import { ensurePersistentStorage } from './pwa/persistence'
 import {
   createNode,
@@ -28,6 +32,7 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [moveMode, setMoveMode] = useState(false)
   const storagePersisted = useStoragePersisted()
+  const editorRef = useRef<MarkdownEditorHandle | null>(null)
 
   useEffect(() => {
     void ensurePersistentStorage()
@@ -36,12 +41,18 @@ function App() {
 
   const selected = nodes.find((n) => n.id === selectedId) ?? null
   const article = useArticle(selected?.kind === 'article' ? selected.id : null)
+  const backlinks = useBacklinks(selected?.kind === 'article' ? selected.id : null)
 
   const targetFolderId = selected
     ? selected.kind === 'folder'
       ? selected.id
       : selected.parent_id
     : null
+
+  const selectArticle = (id: string) => {
+    setSelectedId(id)
+    setMoveMode(false)
+  }
 
   const onCreate = async (kind: 'folder' | 'article') => {
     const title = window.prompt(
@@ -141,16 +152,18 @@ function App() {
           <button onClick={onDelete} disabled={!selected}>
             Eliminar
           </button>
-          {moveMode && <button onClick={() => setMoveMode(false)}>Cancelar</button>}
+          {moveMode && (
+            <button onClick={() => setMoveMode(false)}>Cancelar</button>
+          )}
+        </div>
+        <div className="sidebar-search">
+          <SearchBox onSelect={selectArticle} />
         </div>
         <PortabilityBar />
         <TreeView
           nodes={nodes}
           selectedId={selectedId}
-          onSelect={(id) => {
-            setSelectedId(id)
-            setMoveMode(false)
-          }}
+          onSelect={selectArticle}
           moveMode={moveMode}
           onMoveTarget={onMoveTarget}
         />
@@ -163,15 +176,46 @@ function App() {
             <h1>{selected.title}</h1>
             {selected.kind === 'folder' && <p className="muted">Carpeta</p>}
             {selected.kind === 'article' && article && (
-              <MarkdownEditor
-                key={selected.id}
-                defaultValue={article.body_md}
-                onChange={(md) => saveArticle(selected.id, md)}
-              />
+              <>
+                <div className="article-meta">
+                  <TagInput articleId={selected.id} tags={article.tags} />
+                </div>
+                <div className="article-toolbar">
+                  <WikiLinkPicker
+                    onPick={(text) => {
+                      editorRef.current?.insertAtCursor(text)
+                      editorRef.current?.focus()
+                    }}
+                  />
+                </div>
+                <MarkdownEditor
+                  key={selected.id}
+                  defaultValue={article.body_md}
+                  onChange={(md) => saveArticle(selected.id, md)}
+                  onWikiLinkClick={selectArticle}
+                  editorRef={editorRef}
+                />
+                {backlinks.length > 0 && (
+                  <aside className="backlinks">
+                    <h3>Artículos que enlazan aquí</h3>
+                    <ul>
+                      {backlinks.map((b) => (
+                        <li key={b.id}>
+                          <button onClick={() => selectArticle(b.id)}>
+                            {b.title}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </aside>
+                )}
+              </>
             )}
           </div>
         ) : (
-          <p className="muted">Selecciona o crea algo en el árbol ←</p>
+          <p className="muted">
+            Selecciona o crea algo en el árbol, o usa la búsqueda ↑
+          </p>
         )}
       </main>
     </div>

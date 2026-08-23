@@ -27,10 +27,10 @@ Ordenadas por fases del roadmap (ver design.md). Cada fase deja la app usable.
 
 ## 4. V0.4 — Búsqueda y relaciones
 
-- [ ] 4.1 Índice MiniSearch (título + contenido + tags) reconstruido al arranque desde IndexedDB y actualizado en cada CRUD; verificar búsqueda offline con resultados por relevancia
-- [ ] 4.2 Tags en artículos con autocompletado desde tags existentes; verificar que buscar un síntoma devuelve los artículos tagueados
-- [ ] 4.3 Wiki-links: autocompletado al escribir `[[`, enlace persistido por uuid (no por título ni ruta); verificar que el enlace sigue funcionando tras mover/renombrar el artículo destino
-- [ ] 4.4 Backlinks ("artículos relacionados") en la vista lector; verificar que aparecen los artículos que enlazan al actual
+- [x] 4.1 Índice MiniSearch (título + contenido + tags) reconstruido al arranque desde IndexedDB y actualizado en cada CRUD; verificar búsqueda offline con resultados por relevancia
+- [x] 4.2 Tags en artículos con autocompletado desde tags existentes; verificar que buscar un síntoma devuelve los artículos tagueados
+- [x] 4.3 Wiki-links: `[[uuid]]` en el markdown, decorar visualmente y hacer clickeable (resistente a renombres / movimientos); picker inserta `[[uuid|título]]` en el cursor — el autocompletado al escribir `[[` queda como mejora futura
+- [x] 4.4 Backlinks ("artículos relacionados") en la vista lector; verificar que aparecen los artículos que enlazan al actual
 
 ## 5. V0.5 — Móvil (captura y consulta)
 
