@@ -34,6 +34,11 @@ function App() {
   const storagePersisted = useStoragePersisted()
   const editorRef = useRef<MarkdownEditorHandle | null>(null)
 
+  // Para el artículo recién creado: guardamos el body en local state
+  // para evitar la carrera con useLiveQuery (el editor podría montar
+  // brevemente con body vacío y sobrescribir el contenido sembrado).
+  const [seedBody, setSeedBody] = useState<string | null>(null)
+
   useEffect(() => {
     void ensurePersistentStorage()
     void seedTemplatesIfNeeded()
@@ -42,6 +47,13 @@ function App() {
   const selected = nodes.find((n) => n.id === selectedId) ?? null
   const article = useArticle(selected?.kind === 'article' ? selected.id : null)
   const backlinks = useBacklinks(selected?.kind === 'article' ? selected.id : null)
+
+  // Si el artículo seleccionado es el recién creado, usamos su body
+  // sembrado; si no, el del hook (o '' mientras carga).
+  const currentBody =
+    article !== undefined
+      ? (article?.body_md ?? '')
+      : (selected?.kind === 'article' ? (seedBody ?? '') : '')
 
   const targetFolderId = selected
     ? selected.kind === 'folder'
@@ -52,6 +64,7 @@ function App() {
   const selectArticle = (id: string) => {
     setSelectedId(id)
     setMoveMode(false)
+    setSeedBody(null)
   }
 
   const onCreate = async (kind: 'folder' | 'article') => {
@@ -65,6 +78,7 @@ function App() {
       parent_id: targetFolderId,
     })
     setSelectedId(node.id)
+    setSeedBody(null)
   }
 
   const onCreateFromTemplate = async (templateTitle: string) => {
@@ -72,12 +86,15 @@ function App() {
     if (!tpl) return
     const title = window.prompt(`Título (plantilla "${templateTitle}"):`)
     if (!title?.trim()) return
+    const finalTitle = title.trim()
+    const body = fillTitlePlaceholder(tpl.body, finalTitle)
     const node = await createNode({
       kind: 'article',
-      title: title.trim(),
+      title: finalTitle,
       parent_id: targetFolderId,
     })
-    await saveArticle(node.id, fillTitlePlaceholder(tpl.body, title.trim()))
+    await saveArticle(node.id, body)
+    setSeedBody(body)
     setSelectedId(node.id)
   }
 
@@ -175,10 +192,10 @@ function App() {
           <div>
             <h1>{selected.title}</h1>
             {selected.kind === 'folder' && <p className="muted">Carpeta</p>}
-            {selected.kind === 'article' && article && (
+            {selected.kind === 'article' && article !== undefined && (
               <>
                 <div className="article-meta">
-                  <TagInput articleId={selected.id} tags={article.tags} />
+                  <TagInput articleId={selected.id} tags={article?.tags ?? []} />
                 </div>
                 <div className="article-toolbar">
                   <WikiLinkPicker
@@ -190,7 +207,7 @@ function App() {
                 </div>
                 <MarkdownEditor
                   key={selected.id}
-                  defaultValue={article.body_md}
+                  defaultValue={currentBody}
                   onChange={(md) => saveArticle(selected.id, md)}
                   onWikiLinkClick={selectArticle}
                   editorRef={editorRef}

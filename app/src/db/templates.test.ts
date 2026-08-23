@@ -90,4 +90,28 @@ describe('plantillas (spec templates)', () => {
     expect(saved?.body_md).toContain('## Mecanismo de acción')
     expect(saved?.body_md).toContain('## Dosis en adultos y vía de administración')
   })
+
+  it('cada plantilla produce un body DISTINTO en el flujo "crear desde plantilla"', async () => {
+    const { createNode } = await import('./nodes')
+    const { saveArticle } = await import('./articles')
+    await seedTemplatesIfNeeded()
+    const tpls = await listTemplates()
+    const created: { title: string; body: string }[] = []
+    for (const tpl of tpls) {
+      const title = `Caso · ${tpl.node.title}`
+      const node = await createNode({ kind: 'article', title })
+      const body = fillTitlePlaceholder(tpl.body, title)
+      await saveArticle(node.id, body)
+      const saved = await db.articles.get(node.id)
+      created.push({ title, body: saved?.body_md ?? '' })
+    }
+    // Todos los bodies deben ser distintos entre sí
+    const unique = new Set(created.map((c) => c.body))
+    expect(unique.size).toBe(created.length)
+    // Cada body debe contener el nombre de su plantilla (placeholder sustituido)
+    for (const { title, body } of created) {
+      expect(body).toContain(`# Caso · ${title.replace('Caso · ', '')}`)
+      expect(body).not.toContain('{título}')
+    }
+  })
 })
