@@ -4,12 +4,12 @@ Ordenadas por fases del roadmap (ver design.md). Cada fase deja la app usable.
 
 ## 1. V0.1 — Esqueleto caminable
 
-- [ ] 1.1 Scaffold de la app real (React + TS + Vite + Vitest) en paquete propio `app/`, con la estructura por capas del design.md (`db/`, `domain/`, `hooks/`, `components/`, `pwa/`) y reutilizando el setup del editor de `spike-editor/`; verificar `npm run build` exitoso y app en blanco cargando
-- [ ] 1.2 Capa de datos con Dexie: tablas `nodes`, `articles`, `assets`, `meta` con uuid, `created_at`/`updated_at` y borrado por tombstone (`deleted_at`); verificar con test unitario de creación/borrado
-- [ ] 1.3 Operaciones del árbol (spec knowledge-tree): crear carpeta/artículo, renombrar, mover, eliminar con cascada + tombstones; verificar cada operación en la UI
-- [ ] 1.4 Navegación: panel del árbol + breadcrumbs clicables; verificar navegación completa Tema ▸ subcarpeta ▸ artículo y vuelta
-- [ ] 1.5 Editor Crepe integrado con los fixes del spike (lenguajes con `load`, `renderPreview` async vía `applyPreview`) guardando `body_md` en IndexedDB; verificar round-trip editar → F5 → contenido idéntico
-- [ ] 1.6 PWA con vite-plugin-pwa: manifest + service worker; verificar instalable en navegador y recarga completa sin conexión (DevTools → offline)
+- [x] 1.1 Scaffold de la app real (React + TS + Vite + Vitest) en paquete propio `app/`, con la estructura por capas del design.md (`db/`, `domain/`, `hooks/`, `components/`, `pwa/`) y reutilizando el setup del editor de `spike-editor/`; verificar `npm run build` exitoso y app en blanco cargando
+- [x] 1.2 Capa de datos con Dexie: tablas `nodes`, `articles`, `assets`, `meta` con uuid, `created_at`/`updated_at` y borrado por tombstone (`deleted_at`); verificar con test unitario de creación/borrado
+- [x] 1.3 Operaciones del árbol (spec knowledge-tree): crear carpeta/artículo, renombrar, mover, eliminar con cascada + tombstones; verificar cada operación en la UI
+- [x] 1.4 Navegación: panel del árbol + breadcrumbs clicables; verificar navegación completa Tema ▸ subcarpeta ▸ artículo y vuelta
+- [x] 1.5 Editor Crepe integrado con los fixes del spike (lenguajes con `load`, `renderPreview` async vía `applyPreview`) guardando `body_md` en IndexedDB; verificar round-trip editar → F5 → contenido idéntico
+- [x] 1.6 PWA con vite-plugin-pwa: manifest + service worker; verificar instalable en navegador y recarga completa sin conexión (DevTools → offline)
 
 ## 2. V0.2 — Seguro de vida (antes de contenido real)
 

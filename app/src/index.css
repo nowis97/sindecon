@@ -1,0 +1,113 @@
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #fafafa;
+  color: #1a1a1a;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  border-right: 1px solid #ddd;
+  background: #fff;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 8px;
+}
+
+.toolbar button {
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+}
+
+.tree-row:hover {
+  background: #f0f4ff;
+}
+
+.tree-row.selected {
+  background: #dbe7ff;
+}
+
+.tree-row.move-target {
+  outline: 1px dashed #36c;
+}
+
+.tree-caret {
+  border: none;
+  background: none;
+  width: 18px;
+  cursor: pointer;
+  color: #666;
+}
+
+.move-banner {
+  background: #fff8dc;
+  border: 1px solid #e0c060;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}
+
+.content {
+  padding: 16px 24px;
+}
+
+.breadcrumbs {
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.crumb {
+  border: none;
+  background: none;
+  color: #36c;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 4px;
+}
+
+.crumb:hover {
+  text-decoration: underline;
+}
+
+.crumb-sep {
+  color: #999;
+  margin: 0 2px;
+}
+
+.muted {
+  color: #777;
+}
