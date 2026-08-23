@@ -1,0 +1,16 @@
+# Dependencias y builds
+node_modules/
+dist/
+dist-ssr/
+
+# Logs
+*.log
+vite-dev.log
+
+# Cachés y temporales
+.cache/
+*.local
+
+# SO
+Thumbs.db
+Desktop.ini
