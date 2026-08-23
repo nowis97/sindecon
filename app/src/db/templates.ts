@@ -258,7 +258,7 @@ export async function seedTemplatesIfNeeded(): Promise<boolean> {
       parent_id: plantillas.id,
       system: 'templates',
     })
-    await db.articles.add({
+    await db.articles.put({
       node_id: nodo.id,
       body_md: buildTemplateBody(t),
       tags: [],

@@ -65,13 +65,29 @@ describe('plantillas (spec templates)', () => {
     expect(tpls2.length).toBe(10)
   })
 
-  it('crear artículo desde plantilla reemplaza {título} y queda independiente', async () => {
+  it('createNode de artículo ya viene con fila de cuerpo (useArticle no devuelve null)', async () => {
+    const { createNode } = await import('./nodes')
+    const n = await createNode({ kind: 'article', title: 'Prueba' })
+    const row = await db.articles.get(n.id)
+    expect(row).toBeDefined()
+    expect(row?.body_md).toBe('')
+  })
+
+  it('flujo completo: seed → crear desde plantilla → cuerpo en la DB', async () => {
+    const { createNode } = await import('./nodes')
+    const { saveArticle } = await import('./articles')
     await seedTemplatesIfNeeded()
     const tpls = await listTemplates()
-    const patologia = tpls[0]
-    const title = 'Hipertensión arterial'
-    const body = fillTitlePlaceholder(patologia.body, title)
-    expect(body).toContain('# ' + title)
-    expect(body).not.toContain('{título}')
+    const farma = tpls.find((t) => t.node.title === 'Fármaco / Ficha farmacológica')!
+    expect(farma).toBeDefined()
+    const title = 'Amiodarona'
+    const body = fillTitlePlaceholder(farma.body, title)
+    const node = await createNode({ kind: 'article', title })
+    await saveArticle(node.id, body)
+    const saved = await db.articles.get(node.id)
+    expect(saved?.body_md).toBe(body)
+    expect(saved?.body_md).toContain('# ' + title)
+    expect(saved?.body_md).toContain('## Mecanismo de acción')
+    expect(saved?.body_md).toContain('## Dosis en adultos y vía de administración')
   })
 })

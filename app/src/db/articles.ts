@@ -5,17 +5,17 @@ export async function getArticle(nodeId: string): Promise<ArticleRow | undefined
 }
 
 /**
- * Upsert del cuerpo Markdown; toca updated_at del nodo (fusión futura)
- * y mantiene la propiedad asset → artículo (los asset:// referenciados
- * quedan atados al artículo dueño para que el export los encuentre).
+ * Upsert del cuerpo Markdown (put para tolerar el row vacío que crea
+ * createNode); toca updated_at del nodo (fusión futura) y mantiene
+ * la propiedad asset → artículo.
  */
 export async function saveArticle(nodeId: string, body_md: string): Promise<void> {
   const existing = await db.articles.get(nodeId)
-  if (existing) {
-    await db.articles.update(nodeId, { body_md })
-  } else {
-    await db.articles.add({ node_id: nodeId, body_md, tags: [] })
-  }
+  await db.articles.put({
+    node_id: nodeId,
+    body_md,
+    tags: existing?.tags ?? [],
+  })
   await db.nodes.update(nodeId, { updated_at: Date.now() })
 
   const ids = [...body_md.matchAll(/asset:\/\/([a-f0-9-]+)/gi)].map((m) => m[1])

@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import type { NodeRow, ArticleRow } from '../db/db'
+import { listTemplates } from '../db/templates'
 
 /** Todos los nodos vivos, reactivos: cualquier cambio re-renderiza. */
 export function useAllNodes(): NodeRow[] {
@@ -36,15 +37,14 @@ export function useStoragePersisted(): boolean | undefined {
 }
 
 /** Plantillas disponibles en la carpeta Plantillas/. */
-export function useTemplates(): { node: import('../db/db').NodeRow; body: string }[] {
+export function useTemplates(): {
+  node: import('../db/db').NodeRow
+  body: string
+}[] {
   return (
-    useLiveQuery(
-      async () => {
-        const { listTemplates } = await import('../db/templates')
-        return listTemplates()
-      },
-      [],
-      [] as { node: import('../db/db').NodeRow; body: string }[],
-    ) ?? []
+    useLiveQuery(() => listTemplates(), [], [] as {
+      node: import('../db/db').NodeRow
+      body: string
+    }[]) ?? []
   )
 }

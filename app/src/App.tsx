@@ -109,27 +109,29 @@ function App() {
         <div className="toolbar">
           <button onClick={() => onCreate('folder')}>+ Carpeta</button>
           <button onClick={() => onCreate('article')}>+ Artículo</button>
-          {templates.length > 0 && (
-            <select
-              className="template-select"
-              defaultValue=""
-              onChange={(e) => {
-                const v = e.currentTarget.value
-                e.currentTarget.value = ''
-                if (v) void onCreateFromTemplate(v)
-              }}
-              title="Nuevo artículo desde plantilla"
-            >
-              <option value="" disabled>
-                + desde plantilla
+          <select
+            className="template-select"
+            defaultValue=""
+            onChange={(e) => {
+              const v = e.currentTarget.value
+              e.currentTarget.value = ''
+              if (v) void onCreateFromTemplate(v)
+            }}
+            title={
+              templates.length > 0
+                ? 'Nuevo artículo desde plantilla'
+                : 'Sembrando plantillas…'
+            }
+          >
+            <option value="" disabled>
+              {templates.length > 0 ? '+ desde plantilla' : 'cargando…'}
+            </option>
+            {templates.map((t) => (
+              <option key={t.node.id} value={t.node.title}>
+                {t.node.title}
               </option>
-              {templates.map((t) => (
-                <option key={t.node.id} value={t.node.title}>
-                  {t.node.title}
-                </option>
-              ))}
-            </select>
-          )}
+            ))}
+          </select>
           <button onClick={onRename} disabled={!selected}>
             Renombrar
           </button>
@@ -160,10 +162,10 @@ function App() {
           <div>
             <h1>{selected.title}</h1>
             {selected.kind === 'folder' && <p className="muted">Carpeta</p>}
-            {selected.kind === 'article' && article !== undefined && (
+            {selected.kind === 'article' && article && (
               <MarkdownEditor
                 key={selected.id}
-                defaultValue={article?.body_md ?? ''}
+                defaultValue={article.body_md}
                 onChange={(md) => saveArticle(selected.id, md)}
               />
             )}
