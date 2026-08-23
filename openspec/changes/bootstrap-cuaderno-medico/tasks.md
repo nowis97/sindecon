@@ -19,11 +19,11 @@ Ordenadas por fases del roadmap (ver design.md). Cada fase deja la app usable.
 
 ## 3. V0.3 — Contenido rico + plantillas
 
-- [ ] 3.1 Tablas GFM en el editor real; verificar creación visual de tabla + round-trip del Markdown GFM en test
-- [ ] 3.2 Imágenes: `onUpload`/pegado/arrastre → compresión (~1600px) → blob en `assets`, referencia `asset://<id>` en el Markdown y resolución a blob URL al renderizar (editor y lector); verificar imagen visible tras recarga offline
-- [ ] 3.3 Mermaid con `import()` dinámico (editor y lector), preview en vivo en el editor; verificar que el bundle inicial no incluye mermaid y que el esquema renderiza offline tras primer uso
-- [ ] 3.4 Carpeta de sistema `Plantillas/` + siembra única de las 10 plantillas maestras del PDF (Patología, Síndrome, Síntoma, Urgencia, Procedimiento, Examen diagnóstico, Concepto básico, Prevención, Terapéutica, Fármaco) con tablas/fences mermaid semilla donde corresponda; verificar primer arranque y no-sobrescritura en re-arranque
-- [ ] 3.5 Crear artículo desde plantilla: diálogo de elección, copia de contenido, reemplazo de `{título}`; verificar que el artículo creado es independiente de la plantilla
+- [x] 3.1 Tablas GFM en el editor real; verificar creación visual de tabla + round-trip del Markdown GFM en test
+- [x] 3.2 Imágenes: `onUpload`/pegado/arrastre → compresión (~1600px) → blob en `assets`, referencia `asset://<id>` en el Markdown y resolución a blob URL al renderizar (editor y lector); verificar imagen visible tras recarga offline
+- [x] 3.3 Mermaid con `import()` dinámico (editor y lector), preview en vivo en el editor; verificar que el bundle inicial no incluye mermaid y que el esquema renderiza offline tras primer uso
+- [x] 3.4 Carpeta de sistema `Plantillas/` + siembra única de las 10 plantillas maestras del PDF (Patología, Síndrome, Síntoma, Urgencia, Procedimiento, Examen diagnóstico, Concepto básico, Prevención, Terapéutica, Fármaco) con tablas/fences mermaid semilla donde corresponda; verificar primer arranque y no-sobrescritura en re-arranque
+- [x] 3.5 Crear artículo desde plantilla: diálogo de elección, copia de contenido, reemplazo de `{título}`; verificar que el artículo creado es independiente de la plantilla
 
 ## 4. V0.4 — Búsqueda y relaciones
 

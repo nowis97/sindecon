@@ -34,3 +34,17 @@ export function useStoragePersisted(): boolean | undefined {
     [],
   )
 }
+
+/** Plantillas disponibles en la carpeta Plantillas/. */
+export function useTemplates(): { node: import('../db/db').NodeRow; body: string }[] {
+  return (
+    useLiveQuery(
+      async () => {
+        const { listTemplates } = await import('../db/templates')
+        return listTemplates()
+      },
+      [],
+      [] as { node: import('../db/db').NodeRow; body: string }[],
+    ) ?? []
+  )
+}

@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useAllNodes, useArticle, useStoragePersisted } from './hooks/useNodes'
+import {
+  useAllNodes,
+  useArticle,
+  useStoragePersisted,
+  useTemplates,
+} from './hooks/useNodes'
 import { TreeView } from './components/tree/TreeView'
 import { Breadcrumbs } from './components/tree/Breadcrumbs'
 import { MarkdownEditor } from './components/editor/MarkdownEditor'
@@ -12,21 +17,26 @@ import {
   deleteNodeCascade,
 } from './db/nodes'
 import { saveArticle } from './db/articles'
+import {
+  fillTitlePlaceholder,
+  seedTemplatesIfNeeded,
+} from './db/templates'
 
 function App() {
   const nodes = useAllNodes()
+  const templates = useTemplates()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [moveMode, setMoveMode] = useState(false)
   const storagePersisted = useStoragePersisted()
 
   useEffect(() => {
     void ensurePersistentStorage()
+    void seedTemplatesIfNeeded()
   }, [])
 
   const selected = nodes.find((n) => n.id === selectedId) ?? null
   const article = useArticle(selected?.kind === 'article' ? selected.id : null)
 
-  /** Carpeta destino para crear: la seleccionada si es carpeta; si no, su padre. */
   const targetFolderId = selected
     ? selected.kind === 'folder'
       ? selected.id
@@ -38,7 +48,25 @@ function App() {
       kind === 'folder' ? 'Nombre de la carpeta:' : 'Título del artículo:',
     )
     if (!title?.trim()) return
-    const node = await createNode({ kind, title: title.trim(), parent_id: targetFolderId })
+    const node = await createNode({
+      kind,
+      title: title.trim(),
+      parent_id: targetFolderId,
+    })
+    setSelectedId(node.id)
+  }
+
+  const onCreateFromTemplate = async (templateTitle: string) => {
+    const tpl = templates.find((t) => t.node.title === templateTitle)
+    if (!tpl) return
+    const title = window.prompt(`Título (plantilla "${templateTitle}"):`)
+    if (!title?.trim()) return
+    const node = await createNode({
+      kind: 'article',
+      title: title.trim(),
+      parent_id: targetFolderId,
+    })
+    await saveArticle(node.id, fillTitlePlaceholder(tpl.body, title.trim()))
     setSelectedId(node.id)
   }
 
@@ -81,6 +109,27 @@ function App() {
         <div className="toolbar">
           <button onClick={() => onCreate('folder')}>+ Carpeta</button>
           <button onClick={() => onCreate('article')}>+ Artículo</button>
+          {templates.length > 0 && (
+            <select
+              className="template-select"
+              defaultValue=""
+              onChange={(e) => {
+                const v = e.currentTarget.value
+                e.currentTarget.value = ''
+                if (v) void onCreateFromTemplate(v)
+              }}
+              title="Nuevo artículo desde plantilla"
+            >
+              <option value="" disabled>
+                + desde plantilla
+              </option>
+              {templates.map((t) => (
+                <option key={t.node.id} value={t.node.title}>
+                  {t.node.title}
+                </option>
+              ))}
+            </select>
+          )}
           <button onClick={onRename} disabled={!selected}>
             Renombrar
           </button>
