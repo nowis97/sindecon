@@ -48,15 +48,20 @@ function App() {
   const article = useArticle(selected?.kind === 'article' ? selected.id : null)
   const backlinks = useBacklinks(selected?.kind === 'article' ? selected.id : null)
 
-  // El hook useArticle puede devolver stale data durante la primera
-  // render tras cambiar selectedId (visto en Chrome DevTools: al pasar
-  // de P1 a E1, useArticle devolvía la fila de P1 mientras selected era
-  // E1). Solo usamos article si su node_id coincide con el seleccionado;
-  // si no, caemos al seedBody del recién creado.
+  // El hook useArticle puede devolver stale data o estar en vuelo durante
+  // la transición de selectedId. Solo consideramos el artículo listo si
+  // tenemos seedBody, si useArticle devolvió la fila con node_id coincidente,
+  // o si resolvió a null (artículo en blanco aún sin fila en db.articles).
   const articleMatches =
-    article && selected?.kind === 'article' && article.node_id === selected.id
+    Boolean(article && selected?.kind === 'article' && article.node_id === selected.id)
+  const isArticleReady = Boolean(
+    selected?.kind === 'article' &&
+      (seedBody !== null ||
+        articleMatches ||
+        article === null),
+  )
   const currentBody = articleMatches
-    ? article.body_md
+    ? article!.body_md
     : (selected?.kind === 'article' ? (seedBody ?? '') : '')
 
   const targetFolderId = selected
@@ -196,10 +201,10 @@ function App() {
           <div>
             <h1>{selected.title}</h1>
             {selected.kind === 'folder' && <p className="muted">Carpeta</p>}
-            {selected.kind === 'article' && (article || seedBody) && (
+            {selected.kind === 'article' && isArticleReady && (
               <>
                 <div className="article-meta">
-                  <TagInput articleId={selected.id} tags={article?.tags ?? []} />
+                  <TagInput articleId={selected.id} tags={articleMatches ? (article?.tags ?? []) : []} />
                 </div>
                 <div className="article-toolbar">
                   <WikiLinkPicker

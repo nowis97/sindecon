@@ -386,3 +386,24 @@ body {
 .backlinks button:hover {
   background: #f0f4ff;
 }
+
+.editor-host {
+  min-height: 400px;
+}
+
+.milkdown .milkdown-table-block table.children {
+  min-width: 100%;
+  table-layout: auto !important;
+}
+
+.milkdown .milkdown-table-block th,
+.milkdown .milkdown-table-block td {
+  min-width: 120px !important;
+  padding: 6px 14px !important;
+  text-align: left;
+}
+
+.milkdown .milkdown-table-block th {
+  background-color: #f8fafc;
+  font-weight: 600;
+}
