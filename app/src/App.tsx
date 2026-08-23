@@ -48,12 +48,11 @@ function App() {
   const article = useArticle(selected?.kind === 'article' ? selected.id : null)
   const backlinks = useBacklinks(selected?.kind === 'article' ? selected.id : null)
 
-  // Si el artículo seleccionado es el recién creado, usamos su body
-  // sembrado; si no, el del hook (o '' mientras carga).
-  const currentBody =
-    article !== undefined
-      ? (article?.body_md ?? '')
-      : (selected?.kind === 'article' ? (seedBody ?? '') : '')
+  // Si hay fila → su body; si no (null o undefined), seedBody del que
+  // acabamos de crear; en blanco si no hay nada todavía.
+  const currentBody = article
+    ? article.body_md
+    : (selected?.kind === 'article' ? (seedBody ?? '') : '')
 
   const targetFolderId = selected
     ? selected.kind === 'folder'
@@ -192,7 +191,7 @@ function App() {
           <div>
             <h1>{selected.title}</h1>
             {selected.kind === 'folder' && <p className="muted">Carpeta</p>}
-            {selected.kind === 'article' && article !== undefined && (
+            {selected.kind === 'article' && (article || seedBody) && (
               <>
                 <div className="article-meta">
                   <TagInput articleId={selected.id} tags={article?.tags ?? []} />

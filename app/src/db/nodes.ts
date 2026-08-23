@@ -32,12 +32,11 @@ export async function createNode(input: CreateNodeInput): Promise<NodeRow> {
     deleted_at: null,
   }
   await db.nodes.add(node)
-  // Cada artículo nace con su fila de cuerpo (vacía si no se edita).
-  // Antes el editor renderizaba vacío hasta el primer saveArticle;
-  // con la fila pre-creada, useArticle nunca devuelve null.
-  if (node.kind === 'article') {
-    await db.articles.put({ node_id: node.id, body_md: '', tags: [] })
-  }
+  // Antes creábamos una fila vacía de db.articles aquí, pero eso abría
+  // una carrera: useArticle devolvía la fila vacía entre createNode y
+  // saveArticle(templateBody), el editor montaba con '' y sobreescribía
+  // el contenido recién sembrado. La fila se crea de forma lazy en
+  // saveArticle.
   return node
 }
 

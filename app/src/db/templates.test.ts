@@ -65,12 +65,21 @@ describe('plantillas (spec templates)', () => {
     expect(tpls2.length).toBe(10)
   })
 
-  it('createNode de artículo ya viene con fila de cuerpo (useArticle no devuelve null)', async () => {
+  it('createNode de artículo NO crea fila de cuerpo (la fila es lazy para evitar la carrera con saveArticle)', async () => {
     const { createNode } = await import('./nodes')
     const n = await createNode({ kind: 'article', title: 'Prueba' })
     const row = await db.articles.get(n.id)
-    expect(row).toBeDefined()
-    expect(row?.body_md).toBe('')
+    expect(row).toBeUndefined()
+  })
+
+  it('saveArticle upserta la fila de cuerpo (puede crearla aunque no exista)', async () => {
+    const { createNode } = await import('./nodes')
+    const { saveArticle } = await import('./articles')
+    const n = await createNode({ kind: 'article', title: 'Prueba' })
+    await saveArticle(n.id, '# Contenido')
+    const row = await db.articles.get(n.id)
+    expect(row?.body_md).toBe('# Contenido')
+    expect(row?.tags).toEqual([])
   })
 
   it('flujo completo: seed → crear desde plantilla → cuerpo en la DB', async () => {
