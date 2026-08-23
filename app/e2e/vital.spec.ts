@@ -8,7 +8,7 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
     await expect(page.locator('.sidebar')).toBeVisible()
   })
 
-  test('1. Siembra de plantillas en primer arranque (spec: templates)', async ({ page }) => {
+  test('1. Siembra de plantillas en primer arranque (spec: templates) y Dashboard', async ({ page }) => {
     // Esperar a que las 10 plantillas maestras terminen de sembrarse en IndexedDB
     const templateSelect = page.locator('.sidebar select.template-select')
     await expect(templateSelect.locator('option')).toHaveCount(11, { timeout: 10000 })
@@ -21,15 +21,20 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
     const options = await templateSelect.locator('option').allInnerTexts()
     expect(options).toContain('Patología / Enfermedad')
     expect(options).toContain('Fármaco / Ficha farmacológica')
+
+    // Verificar que el Dashboard de inicio se renderiza correctamente
+    await expect(page.locator('.dashboard-container')).toBeVisible()
+    await expect(page.locator('.dashboard-hero h1')).toContainText('Cuaderno Médico')
+    await expect(page.locator('.dashboard-stats-grid')).toBeVisible()
   })
 
-  test('2. Creación de carpeta, artículo y navegación breadcrumbs (spec: knowledge-tree)', async ({ page }) => {
-    // Manejar prompt para nueva carpeta
-    page.once('dialog', async (dialog) => {
-      expect(dialog.message()).toContain('Nombre de la carpeta')
-      await dialog.accept('Cardiología')
-    })
+  test('2. Creación de carpeta, artículo y navegación breadcrumbs con modales (spec: knowledge-tree)', async ({ page }) => {
+    // Abrir modal de nueva carpeta
     await page.getByRole('button', { name: '+ Carpeta' }).click()
+    const folderInput = page.locator('.dialog-input')
+    await expect(folderInput).toBeVisible()
+    await folderInput.fill('Cardiología')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
 
     // Verificar que aparece en el árbol
     const cardioFolder = page.locator('.tree-row', { hasText: 'Cardiología' })
@@ -37,11 +42,11 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
 
     // Seleccionar la carpeta y crear un artículo dentro
     await cardioFolder.click()
-    page.once('dialog', async (dialog) => {
-      expect(dialog.message()).toContain('Título del artículo')
-      await dialog.accept('Fibrilación Auricular')
-    })
     await page.getByRole('button', { name: '+ Artículo' }).click()
+    const articleInput = page.locator('.dialog-input')
+    await expect(articleInput).toBeVisible()
+    await articleInput.fill('Fibrilación Auricular')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
 
     // Verificar artículo creado y breadcrumbs
     const faArticle = page.locator('.tree-row', { hasText: 'Fibrilación Auricular' })
@@ -54,15 +59,16 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
     await expect(breadcrumbs).toContainText('Fibrilación Auricular')
   })
 
-  test('3. Crear artículo desde plantilla y alternar Modo Lector / Editor (spec: templates & content-editing)', async ({ page }) => {
+  test('3. Crear artículo desde plantilla con modal y alternar Modo Lector / Editor (spec: templates & content-editing)', async ({ page }) => {
     const templateSelect = page.locator('.sidebar select.template-select')
     await expect(templateSelect.locator('option')).toHaveCount(11, { timeout: 10000 })
 
     // Seleccionar plantilla Patología
-    page.once('dialog', async (dialog) => {
-      await dialog.accept('Insuficiencia Cardíaca')
-    })
     await templateSelect.selectOption('Patología / Enfermedad')
+    const titleInput = page.locator('.dialog-input')
+    await expect(titleInput).toBeVisible()
+    await titleInput.fill('Insuficiencia Cardíaca')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
 
     // Verificar que el título reemplazó {título}
     await expect(page.locator('.article-title')).toHaveText('Insuficiencia Cardíaca')
@@ -112,10 +118,11 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
 
   test('5. Búsqueda local de artículos y etiquetas (spec: search)', async ({ page }) => {
     // Crear un artículo con título buscable
-    page.once('dialog', async (dialog) => {
-      await dialog.accept('Asma Bronquial')
-    })
     await page.getByRole('button', { name: '+ Artículo' }).click()
+    const articleInput = page.locator('.dialog-input')
+    await expect(articleInput).toBeVisible()
+    await articleInput.fill('Asma Bronquial')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
     await expect(page.locator('.article-title')).toHaveText('Asma Bronquial')
 
     // Buscar el artículo creado en el input visible del sidebar
@@ -145,10 +152,11 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
     await expect(templateSelect.locator('option')).toHaveCount(11, { timeout: 10000 })
 
     // Crear artículo a partir de plantilla de fármaco
-    page.once('dialog', async (dialog) => {
-      await dialog.accept('Amoxicilina')
-    })
     await templateSelect.selectOption('Fármaco / Ficha farmacológica')
+    const titleInput = page.locator('.dialog-input')
+    await expect(titleInput).toBeVisible()
+    await titleInput.fill('Amoxicilina')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
 
     // 1. Verificar título principal
     await expect(page.locator('.article-title')).toHaveText('Amoxicilina')
@@ -184,10 +192,11 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
     await expect(templateSelect.locator('option')).toHaveCount(11, { timeout: 10000 })
 
     // Crear artículo a partir de plantilla de urgencia
-    page.once('dialog', async (dialog) => {
-      await dialog.accept('Shock Anafiláctico')
-    })
     await templateSelect.selectOption('Urgencia / Emergencia')
+    const titleInput = page.locator('.dialog-input')
+    await expect(titleInput).toBeVisible()
+    await titleInput.fill('Shock Anafiláctico')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
 
     await expect(page.locator('.article-title')).toHaveText('Shock Anafiláctico')
 
@@ -237,5 +246,108 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
 
     // El SVG del diagrama debe renderizarse dentro del viewport
     await expect(mermaidCard.locator('.mermaid-svg-wrapper svg')).toBeVisible({ timeout: 10000 })
+  })
+
+  test('9. Menú contextual en árbol de conocimientos y eliminación con confirmación modal', async ({ page }) => {
+    // Crear una carpeta de prueba
+    await page.getByRole('button', { name: '+ Carpeta' }).click()
+    const folderInput = page.locator('.dialog-input')
+    await folderInput.fill('Pediatría')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    const pediaRow = page.locator('.tree-row', { hasText: 'Pediatría' })
+    await expect(pediaRow).toBeVisible()
+
+    // Abrir menú contextual (···) en la fila de Pediatría
+    const menuBtn = pediaRow.locator('.btn-tree-row-menu')
+    await menuBtn.click()
+
+    // Verificar menú desplegado y hacer click en "Renombrar"
+    const contextMenu = pediaRow.locator('.tree-context-menu')
+    await expect(contextMenu).toBeVisible()
+    await contextMenu.locator('button', { hasText: 'Renombrar' }).click()
+
+    // Renombrar a "Pediatría y Neonatología"
+    const renameInput = page.locator('.dialog-input')
+    await expect(renameInput).toBeVisible()
+    await renameInput.fill('Pediatría y Neonatología')
+    await page.locator('.btn-dialog-primary', { hasText: 'Renombrar' }).click()
+
+    await expect(page.locator('.tree-row', { hasText: 'Pediatría y Neonatología' })).toBeVisible()
+
+    // Abrir menú contextual y eliminar
+    const updatedRow = page.locator('.tree-row', { hasText: 'Pediatría y Neonatología' })
+    await updatedRow.locator('.btn-tree-row-menu').click()
+    await updatedRow.locator('.tree-context-menu button', { hasText: 'Eliminar' }).click()
+
+    // Confirmar en el modal de eliminación
+    const confirmBtn = page.locator('.btn-dialog-danger', { hasText: 'Eliminar definitivamente' })
+    await expect(confirmBtn).toBeVisible()
+    await confirmBtn.click()
+
+    // Ya no debe estar en el árbol
+    await expect(page.locator('.tree-row', { hasText: 'Pediatría y Neonatología' })).not.toBeVisible()
+  })
+
+  test('10. Alternancia de Modo Oscuro / Claro y persistencia (spec: offline-shell)', async ({ page }) => {
+    // Localizar botón de cambio de tema en desktop
+    const themeBtn = page.locator('.sidebar-header-desktop .btn-theme-toggle')
+    await expect(themeBtn).toBeVisible()
+
+    // Click para alternar a tema oscuro
+    await themeBtn.click()
+    const htmlElement = page.locator('html')
+    await expect(htmlElement).toHaveAttribute('data-theme', /dark|light/)
+
+    // Recargar la página y verificar que persiste
+    await page.reload()
+    await expect(page.locator('.sidebar')).toBeVisible()
+    await expect(htmlElement).toHaveAttribute('data-theme', /dark|light/)
+  })
+
+  test('11. Command Palette con atajo Ctrl+K y búsqueda instantánea (spec: search)', async ({ page }) => {
+    // Abrir Command Palette pulsando el botón Ctrl+K o con atajo de teclado
+    const triggerBtn = page.locator('.btn-command-palette-trigger')
+    await expect(triggerBtn).toBeVisible()
+    await triggerBtn.click()
+
+    const palette = page.locator('.command-palette-modal')
+    await expect(palette).toBeVisible()
+
+    // Buscar acción rápida "Nuevo Artículo" y pulsar Enter
+    const input = palette.locator('input.palette-input')
+    await input.fill('Nuevo Artículo')
+    await page.keyboard.press('Enter')
+
+    // El Command Palette se cierra y abre el prompt de crear artículo
+    await expect(palette).not.toBeVisible()
+    const promptDialog = page.locator('.dialog-modal')
+    await expect(promptDialog).toBeVisible()
+    await expect(promptDialog.locator('.dialog-header h3')).toContainText('Nuevo Artículo')
+    await page.locator('.btn-dialog-secondary', { hasText: 'Cancelar' }).click()
+  })
+
+  test('12. Artículos favoritos con estrella y sección en árbol (spec: knowledge-tree)', async ({ page }) => {
+    // Crear un artículo
+    await page.getByRole('button', { name: '+ Artículo' }).click()
+    const articleInput = page.locator('.dialog-input')
+    await articleInput.fill('Protocolo RCP Avanzado')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // Marcar como favorito usando el botón de estrella ⭐
+    const favStar = page.locator('.btn-fav-star')
+    await expect(favStar).toBeVisible()
+    await favStar.click()
+    await expect(favStar).toHaveClass(/active/)
+
+    // Verificar que aparece en la sección "⭐ Favoritos / Clave" del árbol
+    const favSection = page.locator('.tree-favorites-section')
+    await expect(favSection).toBeVisible()
+    await expect(favSection.locator('.favorite-row', { hasText: 'Protocolo RCP Avanzado' })).toBeVisible()
+
+    // Desmarcar desde la estrella
+    await favStar.click()
+    await expect(favStar).not.toHaveClass(/active/)
+    await expect(page.locator('.tree-favorites-section')).not.toBeVisible()
   })
 })

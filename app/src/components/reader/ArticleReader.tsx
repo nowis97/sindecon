@@ -8,6 +8,8 @@ interface ArticleReaderProps {
   onWikiLinkClick: (uuid: string) => void
 }
 
+export type CalloutKind = 'warning' | 'tip' | 'dosage' | 'important' | 'note'
+
 type Block =
   | { type: 'header'; level: number; text: string }
   | { type: 'mermaid'; code: string }
@@ -15,7 +17,26 @@ type Block =
   | { type: 'table'; headers: string[]; rows: string[][] }
   | { type: 'image'; alt: string; src: string }
   | { type: 'list'; items: string[]; ordered: boolean }
+  | { type: 'callout'; kind: CalloutKind; title: string; text: string }
+  | { type: 'blockquote'; text: string }
   | { type: 'paragraph'; text: string }
+
+function parseCalloutType(typeStr: string): { kind: CalloutKind; defaultTitle: string; icon: string } {
+  const upper = typeStr.toUpperCase()
+  if (['WARNING', 'ALERTA', 'RED-FLAGS', 'RED_FLAGS', 'CAUTION', 'PELIGRO'].includes(upper)) {
+    return { kind: 'warning', defaultTitle: 'Criterios de Alarma / Red Flags', icon: '🚨' }
+  }
+  if (['TIP', 'PERLA', 'PERLA-CLINICA', 'CONSEJO'].includes(upper)) {
+    return { kind: 'tip', defaultTitle: 'Perla Clínica', icon: '💡' }
+  }
+  if (['DOSIS', 'FARMACO', 'MEDICACION', 'DRUG'].includes(upper)) {
+    return { kind: 'dosage', defaultTitle: 'Dosis y Farmacología', icon: '💊' }
+  }
+  if (['IMPORTANT', 'DIAGNOSTICO', 'CRITERIOS'].includes(upper)) {
+    return { kind: 'important', defaultTitle: 'Criterios Diagnósticos', icon: '📋' }
+  }
+  return { kind: 'note', defaultTitle: 'Nota', icon: 'ℹ️' }
+}
 
 function parseMarkdownBlocks(md: string): Block[] {
   const lines = md.split(/\r?\n/)
@@ -62,6 +83,41 @@ function parseMarkdownBlocks(md: string): Block[] {
       })
       i++
       continue
+    }
+
+    // Blockquote / Callout (> [!TYPE] Title)
+    if (line.trim().startsWith('>')) {
+      const quoteLines: string[] = []
+      while (i < lines.length && lines[i].trim().startsWith('>')) {
+        quoteLines.push(lines[i].trim().replace(/^>\s?/, ''))
+        i++
+      }
+
+      if (quoteLines.length > 0) {
+        const firstLine = quoteLines[0]
+        const calloutMatch = firstLine.match(/^\[!([A-Za-z0-9_-]+)\](?:\s+(.*))?$/)
+
+        if (calloutMatch) {
+          const typeStr = calloutMatch[1]
+          const customTitle = calloutMatch[2]?.trim()
+          const { kind, defaultTitle } = parseCalloutType(typeStr)
+          const bodyText = quoteLines.slice(1).join('\n').trim()
+
+          blocks.push({
+            type: 'callout',
+            kind,
+            title: customTitle || defaultTitle,
+            text: bodyText,
+          })
+          continue
+        } else {
+          blocks.push({
+            type: 'blockquote',
+            text: quoteLines.join('\n'),
+          })
+          continue
+        }
+      }
     }
 
     // Tables: | col1 | col2 |
@@ -124,6 +180,7 @@ function parseMarkdownBlocks(md: string): Block[] {
       lines[i].trim() &&
       !lines[i].trim().startsWith('```') &&
       !lines[i].trim().startsWith('#') &&
+      !lines[i].trim().startsWith('>') &&
       !lines[i].trim().startsWith('|') &&
       !lines[i].trim().match(/^[-*]\s+/) &&
       !lines[i].trim().match(/^\d+\.\s+/) &&
@@ -206,6 +263,21 @@ export function ArticleReader({ markdown, onWikiLinkClick }: ArticleReaderProps)
     return <p className="muted empty-reader">Este artículo está vacío. Toca "Editar" para redactar contenido.</p>
   }
 
+  const getCalloutIcon = (kind: CalloutKind) => {
+    switch (kind) {
+      case 'warning':
+        return '🚨'
+      case 'tip':
+        return '💡'
+      case 'dosage':
+        return '💊'
+      case 'important':
+        return '📋'
+      case 'note':
+        return 'ℹ️'
+    }
+  }
+
   return (
     <div className="article-reader-view">
       {blocks.map((block, idx) => {
@@ -218,6 +290,34 @@ export function ArticleReader({ markdown, onWikiLinkClick }: ArticleReaderProps)
               </Tag>
             )
           }
+          case 'callout':
+            return (
+              <div key={idx} className={`reader-callout callout-${block.kind}`}>
+                <div className="callout-header">
+                  <span className="callout-icon">{getCalloutIcon(block.kind)}</span>
+                  <strong className="callout-title">
+                    {renderFormattedInline(block.title, onWikiLinkClick)}
+                  </strong>
+                </div>
+                {block.text && (
+                  <div className="callout-body">
+                    {block.text.split('\n').map((p, pIdx) => (
+                      <p key={pIdx} className="callout-paragraph">
+                        {renderFormattedInline(p, onWikiLinkClick)}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          case 'blockquote':
+            return (
+              <blockquote key={idx} className="reader-blockquote">
+                {block.text.split('\n').map((p, pIdx) => (
+                  <p key={pIdx}>{renderFormattedInline(p, onWikiLinkClick)}</p>
+                ))}
+              </blockquote>
+            )
           case 'mermaid':
             return <MermaidViewer key={idx} code={block.code} />
           case 'code':

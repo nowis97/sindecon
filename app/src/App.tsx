@@ -6,6 +6,8 @@ import {
   useTemplates,
 } from './hooks/useNodes'
 import { useBacklinks } from './hooks/useBacklinks'
+import { useTheme } from './hooks/useTheme'
+import { useFavorites } from './hooks/useFavorites'
 import { TreeView } from './components/tree/TreeView'
 import { Breadcrumbs } from './components/tree/Breadcrumbs'
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/editor/MarkdownEditor'
@@ -13,9 +15,18 @@ import { ArticleReader } from './components/reader/ArticleReader'
 import { QuickCapture } from './components/capture/QuickCapture'
 import { PortabilityBar } from './components/portability/PortabilityBar'
 import { SearchBox } from './components/search/SearchBox'
+import { CommandPalette } from './components/search/CommandPalette'
 import { TagInput } from './components/search/TagInput'
 import { WikiLinkPicker } from './components/search/WikiLinkPicker'
+import { Dashboard } from './components/dashboard/Dashboard'
+import { MobileBottomBar } from './components/navigation/MobileBottomBar'
+import {
+  PromptDialog,
+  ConfirmDialog,
+  AlertDialog,
+} from './components/common/DialogModal'
 import { ensurePersistentStorage } from './pwa/persistence'
+import { childrenOf } from './domain/tree'
 import {
   createNode,
   renameNode,
@@ -29,13 +40,46 @@ import {
   seedTemplatesIfNeeded,
 } from './db/templates'
 
+type PromptState =
+  | {
+      type: 'create-node'
+      kind: 'folder' | 'article'
+      parentId: string | null
+    }
+  | {
+      type: 'create-from-template'
+      templateTitle: string
+      parentId: string | null
+    }
+  | {
+      type: 'rename-node'
+      nodeId: string
+      currentTitle: string
+    }
+  | null
+
+type DeleteState = {
+  nodeId: string
+  title: string
+  isFolder: boolean
+} | null
+
 function App() {
   const nodes = useAllNodes()
   const templates = useTemplates()
+  const { theme, toggleTheme } = useTheme()
+  const { favoriteIds, isFavorite, toggleFavorite } = useFavorites()
+
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [moveMode, setMoveMode] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isQuickCaptureOpen, setIsQuickCaptureOpen] = useState(false)
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
+  const [promptState, setPromptState] = useState<PromptState>(null)
+  const [deleteState, setDeleteState] = useState<DeleteState>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
   const storagePersisted = useStoragePersisted()
   const editorRef = useRef<MarkdownEditorHandle | null>(null)
 
@@ -50,9 +94,27 @@ function App() {
     void ensureInboxFolder()
   }, [])
 
+  // Listener global para atajo Ctrl+K / Cmd+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setIsCommandPaletteOpen((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   const selected = nodes.find((n) => n.id === selectedId) ?? null
   const article = useArticle(selected?.kind === 'article' ? selected.id : null)
   const backlinks = useBacklinks(selected?.kind === 'article' ? selected.id : null)
+
+  // Búsqueda de carpeta Inbox y cálculo de conteo de pendientes
+  const inboxFolder = nodes.find(
+    (n) => n.kind === 'folder' && n.title === 'Inbox' && n.parent_id === null,
+  )
+  const inboxCount = inboxFolder ? childrenOf(nodes, inboxFolder.id).length : 0
 
   const articleMatches =
     Boolean(article && selected?.kind === 'article' && article.node_id === selected.id)
@@ -79,46 +141,89 @@ function App() {
     setSidebarOpen(false)
   }
 
-  const onCreate = async (kind: 'folder' | 'article') => {
-    const title = window.prompt(
-      kind === 'folder' ? 'Nombre de la carpeta:' : 'Título del artículo:',
-    )
-    if (!title?.trim()) return
-    const node = await createNode({
+  // --- Manejo de Creación y Edición mediante Diálogos Modales ---
+  const handleOpenCreatePrompt = (
+    kind: 'folder' | 'article',
+    parentId: string | null = targetFolderId,
+  ) => {
+    setPromptState({
+      type: 'create-node',
       kind,
-      title: title.trim(),
-      parent_id: targetFolderId,
+      parentId,
     })
-    setSelectedId(node.id)
-    setSeedBody(null)
-    setIsEditMode(true)
-    setSidebarOpen(false)
   }
 
-  const onCreateFromTemplate = async (templateTitle: string) => {
-    const tpl = templates.find((t) => t.node.title === templateTitle)
-    if (!tpl) return
-    const title = window.prompt(`Título (plantilla "${templateTitle}"):`)
-    if (!title?.trim()) return
-    const finalTitle = title.trim()
-    const body = fillTitlePlaceholder(tpl.body, finalTitle)
-    const node = await createNode({
-      kind: 'article',
-      title: finalTitle,
-      parent_id: targetFolderId,
+  const handleOpenTemplatePrompt = (
+    templateTitle: string,
+    parentId: string | null = targetFolderId,
+  ) => {
+    setPromptState({
+      type: 'create-from-template',
+      templateTitle,
+      parentId,
     })
-    await saveArticle(node.id, body)
-    setSeedBody(body)
-    setSelectedId(node.id)
-    setIsEditMode(true)
-    setSidebarOpen(false)
   }
 
-  const onRename = async () => {
-    if (!selected) return
-    const title = window.prompt('Nuevo nombre:', selected.title)
-    if (!title?.trim()) return
-    await renameNode(selected.id, title.trim())
+  const handleOpenRenamePrompt = (nodeId: string) => {
+    const node = nodes.find((n) => n.id === nodeId)
+    if (!node) return
+    setPromptState({
+      type: 'rename-node',
+      nodeId: node.id,
+      currentTitle: node.title,
+    })
+  }
+
+  const handleOpenDeleteConfirm = (nodeId: string) => {
+    const node = nodes.find((n) => n.id === nodeId)
+    if (!node) return
+    setDeleteState({
+      nodeId: node.id,
+      title: node.title,
+      isFolder: node.kind === 'folder',
+    })
+  }
+
+  const handlePromptConfirm = async (value: string) => {
+    if (!promptState || !value.trim()) return
+
+    if (promptState.type === 'create-node') {
+      const node = await createNode({
+        kind: promptState.kind,
+        title: value.trim(),
+        parent_id: promptState.parentId,
+      })
+      setSelectedId(node.id)
+      setSeedBody(null)
+      setIsEditMode(true)
+      setSidebarOpen(false)
+    } else if (promptState.type === 'create-from-template') {
+      const tpl = templates.find((t) => t.node.title === promptState.templateTitle)
+      if (!tpl) return
+      const finalTitle = value.trim()
+      const body = fillTitlePlaceholder(tpl.body, finalTitle)
+      const node = await createNode({
+        kind: 'article',
+        title: finalTitle,
+        parent_id: promptState.parentId,
+      })
+      await saveArticle(node.id, body)
+      setSeedBody(body)
+      setSelectedId(node.id)
+      setIsEditMode(true)
+      setSidebarOpen(false)
+    } else if (promptState.type === 'rename-node') {
+      await renameNode(promptState.nodeId, value.trim())
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteState) return
+    await deleteNodeCascade(deleteState.nodeId)
+    if (selectedId === deleteState.nodeId) {
+      setSelectedId(null)
+    }
+    setDeleteState(null)
   }
 
   const onMoveTarget = async (folderId: string | null) => {
@@ -127,19 +232,8 @@ function App() {
     try {
       await moveNode(selected.id, folderId)
     } catch (e) {
-      window.alert((e as Error).message)
+      setErrorMessage((e as Error).message)
     }
-  }
-
-  const onDelete = async () => {
-    if (!selected) return
-    const msg =
-      selected.kind === 'folder'
-        ? `¿Eliminar "${selected.title}" con TODO su contenido?`
-        : `¿Eliminar "${selected.title}"?`
-    if (!window.confirm(msg)) return
-    await deleteNodeCascade(selected.id)
-    setSelectedId(null)
   }
 
   return (
@@ -156,7 +250,15 @@ function App() {
         <div className="topbar-search">
           <SearchBox onSelect={selectArticle} />
         </div>
-        <QuickCapture onCaptureSaved={selectArticle} />
+        <button
+          type="button"
+          className="btn-topbar-theme"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          aria-label="Cambiar tema"
+        >
+          {theme === 'dark' ? '☀️' : '🌙'}
+        </button>
       </header>
 
       <div className={`layout ${sidebarOpen ? 'sidebar-open' : ''}`}>
@@ -168,8 +270,35 @@ function App() {
         )}
         <aside className="sidebar">
           <div className="sidebar-header-desktop">
-            <h2 className="app-title">🩺 Cuaderno Médico</h2>
-            <QuickCapture onCaptureSaved={selectArticle} />
+            <h2
+              className="app-title"
+              onClick={() => setSelectedId(null)}
+              style={{ cursor: 'pointer' }}
+              title="Ir al inicio"
+            >
+              🩺 Cuaderno Médico
+            </h2>
+            <div className="sidebar-header-actions">
+              <button
+                type="button"
+                className="btn-command-palette-trigger"
+                onClick={() => setIsCommandPaletteOpen(true)}
+                title="Búsqueda y Comandos (Ctrl+K)"
+                aria-label="Abrir paleta de comandos"
+              >
+                🔍 <kbd>Ctrl+K</kbd>
+              </button>
+              <button
+                type="button"
+                className="btn-theme-toggle"
+                onClick={toggleTheme}
+                title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                aria-label="Cambiar tema"
+              >
+                {theme === 'dark' ? '☀️' : '🌙'}
+              </button>
+              <QuickCapture onCaptureSaved={selectArticle} />
+            </div>
           </div>
 
           {storagePersisted === false && (
@@ -179,15 +308,25 @@ function App() {
           )}
 
           <div className="toolbar">
-            <button onClick={() => onCreate('folder')}>+ Carpeta</button>
-            <button onClick={() => onCreate('article')}>+ Artículo</button>
+            <button
+              type="button"
+              onClick={() => handleOpenCreatePrompt('folder')}
+            >
+              + Carpeta
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenCreatePrompt('article')}
+            >
+              + Artículo
+            </button>
             <select
               className="template-select"
               defaultValue=""
               onChange={(e) => {
                 const v = e.currentTarget.value
                 e.currentTarget.value = ''
-                if (v) void onCreateFromTemplate(v)
+                if (v) handleOpenTemplatePrompt(v)
               }}
               title={
                 templates.length > 0
@@ -204,17 +343,31 @@ function App() {
                 </option>
               ))}
             </select>
-            <button onClick={onRename} disabled={!selected}>
+            <button
+              type="button"
+              onClick={() => selected && handleOpenRenamePrompt(selected.id)}
+              disabled={!selected}
+            >
               Renombrar
             </button>
-            <button onClick={() => setMoveMode(true)} disabled={!selected}>
+            <button
+              type="button"
+              onClick={() => setMoveMode(true)}
+              disabled={!selected}
+            >
               Mover
             </button>
-            <button onClick={onDelete} disabled={!selected}>
+            <button
+              type="button"
+              onClick={() => selected && handleOpenDeleteConfirm(selected.id)}
+              disabled={!selected}
+            >
               Eliminar
             </button>
             {moveMode && (
-              <button onClick={() => setMoveMode(false)}>Cancelar</button>
+              <button type="button" onClick={() => setMoveMode(false)}>
+                Cancelar
+              </button>
             )}
           </div>
 
@@ -230,6 +383,17 @@ function App() {
             onSelect={selectArticle}
             moveMode={moveMode}
             onMoveTarget={onMoveTarget}
+            onRenameNode={handleOpenRenamePrompt}
+            onMoveNode={(id) => {
+              setSelectedId(id)
+              setMoveMode(true)
+            }}
+            onDeleteNode={handleOpenDeleteConfirm}
+            onCreateChild={(parentId, kind) =>
+              handleOpenCreatePrompt(kind, parentId)
+            }
+            favoriteIds={favoriteIds}
+            onToggleFavorite={toggleFavorite}
           />
         </aside>
 
@@ -246,7 +410,25 @@ function App() {
           {selected ? (
             <div className="article-container">
               <div className="article-header-row">
-                <h1 className="article-title">{selected.title}</h1>
+                <div className="article-title-wrapper">
+                  <h1 className="article-title">{selected.title}</h1>
+                  {selected.kind === 'article' && (
+                    <button
+                      type="button"
+                      className={`btn-fav-star ${isFavorite(selected.id) ? 'active' : ''}`}
+                      onClick={() => toggleFavorite(selected.id)}
+                      title={
+                        isFavorite(selected.id)
+                          ? 'Quitar de favoritos / anclados'
+                          : 'Anclar a favoritos'
+                      }
+                      aria-label="Favorito"
+                    >
+                      {isFavorite(selected.id) ? '⭐' : '☆'}
+                    </button>
+                  )}
+                </div>
+
                 {selected.kind === 'article' && (
                   <div className="view-mode-toggle">
                     <button
@@ -267,7 +449,29 @@ function App() {
                 )}
               </div>
 
-              {selected.kind === 'folder' && <p className="muted">Carpeta</p>}
+              {selected.kind === 'folder' && (
+                <div className="folder-view-card">
+                  <p className="folder-lead">
+                    📁 Carpeta / Especialidad: <strong>{selected.title}</strong>
+                  </p>
+                  <div className="folder-actions-row">
+                    <button
+                      type="button"
+                      className="btn-dialog-primary"
+                      onClick={() => handleOpenCreatePrompt('article', selected.id)}
+                    >
+                      ➕ Nuevo artículo aquí
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-dialog-secondary"
+                      onClick={() => handleOpenCreatePrompt('folder', selected.id)}
+                    >
+                      📁 Nueva subcarpeta
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {selected.kind === 'article' && isArticleReady && (
                 <>
@@ -310,7 +514,10 @@ function App() {
                       <ul>
                         {backlinks.map((b) => (
                           <li key={b.id}>
-                            <button onClick={() => selectArticle(b.id)}>
+                            <button
+                              type="button"
+                              onClick={() => selectArticle(b.id)}
+                            >
                               📄 {b.title}
                             </button>
                           </li>
@@ -322,14 +529,127 @@ function App() {
               )}
             </div>
           ) : (
-            <div className="empty-state">
-              <p className="muted">
-                Selecciona o crea algo en el árbol, o usa la búsqueda ↑
-              </p>
-            </div>
+            <Dashboard
+              nodes={nodes}
+              templates={templates}
+              onSelectArticle={selectArticle}
+              onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
+              onCreateNode={(kind) => handleOpenCreatePrompt(kind)}
+              onCreateFromTemplate={(tplTitle) =>
+                handleOpenTemplatePrompt(tplTitle)
+              }
+            />
           )}
         </main>
       </div>
+
+      {/* Barra de Navegación Inferior Móvil (zona del pulgar) */}
+      <MobileBottomBar
+        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+        isSidebarOpen={sidebarOpen}
+        onOpenSearch={() => setIsCommandPaletteOpen(true)}
+        onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
+        onOpenInbox={() => inboxFolder && selectArticle(inboxFolder.id)}
+        inboxCount={inboxCount}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+
+      {/* Modal de Paleta de Comandos Global (Ctrl+K) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        nodes={nodes}
+        favoriteIds={favoriteIds}
+        onSelectArticle={selectArticle}
+        onOpenCreatePrompt={(kind) => handleOpenCreatePrompt(kind)}
+        onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
+        onToggleTheme={toggleTheme}
+        onGoHome={() => setSelectedId(null)}
+        onGoInbox={() => inboxFolder && selectArticle(inboxFolder.id)}
+      />
+
+      {/* Modal de Captura Rápida Global (lanzado desde Dashboard, CommandPalette o MobileBottomBar) */}
+      <QuickCapture
+        isOpen={isQuickCaptureOpen}
+        onClose={() => setIsQuickCaptureOpen(false)}
+        onCaptureSaved={selectArticle}
+        hideLauncher
+      />
+
+      {/* Diálogo Prompt unificado (Crear Carpeta, Crear Artículo, Crear desde Plantilla, Renombrar) */}
+      {promptState && (
+        <PromptDialog
+          isOpen={true}
+          title={
+            promptState.type === 'create-node'
+              ? promptState.kind === 'folder'
+                ? '📁 Nueva Carpeta'
+                : '📝 Nuevo Artículo'
+              : promptState.type === 'create-from-template'
+                ? `📋 Nuevo desde "${promptState.templateTitle}"`
+                : '✏️ Renombrar'
+          }
+          label={
+            promptState.type === 'create-node'
+              ? promptState.kind === 'folder'
+                ? 'Nombre de la carpeta:'
+                : 'Título del artículo:'
+              : promptState.type === 'create-from-template'
+                ? 'Título del artículo a crear:'
+                : 'Nuevo nombre:'
+          }
+          placeholder={
+            promptState.type === 'create-node'
+              ? promptState.kind === 'folder'
+                ? 'ej. Cardiología, Urgencias, Farmacología'
+                : 'ej. Cetoacidosis Diabética, Ficha Fármaco'
+              : promptState.type === 'create-from-template'
+                ? `ej. ${promptState.templateTitle}`
+                : ''
+          }
+          initialValue={
+            promptState.type === 'rename-node' ? promptState.currentTitle : ''
+          }
+          confirmText={
+            promptState.type === 'rename-node' ? 'Renombrar' : 'Crear'
+          }
+          onConfirm={handlePromptConfirm}
+          onClose={() => setPromptState(null)}
+        />
+      )}
+
+      {/* Diálogo de Confirmación para Eliminación */}
+      {deleteState && (
+        <ConfirmDialog
+          isOpen={true}
+          title={
+            deleteState.isFolder
+              ? '¿Eliminar carpeta y su contenido?'
+              : '¿Eliminar artículo?'
+          }
+          message={
+            deleteState.isFolder
+              ? `¿Estás seguro de que deseas eliminar la carpeta "${deleteState.title}" y TODO su contenido? Esta acción no se puede deshacer.`
+              : `¿Estás seguro de que deseas eliminar el artículo "${deleteState.title}"?`
+          }
+          confirmText="Eliminar definitivamente"
+          cancelText="Cancelar"
+          isDestructive={true}
+          onConfirm={handleDeleteConfirm}
+          onClose={() => setDeleteState(null)}
+        />
+      )}
+
+      {/* Diálogo de Alerta de Error */}
+      {errorMessage && (
+        <AlertDialog
+          isOpen={true}
+          title="⚠️ Notificación"
+          content={<p className="dialog-error-text">{errorMessage}</p>}
+          onClose={() => setErrorMessage(null)}
+        />
+      )}
     </div>
   )
 }

@@ -3,28 +3,41 @@ import { createQuickCapture } from '../../db/inbox'
 
 interface QuickCaptureProps {
   onCaptureSaved: (articleNodeId: string) => void
+  isOpen?: boolean
+  onClose?: () => void
+  hideLauncher?: boolean
 }
 
-export function QuickCapture({ onCaptureSaved }: QuickCaptureProps) {
-  const [isOpen, setIsOpen] = useState(false)
+export function QuickCapture({
+  onCaptureSaved,
+  isOpen: externalIsOpen,
+  onClose: externalOnClose,
+  hideLauncher = false,
+}: QuickCaptureProps) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false)
   const [note, setNote] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const isModalOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen
 
   const handleFileChange = (file?: File) => {
     if (!file) return
     setSelectedFile(file)
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(URL.createObjectURL(file))
+    setErrorMsg(null)
   }
 
   const handleSave = async () => {
     if (!selectedFile && !note.trim()) return
     setSaving(true)
+    setErrorMsg(null)
     try {
       const result = await createQuickCapture({
         file: selectedFile,
@@ -33,16 +46,21 @@ export function QuickCapture({ onCaptureSaved }: QuickCaptureProps) {
       onCaptureSaved(result.node.id)
       handleClose()
     } catch (e) {
-      window.alert(`Error al guardar en Inbox: ${(e as Error).message}`)
+      setErrorMsg(`Error al guardar en Inbox: ${(e as Error).message}`)
     } finally {
       setSaving(false)
     }
   }
 
   const handleClose = () => {
-    setIsOpen(false)
+    if (externalOnClose) {
+      externalOnClose()
+    } else {
+      setInternalIsOpen(false)
+    }
     setNote('')
     setSelectedFile(null)
+    setErrorMsg(null)
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null)
   }
@@ -53,27 +71,37 @@ export function QuickCapture({ onCaptureSaved }: QuickCaptureProps) {
 
   return (
     <>
-      <div className="quick-capture-launcher">
-        <button
-          className="btn-quick-capture"
-          onClick={() => setIsOpen(true)}
-          title="Captura rápida a 1 toque (foto + nota) al Inbox"
-        >
-          📷 Captura rápida
-        </button>
-      </div>
+      {!hideLauncher && (
+        <div className="quick-capture-launcher">
+          <button
+            type="button"
+            className="btn-quick-capture"
+            onClick={() => setInternalIsOpen(true)}
+            title="Captura rápida a 1 toque (foto + nota) al Inbox"
+          >
+            📷 Captura rápida
+          </button>
+        </div>
+      )}
 
-      {isOpen && (
+      {isModalOpen && (
         <div className="capture-overlay" onClick={handleClose}>
           <div className="capture-modal" onClick={(e) => e.stopPropagation()}>
             <header className="capture-header">
               <h3>⚡ Captura Rápida → Inbox</h3>
-              <button className="btn-close" onClick={handleClose} aria-label="Cerrar">
+              <button
+                type="button"
+                className="btn-close"
+                onClick={handleClose}
+                aria-label="Cerrar"
+              >
                 ✕
               </button>
             </header>
 
             <div className="capture-body">
+              {errorMsg && <div className="dialog-error-text">{errorMsg}</div>}
+
               <div className="capture-actions-row">
                 {/* Input nativo con capture para abrir la cámara directo en móviles */}
                 <input
@@ -110,7 +138,11 @@ export function QuickCapture({ onCaptureSaved }: QuickCaptureProps) {
 
               {previewUrl && (
                 <div className="capture-preview-container">
-                  <img src={previewUrl} alt="Vista previa" className="capture-preview-img" />
+                  <img
+                    src={previewUrl}
+                    alt="Vista previa"
+                    className="capture-preview-img"
+                  />
                   <button
                     type="button"
                     className="btn-remove-preview"

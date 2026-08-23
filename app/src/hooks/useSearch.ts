@@ -59,3 +59,15 @@ export function useAllTags(): string[] {
     return [...set].sort((a, b) => a.localeCompare(b, 'es'))
   }, [articles])
 }
+
+/** Obtiene los IDs de artículos que contienen una etiqueta específica. */
+export function useArticlesWithTag(tag: string | null): string[] {
+  const articles = useLiveQuery(() => db.articles.toArray(), [], [])
+  return useMemo(() => {
+    if (!tag) return []
+    const lower = tag.trim().toLowerCase()
+    return (articles ?? [])
+      .filter((a) => a.tags.some((t) => t.toLowerCase() === lower))
+      .map((a) => a.node_id)
+  }, [articles, tag])
+}

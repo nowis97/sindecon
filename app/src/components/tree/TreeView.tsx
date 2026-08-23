@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { NodeRow } from '../../db/db'
 import { childrenOf } from '../../domain/tree'
 
@@ -9,10 +9,44 @@ interface TreeViewProps {
   /** Cuando está activo, un click en carpeta = elegirla como destino de movimiento */
   moveMode: boolean
   onMoveTarget: (folderId: string | null) => void
+  onRenameNode?: (id: string) => void
+  onMoveNode?: (id: string) => void
+  onDeleteNode?: (id: string) => void
+  onCreateChild?: (parentId: string, kind: 'folder' | 'article') => void
+  favoriteIds?: string[]
+  onToggleFavorite?: (id: string) => void
 }
 
-export function TreeView({ nodes, selectedId, onSelect, moveMode, onMoveTarget }: TreeViewProps) {
+export function TreeView({
+  nodes,
+  selectedId,
+  onSelect,
+  moveMode,
+  onMoveTarget,
+  onRenameNode,
+  onMoveNode,
+  onDeleteNode,
+  onCreateChild,
+  favoriteIds = [],
+  onToggleFavorite,
+}: TreeViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [favoritesCollapsed, setFavoritesCollapsed] = useState(false)
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const handleGlobalClick = () => setActiveMenuId(null)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveMenuId(null)
+    }
+
+    window.addEventListener('click', handleGlobalClick)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('click', handleGlobalClick)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
 
   const toggle = (id: string) =>
     setCollapsed((prev) => {
@@ -22,13 +56,21 @@ export function TreeView({ nodes, selectedId, onSelect, moveMode, onMoveTarget }
       return next
     })
 
+  // Obtener nodos favoritos válidos
+  const favoriteNodes = favoriteIds
+    .map((id) => nodes.find((n) => n.id === id))
+    .filter((n): n is NodeRow => Boolean(n))
+
   const renderLevel = (parentId: string | null, depth: number) =>
     childrenOf(nodes, parentId).map((node) => {
       const isFolder = node.kind === 'folder'
       const isCollapsed = collapsed.has(node.id)
       const hasChildren = childrenOf(nodes, node.id).length > 0
+      const isMenuOpen = activeMenuId === node.id
+      const isFav = favoriteIds.includes(node.id)
+
       return (
-        <div key={node.id}>
+        <div key={node.id} className="tree-node-wrapper">
           <div
             className={[
               'tree-row',
@@ -46,17 +88,118 @@ export function TreeView({ nodes, selectedId, onSelect, moveMode, onMoveTarget }
           >
             {isFolder && (
               <button
+                type="button"
                 className="tree-caret"
                 onClick={(e) => {
                   e.stopPropagation()
                   toggle(node.id)
                 }}
+                aria-label={isCollapsed ? 'Desplegar carpeta' : 'Colapsar carpeta'}
               >
                 {hasChildren ? (isCollapsed ? '▸' : '▾') : '·'}
               </button>
             )}
             <span className="tree-icon">{isFolder ? '📁' : '📄'}</span>
             <span className="tree-title">{node.title}</span>
+
+            {/* Menú de acciones contextuales por fila */}
+            {!moveMode && (
+              <div
+                className="tree-row-actions"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="btn-tree-row-menu"
+                  title="Opciones"
+                  aria-label={`Opciones para ${node.title}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setActiveMenuId(isMenuOpen ? null : node.id)
+                  }}
+                >
+                  ···
+                </button>
+
+                {isMenuOpen && (
+                  <div
+                    className="tree-context-menu"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {node.kind === 'article' && onToggleFavorite && (
+                      <button
+                        type="button"
+                        className="context-menu-item"
+                        onClick={() => {
+                          setActiveMenuId(null)
+                          onToggleFavorite(node.id)
+                        }}
+                      >
+                        {isFav ? '☆ Quitar de Favoritos' : '⭐ Anclar a Favoritos'}
+                      </button>
+                    )}
+
+                    {isFolder && (
+                      <>
+                        <button
+                          type="button"
+                          className="context-menu-item"
+                          onClick={() => {
+                            setActiveMenuId(null)
+                            onCreateChild?.(node.id, 'article')
+                          }}
+                        >
+                          ➕ Nuevo artículo aquí
+                        </button>
+                        <button
+                          type="button"
+                          className="context-menu-item"
+                          onClick={() => {
+                            setActiveMenuId(null)
+                            onCreateChild?.(node.id, 'folder')
+                          }}
+                        >
+                          📁 Nueva subcarpeta
+                        </button>
+                        <hr className="context-menu-divider" />
+                      </>
+                    )}
+
+                    <button
+                      type="button"
+                      className="context-menu-item"
+                      onClick={() => {
+                        setActiveMenuId(null)
+                        onRenameNode?.(node.id)
+                      }}
+                    >
+                      ✏️ Renombrar
+                    </button>
+                    <button
+                      type="button"
+                      className="context-menu-item"
+                      onClick={() => {
+                        setActiveMenuId(null)
+                        onMoveNode?.(node.id)
+                      }}
+                    >
+                      📦 Mover
+                    </button>
+                    <hr className="context-menu-divider" />
+                    <button
+                      type="button"
+                      className="context-menu-item item-danger"
+                      onClick={() => {
+                        setActiveMenuId(null)
+                        onDeleteNode?.(node.id)
+                      }}
+                    >
+                      🗑️ Eliminar
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           {isFolder && !isCollapsed && renderLevel(node.id, depth + 1)}
         </div>
@@ -67,10 +210,64 @@ export function TreeView({ nodes, selectedId, onSelect, moveMode, onMoveTarget }
     <div className="tree">
       {moveMode && (
         <div className="move-banner">
-          Elige la carpeta destino…{' '}
-          <button onClick={() => onMoveTarget(null)}>Mover a raíz (Tema)</button>
+          <span>Elige la carpeta destino…</span>
+          <button
+            type="button"
+            className="btn-move-root"
+            onClick={() => onMoveTarget(null)}
+          >
+            Mover a raíz (Tema)
+          </button>
         </div>
       )}
+
+      {/* Sección Permanente de Favoritos / Protocolos Clave */}
+      {!moveMode && favoriteNodes.length > 0 && (
+        <div className="tree-favorites-section">
+          <div
+            className="favorites-header"
+            onClick={() => setFavoritesCollapsed(!favoritesCollapsed)}
+          >
+            <span className="favorites-header-title">⭐ Favoritos / Clave</span>
+            <span className="favorites-header-count">{favoriteNodes.length}</span>
+            <span className="favorites-caret">
+              {favoritesCollapsed ? '▸' : '▾'}
+            </span>
+          </div>
+
+          {!favoritesCollapsed && (
+            <div className="favorites-list">
+              {favoriteNodes.map((fav) => (
+                <div
+                  key={`fav-${fav.id}`}
+                  className={`tree-row favorite-row ${
+                    fav.id === selectedId ? 'selected' : ''
+                  }`}
+                  style={{ paddingLeft: 12 }}
+                  onClick={() => onSelect(fav.id)}
+                >
+                  <span className="tree-icon">⭐</span>
+                  <span className="tree-title">{fav.title}</span>
+                  {onToggleFavorite && (
+                    <button
+                      type="button"
+                      className="btn-remove-fav"
+                      title="Quitar de favoritos"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onToggleFavorite(fav.id)
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {renderLevel(null, 0)}
     </div>
   )
