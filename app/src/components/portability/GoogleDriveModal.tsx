@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { SyncState } from '../../pwa/syncEngine'
 import {
   getStoredClientId,
@@ -36,6 +36,19 @@ export function GoogleDriveModal({
   const [manualToken, setManualToken] = useState('')
   const [manualEmail, setManualEmail] = useState('')
   const [customClientId, setCustomClientId] = useState(() => getStoredClientId())
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
 
   if (!isOpen) return null
 

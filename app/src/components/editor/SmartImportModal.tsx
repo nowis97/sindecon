@@ -47,7 +47,7 @@ export function SmartImportModal({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const wasOpenRef = useRef(false)
 
-  // Reset solo cuando el modal pasa de cerrado a abierto
+  // Reset solo cuando el modal pasa de cerrado a abierto y soporte para tecla Escape
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
       setInputText('')
@@ -57,7 +57,18 @@ export function SmartImportModal({
       setEnrichCallouts(true)
     }
     wasOpenRef.current = isOpen
-  }, [isOpen, currentArticle])
+
+    if (!isOpen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, currentArticle, onClose])
 
   // Markdown procesado en tiempo real
   const processedMarkdown = useMemo(() => {
