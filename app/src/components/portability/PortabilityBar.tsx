@@ -3,8 +3,12 @@ import { exportToZip, importFromZip } from '../../db/exportImport'
 import type { MergeReport } from '../../domain/merge'
 import { AlertDialog } from '../common/DialogModal'
 
-/** Export a zip / import con fusión (spec data-portability). */
-export function PortabilityBar() {
+interface PortabilityBarProps {
+  onOpenGoogleDriveSync?: () => void
+}
+
+/** Export a zip / import con fusión (spec data-portability) + acceso a nube. */
+export function PortabilityBar({ onOpenGoogleDriveSync }: PortabilityBarProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [report, setReport] = useState<MergeReport | null>(null)
@@ -57,6 +61,16 @@ export function PortabilityBar() {
         >
           Importar
         </button>
+        {onOpenGoogleDriveSync && (
+          <button
+            type="button"
+            className="btn-gdrive-sync-trigger"
+            onClick={onOpenGoogleDriveSync}
+            title="Configurar sincronización en Google Drive"
+          >
+            ☁️ Nube
+          </button>
+        )}
         <input
           ref={fileRef}
           type="file"

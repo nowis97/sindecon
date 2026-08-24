@@ -350,4 +350,26 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
     await expect(favStar).not.toHaveClass(/active/)
     await expect(page.locator('.tree-favorites-section')).not.toBeVisible()
   })
+
+  test('13. Modal de configuración de Google Drive y chip de estado (spec: data-portability)', async ({ page }) => {
+    // Localizar el chip de estado de sync en el sidebar desktop
+    const syncChip = page.locator('.sidebar-header-desktop .sync-indicator-chip')
+    await expect(syncChip).toBeVisible()
+    await syncChip.click()
+
+    // El modal de Google Drive debe desplegarse
+    const modal = page.locator('.gdrive-modal')
+    await expect(modal).toBeVisible()
+    await expect(modal.locator('.dialog-header h3')).toContainText('Sincronización con Google Drive')
+    await expect(modal.locator('.btn-google-signin')).toBeVisible()
+
+    // Abrir opciones avanzadas
+    const advToggle = modal.locator('.btn-link-toggle')
+    await advToggle.click()
+    await expect(modal.locator('.gdrive-advanced-panel')).toBeVisible()
+
+    // Cerrar modal
+    await modal.locator('.dialog-btn-close').click()
+    await expect(modal).not.toBeVisible()
+  })
 })

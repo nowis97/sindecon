@@ -8,12 +8,15 @@ import {
 import { useBacklinks } from './hooks/useBacklinks'
 import { useTheme } from './hooks/useTheme'
 import { useFavorites } from './hooks/useFavorites'
+import { useGoogleSync } from './hooks/useGoogleSync'
 import { TreeView } from './components/tree/TreeView'
 import { Breadcrumbs } from './components/tree/Breadcrumbs'
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/editor/MarkdownEditor'
 import { ArticleReader } from './components/reader/ArticleReader'
 import { QuickCapture } from './components/capture/QuickCapture'
 import { PortabilityBar } from './components/portability/PortabilityBar'
+import { SyncIndicator } from './components/portability/SyncIndicator'
+import { GoogleDriveModal } from './components/portability/GoogleDriveModal'
 import { SearchBox } from './components/search/SearchBox'
 import { CommandPalette } from './components/search/CommandPalette'
 import { TagInput } from './components/search/TagInput'
@@ -69,6 +72,17 @@ function App() {
   const templates = useTemplates()
   const { theme, toggleTheme } = useTheme()
   const { favoriteIds, isFavorite, toggleFavorite } = useFavorites()
+  const {
+    isConnected: isGoogleConnected,
+    syncState: googleSyncState,
+    lastSyncedAt: googleLastSyncedAt,
+    errorMessage: googleErrorMessage,
+    userEmail: googleUserEmail,
+    connectWithToken: connectGoogleToken,
+    disconnect: disconnectGoogle,
+    triggerSync: triggerGoogleSync,
+    initiateOAuthLogin: initiateGoogleOAuth,
+  } = useGoogleSync()
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [moveMode, setMoveMode] = useState(false)
@@ -76,6 +90,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isQuickCaptureOpen, setIsQuickCaptureOpen] = useState(false)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false)
   const [promptState, setPromptState] = useState<PromptState>(null)
   const [deleteState, setDeleteState] = useState<DeleteState>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -250,6 +265,12 @@ function App() {
         <div className="topbar-search">
           <SearchBox onSelect={selectArticle} />
         </div>
+        <SyncIndicator
+          isConnected={isGoogleConnected}
+          syncState={googleSyncState}
+          lastSyncedAt={googleLastSyncedAt}
+          onClick={() => setIsGoogleModalOpen(true)}
+        />
         <button
           type="button"
           className="btn-topbar-theme"
@@ -279,6 +300,12 @@ function App() {
               🩺 Cuaderno Médico
             </h2>
             <div className="sidebar-header-actions">
+              <SyncIndicator
+                isConnected={isGoogleConnected}
+                syncState={googleSyncState}
+                lastSyncedAt={googleLastSyncedAt}
+                onClick={() => setIsGoogleModalOpen(true)}
+              />
               <button
                 type="button"
                 className="btn-command-palette-trigger"
@@ -375,7 +402,9 @@ function App() {
             <SearchBox onSelect={selectArticle} />
           </div>
 
-          <PortabilityBar />
+          <PortabilityBar
+            onOpenGoogleDriveSync={() => setIsGoogleModalOpen(true)}
+          />
 
           <TreeView
             nodes={nodes}
@@ -569,7 +598,22 @@ function App() {
         onGoInbox={() => inboxFolder && selectArticle(inboxFolder.id)}
       />
 
-      {/* Modal de Captura Rápida Global (lanzado desde Dashboard, CommandPalette o MobileBottomBar) */}
+      {/* Modal de Configuración y Estado de Google Drive */}
+      <GoogleDriveModal
+        isOpen={isGoogleModalOpen}
+        onClose={() => setIsGoogleModalOpen(false)}
+        isConnected={isGoogleConnected}
+        syncState={googleSyncState}
+        lastSyncedAt={googleLastSyncedAt}
+        userEmail={googleUserEmail}
+        errorMessage={googleErrorMessage}
+        onTriggerSync={() => void triggerGoogleSync()}
+        onDisconnect={disconnectGoogle}
+        onConnectToken={connectGoogleToken}
+        onInitiateOAuth={initiateGoogleOAuth}
+      />
+
+      {/* Modal de Captura Rápida Global */}
       <QuickCapture
         isOpen={isQuickCaptureOpen}
         onClose={() => setIsQuickCaptureOpen(false)}
