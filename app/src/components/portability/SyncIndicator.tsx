@@ -16,9 +16,9 @@ export function SyncIndicator({
   const getStatusDetails = () => {
     if (!isConnected) {
       return {
-        dotClass: 'dot-disconnected',
-        label: 'Nube',
-        title: 'Google Drive no conectado. Haz click para configurar sincronización.',
+        status: 'disconnected',
+        label: 'Drive',
+        title: 'Google Drive no conectado. Haz click para activar sincronización y backup automático.',
       }
     }
 
@@ -26,26 +26,26 @@ export function SyncIndicator({
       case 'syncing':
       case 'checking':
         return {
-          dotClass: 'dot-syncing',
+          status: 'syncing',
           label: 'Sincronizando…',
-          title: 'Sincronizando cambios con Google Drive…',
+          title: 'Sincronizando cambios en segundo plano con Google Drive…',
         }
       case 'offline':
         return {
-          dotClass: 'dot-offline',
+          status: 'offline',
           label: 'Offline',
-          title: 'Sin conexión a internet. Los cambios se sincronizarán al reconectar.',
+          title: 'Modo Offline. Los cambios se guardan localmente y se sincronizarán al reconectar.',
         }
       case 'error':
         return {
-          dotClass: 'dot-error',
+          status: 'error',
           label: 'Error Sync',
-          title: 'Error de sincronización con Google Drive. Haz click para ver detalles.',
+          title: 'Error de sincronización con Google Drive. Haz click para ver detalles y reintentar.',
         }
       case 'idle':
       default:
         return {
-          dotClass: 'dot-synced',
+          status: 'synced',
           label: lastSyncedAt
             ? `Sync ${lastSyncedAt.toLocaleTimeString(undefined, {
                 hour: '2-digit',
@@ -53,23 +53,35 @@ export function SyncIndicator({
               })}`
             : 'Al día',
           title: lastSyncedAt
-            ? `Última sincronización: ${lastSyncedAt.toLocaleString()}`
-            : 'Sincronizado con Google Drive',
+            ? `Última sincronización con Google Drive: ${lastSyncedAt.toLocaleString()}`
+            : 'Sincronizado con Google Drive (Local-First)',
         }
     }
   }
 
-  const { dotClass, label, title } = getStatusDetails()
+  const { status, label, title } = getStatusDetails()
 
   return (
     <button
       type="button"
-      className="sync-indicator-chip"
+      className={`sync-indicator-chip sync-status-${status}`}
       onClick={onClick}
       title={title}
       aria-label="Estado de sincronización en la nube"
     >
-      <span className={`sync-status-dot ${dotClass}`} />
+      <svg
+        className="sync-chip-cloud-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+      </svg>
+      <span className={`sync-status-dot dot-${status}`} />
       <span className="sync-status-label">{label}</span>
     </button>
   )
