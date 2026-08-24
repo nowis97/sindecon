@@ -333,21 +333,34 @@ function App() {
         )}
         <aside className="sidebar">
           <div className="sidebar-header-desktop">
-            <h2
-              className="app-title"
-              onClick={() => setSelectedId(null)}
-              style={{ cursor: 'pointer' }}
-              title="Ir al inicio"
-            >
-              🩺 Cuaderno Médico
-            </h2>
+            <div className="sidebar-header-top-row">
+              <h2
+                className="app-title"
+                onClick={() => setSelectedId(null)}
+                style={{ cursor: 'pointer' }}
+                title="Ir al inicio"
+              >
+                🩺 Cuaderno Médico
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <SyncIndicator
+                  isConnected={isGoogleConnected}
+                  syncState={googleSyncState}
+                  lastSyncedAt={googleLastSyncedAt}
+                  onClick={() => setIsGoogleModalOpen(true)}
+                />
+                <button
+                  type="button"
+                  className="btn-theme-toggle"
+                  onClick={toggleTheme}
+                  title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                  aria-label="Cambiar tema"
+                >
+                  {theme === 'dark' ? '☀️' : '🌙'}
+                </button>
+              </div>
+            </div>
             <div className="sidebar-header-actions">
-              <SyncIndicator
-                isConnected={isGoogleConnected}
-                syncState={googleSyncState}
-                lastSyncedAt={googleLastSyncedAt}
-                onClick={() => setIsGoogleModalOpen(true)}
-              />
               <button
                 type="button"
                 className="btn-command-palette-trigger"
@@ -355,16 +368,7 @@ function App() {
                 title="Búsqueda y Comandos (Ctrl+K)"
                 aria-label="Abrir paleta de comandos"
               >
-                🔍 <kbd>Ctrl+K</kbd>
-              </button>
-              <button
-                type="button"
-                className="btn-theme-toggle"
-                onClick={toggleTheme}
-                title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-                aria-label="Cambiar tema"
-              >
-                {theme === 'dark' ? '☀️' : '🌙'}
+                🔍 Comandos <kbd>Ctrl+K</kbd>
               </button>
               <QuickCapture onCaptureSaved={selectArticle} />
             </div>
@@ -380,12 +384,14 @@ function App() {
             <button
               type="button"
               onClick={() => handleOpenCreatePrompt('folder')}
+              title="Crear nueva carpeta o especialidad"
             >
               + Carpeta
             </button>
             <button
               type="button"
               onClick={() => handleOpenCreatePrompt('article')}
+              title="Crear nuevo artículo médico en blanco"
             >
               + Artículo
             </button>
@@ -412,33 +418,16 @@ function App() {
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              onClick={() => selected && handleOpenRenamePrompt(selected.id)}
-              disabled={!selected}
-            >
-              Renombrar
-            </button>
-            <button
-              type="button"
-              onClick={() => setMoveMode(true)}
-              disabled={!selected}
-            >
-              Mover
-            </button>
-            <button
-              type="button"
-              onClick={() => selected && handleOpenDeleteConfirm(selected.id)}
-              disabled={!selected}
-            >
-              Eliminar
-            </button>
-            {moveMode && (
+          </div>
+
+          {moveMode && (
+            <div className="move-mode-banner">
+              <span>Moviendo "{selected?.title}". Selecciona la carpeta destino:</span>
               <button type="button" onClick={() => setMoveMode(false)}>
                 Cancelar
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="sidebar-search desktop-only-search">
             <SearchBox onSelect={selectArticle} />
