@@ -3395,3 +3395,98 @@ body {
     line-height: 1.2;
   }
 }
+
+/* ==========================================================================
+   Error Boundary Screen & Recovery Card
+   ========================================================================== */
+.error-boundary-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-main, #f8fafc);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.error-boundary-card {
+  max-width: 520px;
+  width: 100%;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+}
+
+.error-boundary-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.error-boundary-card h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  margin: 0 0 8px;
+}
+
+.error-boundary-lead {
+  font-size: 0.95rem;
+  color: var(--text-secondary, #64748b);
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.error-boundary-details {
+  background: var(--bg-muted, #f1f5f9);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 24px;
+  text-align: left;
+  overflow-x: auto;
+}
+
+.error-boundary-details code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  color: #dc2626;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error-boundary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.error-boundary-actions button {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+[data-theme='dark'] .error-boundary-screen {
+  background-color: #0b1120;
+}
+
+[data-theme='dark'] .error-boundary-card {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme='dark'] .error-boundary-details {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme='dark'] .error-boundary-details code {
+  color: #f87171;
+}
+

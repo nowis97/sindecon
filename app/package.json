@@ -14,6 +14,7 @@
   "dependencies": {
     "@milkdown/crepe": "^7.22.1",
     "@milkdown/kit": "^7.22.1",
+    "@sentry/react": "^10.71.0",
     "dexie": "^4.4.5",
     "dexie-react-hooks": "^4.4.0",
     "jszip": "^3.10.1",
