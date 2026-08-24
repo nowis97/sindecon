@@ -37,13 +37,25 @@ export function QuickCapture({
     }
   }, [previewUrl])
 
-  // Foco automático en el textarea cuando se abre el modal
+  // Foco automático en el textarea y atajos globales de teclado
   useEffect(() => {
-    if (isModalOpen) {
-      setTimeout(() => {
-        textareaRef.current?.focus()
-      }, 60)
+    if (!isModalOpen) return
+
+    setTimeout(() => {
+      textareaRef.current?.focus()
+    }, 60)
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose()
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault()
+        void handleSave()
+      }
     }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [isModalOpen])
 
   const handleFileChange = (file?: File) => {
@@ -79,9 +91,8 @@ export function QuickCapture({
   const handleClose = () => {
     if (externalOnClose) {
       externalOnClose()
-    } else {
-      setInternalIsOpen(false)
     }
+    setInternalIsOpen(false)
     setNote('')
     setSelectedFile(null)
     setErrorMsg(null)
@@ -110,27 +121,28 @@ export function QuickCapture({
     e.stopPropagation()
     setIsDragging(false)
     const file = e.dataTransfer.files?.[0]
-    if (file) {
-      handleFileChange(file)
-    }
+    if (file) handleFileChange(file)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault()
-      handleSave()
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
+    if (e.key === 'Escape') {
       handleClose()
+    } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault()
+      void handleSave()
     }
   }
 
-  const addTagToNote = (tag: string) => {
-    const formattedTag = `#${tag} `
+  const handleAddTag = (tag: string) => {
+    const formattedTag = `#${tag}`
     if (!note.includes(formattedTag)) {
       setNote((prev) => (prev.trim() ? `${prev.trim()} ${formattedTag}` : formattedTag))
     }
     textareaRef.current?.focus()
+  }
+
+  if (hideLauncher && !isModalOpen) {
+    return null
   }
 
   return (
@@ -286,7 +298,7 @@ export function QuickCapture({
                         key={tag}
                         type="button"
                         className={`btn-quick-tag ${note.includes(`#${tag}`) ? 'active' : ''}`}
-                        onClick={() => addTagToNote(tag)}
+                        onClick={() => handleAddTag(tag)}
                       >
                         #{tag}
                       </button>

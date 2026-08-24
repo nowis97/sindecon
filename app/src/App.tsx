@@ -370,7 +370,15 @@ function App() {
               >
                 🔍 Comandos <kbd>Ctrl+K</kbd>
               </button>
-              <QuickCapture onCaptureSaved={selectArticle} />
+              <button
+                type="button"
+                className="btn-quick-capture"
+                onClick={() => setIsQuickCaptureOpen(true)}
+                title="Captura rápida a 1 toque (foto + nota) al Inbox"
+                aria-label="Captura rápida"
+              >
+                📸 Captura rápida
+              </button>
             </div>
           </div>
 

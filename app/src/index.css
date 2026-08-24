@@ -2781,26 +2781,49 @@ select.dialog-input {
   display: inline-block;
 }
 
-/* Mobile Bottom Sheet Adaptation */
+/* Mobile Bottom Sheet Adaptation for all Modals */
 @media (max-width: 640px) {
+  .dialog-overlay,
   .capture-overlay {
     align-items: flex-end;
     padding: 0;
   }
 
-  .capture-modal {
+  .dialog-modal,
+  .capture-modal,
+  .smart-import-modal,
+  .gdrive-modal {
     max-width: 100%;
+    width: 100%;
     border-radius: 20px 20px 0 0;
-    max-height: 88vh;
+    max-height: 90vh;
     animation: sheet-slide-up var(--dur-sheet) var(--ease-spring);
+    margin: 0;
   }
 
+  .dialog-header,
   .capture-header {
     padding: 16px 18px;
   }
 
-  .capture-body {
+  .dialog-body,
+  .capture-body,
+  .smart-import-body,
+  .gdrive-modal-body {
     padding: 16px 18px;
+  }
+
+  .new-article-meta-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .destination-options-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .smart-import-dropzone {
+    padding: 20px 14px;
   }
 
   .capture-actions-row {
@@ -2827,10 +2850,14 @@ select.dialog-input {
     font-size: 0.68rem;
   }
 
+  .dialog-footer,
   .capture-footer {
     padding: 12px 18px;
-    flex-direction: column-reverse;
     gap: 8px;
+  }
+
+  .capture-footer {
+    flex-direction: column-reverse;
   }
 
   .capture-footer-actions {
