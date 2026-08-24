@@ -8,6 +8,7 @@ interface DashboardProps {
   templates: Array<{ node: NodeRow; body: string }>
   onSelectArticle: (id: string) => void
   onOpenQuickCapture: () => void
+  onOpenSmartImport?: () => void
   onCreateNode: (kind: 'folder' | 'article') => void
   onCreateFromTemplate: (templateTitle: string) => void
 }
@@ -17,6 +18,7 @@ export function Dashboard({
   templates,
   onSelectArticle,
   onOpenQuickCapture,
+  onOpenSmartImport,
   onCreateNode,
   onCreateFromTemplate,
 }: DashboardProps) {
@@ -152,6 +154,20 @@ export function Dashboard({
               <span>Foto clínica o nota directa al Inbox</span>
             </div>
           </button>
+
+          {onOpenSmartImport && (
+            <button
+              type="button"
+              className="action-card action-smart-import"
+              onClick={onOpenSmartImport}
+            >
+              <div className="action-card-icon">🪄</div>
+              <div className="action-card-content">
+                <strong>Importar de ChatGPT o Word</strong>
+                <span>Convierte tablas, callouts y resúmenes</span>
+              </div>
+            </button>
+          )}
 
           <button
             type="button"

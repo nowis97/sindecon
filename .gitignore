@@ -10,6 +10,7 @@ vite-dev.log
 # Cachés y temporales
 .cache/
 *.local
+.codegraph/
 
 # SO
 Thumbs.db

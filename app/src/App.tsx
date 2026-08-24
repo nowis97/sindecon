@@ -14,6 +14,7 @@ import { Breadcrumbs } from './components/tree/Breadcrumbs'
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/editor/MarkdownEditor'
 import { ArticleReader } from './components/reader/ArticleReader'
 import { QuickCapture } from './components/capture/QuickCapture'
+import { SmartImportModal } from './components/editor/SmartImportModal'
 import { PortabilityBar } from './components/portability/PortabilityBar'
 import { SyncIndicator } from './components/portability/SyncIndicator'
 import { GoogleDriveModal } from './components/portability/GoogleDriveModal'
@@ -30,6 +31,7 @@ import {
 } from './components/common/DialogModal'
 import { ensurePersistentStorage } from './pwa/persistence'
 import { childrenOf } from './domain/tree'
+import { db } from './db/db'
 import {
   createNode,
   renameNode,
@@ -91,6 +93,7 @@ function App() {
   const [isQuickCaptureOpen, setIsQuickCaptureOpen] = useState(false)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false)
+  const [isSmartImportOpen, setIsSmartImportOpen] = useState(false)
   const [promptState, setPromptState] = useState<PromptState>(null)
   const [deleteState, setDeleteState] = useState<DeleteState>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -130,18 +133,14 @@ function App() {
     (n) => n.kind === 'folder' && n.title === 'Inbox' && n.parent_id === null,
   )
   const inboxCount = inboxFolder ? childrenOf(nodes, inboxFolder.id).length : 0
-
-  const articleMatches =
-    Boolean(article && selected?.kind === 'article' && article.node_id === selected.id)
-  const isArticleReady = Boolean(
-    selected?.kind === 'article' &&
-      (seedBody !== null ||
-        articleMatches ||
-        article === null),
-  )
-  const currentBody = articleMatches
-    ? article!.body_md
-    : (selected?.kind === 'article' ? (seedBody ?? '') : '')
+  const isArticleReady =
+    selected?.kind === 'article' && (seedBody !== null || article !== undefined)
+  const currentBody =
+    (selected?.kind === 'article' && article?.node_id === selected.id
+      ? article.body_md
+      : null) ??
+    seedBody ??
+    ''
 
   const targetFolderId = selected
     ? selected.kind === 'folder'
@@ -249,6 +248,49 @@ function App() {
     } catch (e) {
       setErrorMessage((e as Error).message)
     }
+  }
+
+  // --- Handlers de Importación Inteligente (ChatGPT / Word) ---
+  const handleAppendToCurrentArticle = async (articleId: string, additionalMarkdown: string) => {
+    const art = await db.articles.get(articleId)
+    const current = art?.body_md || ''
+    const updated = current.trim()
+      ? `${current.trim()}\n\n---\n\n${additionalMarkdown.trim()}`
+      : additionalMarkdown.trim()
+    await saveArticle(articleId, updated)
+  }
+
+  const handleReplaceCurrentArticle = async (articleId: string, newMarkdown: string) => {
+    await saveArticle(articleId, newMarkdown)
+  }
+
+  const handleCreateNewArticle = async (
+    title: string,
+    markdown: string,
+    parentId: string | null,
+  ) => {
+    const node = await createNode({
+      kind: 'article',
+      title,
+      parent_id: parentId,
+    })
+    await saveArticle(node.id, markdown)
+    setSeedBody(markdown)
+    setSelectedId(node.id)
+    setIsEditMode(false)
+    setSidebarOpen(false)
+  }
+
+  const handleSaveToInbox = async (title: string, markdown: string) => {
+    const inbox = await ensureInboxFolder()
+    const node = await createNode({
+      kind: 'article',
+      title,
+      parent_id: inbox.id,
+    })
+    await saveArticle(node.id, markdown)
+    setSelectedId(node.id)
+    setSidebarOpen(false)
   }
 
   return (
@@ -459,21 +501,32 @@ function App() {
                 </div>
 
                 {selected.kind === 'article' && (
-                  <div className="view-mode-toggle">
+                  <div className="article-header-actions-group">
                     <button
                       type="button"
-                      className={`btn-mode ${!isEditMode ? 'active' : ''}`}
-                      onClick={() => setIsEditMode(false)}
+                      className="btn-smart-import-trigger"
+                      onClick={() => setIsSmartImportOpen(true)}
+                      title="Importar contenido desde ChatGPT, IA o Word (.docx)"
                     >
-                      👁 Lector
+                      🪄 Importar
                     </button>
-                    <button
-                      type="button"
-                      className={`btn-mode ${isEditMode ? 'active' : ''}`}
-                      onClick={() => setIsEditMode(true)}
-                    >
-                      ✏ Editor
-                    </button>
+
+                    <div className="view-mode-toggle">
+                      <button
+                        type="button"
+                        className={`btn-mode ${!isEditMode ? 'active' : ''}`}
+                        onClick={() => setIsEditMode(false)}
+                      >
+                        👁 Lector
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn-mode ${isEditMode ? 'active' : ''}`}
+                        onClick={() => setIsEditMode(true)}
+                      >
+                        ✏ Editor
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -498,6 +551,13 @@ function App() {
                     >
                       📁 Nueva subcarpeta
                     </button>
+                    <button
+                      type="button"
+                      className="btn-dialog-secondary"
+                      onClick={() => setIsSmartImportOpen(true)}
+                    >
+                      🪄 Importar texto/Word aquí
+                    </button>
                   </div>
                 </div>
               )}
@@ -507,7 +567,7 @@ function App() {
                   <div className="article-meta">
                     <TagInput
                       articleId={selected.id}
-                      tags={articleMatches ? (article?.tags ?? []) : []}
+                      tags={article?.node_id === selected.id ? (article?.tags ?? []) : []}
                     />
                   </div>
 
@@ -563,6 +623,7 @@ function App() {
               templates={templates}
               onSelectArticle={selectArticle}
               onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
+              onOpenSmartImport={() => setIsSmartImportOpen(true)}
               onCreateNode={(kind) => handleOpenCreatePrompt(kind)}
               onCreateFromTemplate={(tplTitle) =>
                 handleOpenTemplatePrompt(tplTitle)
@@ -593,9 +654,26 @@ function App() {
         onSelectArticle={selectArticle}
         onOpenCreatePrompt={(kind) => handleOpenCreatePrompt(kind)}
         onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
+        onOpenSmartImport={() => setIsSmartImportOpen(true)}
         onToggleTheme={toggleTheme}
         onGoHome={() => setSelectedId(null)}
         onGoInbox={() => inboxFolder && selectArticle(inboxFolder.id)}
+      />
+
+      {/* Modal de Asistente de Importación Inteligente (ChatGPT, Word, Rich Text) */}
+      <SmartImportModal
+        isOpen={isSmartImportOpen}
+        onClose={() => setIsSmartImportOpen(false)}
+        currentArticle={
+          selected?.kind === 'article'
+            ? { id: selected.id, title: selected.title, body: currentBody }
+            : null
+        }
+        nodes={nodes}
+        onAppendToCurrentArticle={handleAppendToCurrentArticle}
+        onReplaceCurrentArticle={handleReplaceCurrentArticle}
+        onCreateNewArticle={handleCreateNewArticle}
+        onSaveToInbox={handleSaveToInbox}
       />
 
       {/* Modal de Configuración y Estado de Google Drive */}

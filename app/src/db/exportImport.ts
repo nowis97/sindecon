@@ -2,6 +2,7 @@ import JSZip from 'jszip'
 import { db } from './db'
 import type { NodeRow, ArticleRow, AssetRow } from './db'
 import { mergeDatabase, type DbSnapshot, type MergeReport } from '../domain/merge'
+import { pathTo } from '../domain/tree'
 import {
   buildFrontmatter,
   parseFrontmatter,
@@ -28,23 +29,12 @@ export function idFromPath(path: string): string {
   return `imp-${hex}-0000-0000-${hex}${hex.slice(0, 4)}`
 }
 
-function depthOf(node: NodeRow, byId: Map<string, NodeRow>): number {
-  let depth = 0
-  let cur: NodeRow | undefined = node
-  while (cur?.parent_id) {
-    depth++
-    cur = byId.get(cur.parent_id)
-  }
-  return depth
-}
-
 /** Ensambla el zip de export (sin generar el blob final). */
 export async function buildExportZip(): Promise<JSZip> {
   const nodes = await db.nodes.toArray()
   const articles = await db.articles.toArray()
   const assets = await db.assets.toArray()
   const live = nodes.filter((n) => n.deleted_at === null)
-  const byId = new Map(live.map((n) => [n.id, n]))
   const articlesByNode = new Map(articles.map((a) => [a.node_id, a]))
 
   const zip = new JSZip()
@@ -80,7 +70,7 @@ export async function buildExportZip(): Promise<JSZip> {
   const usedDirs = new Set<string>()
   const folders = live
     .filter((n) => n.kind === 'folder')
-    .sort((a, b) => depthOf(a, byId) - depthOf(b, byId))
+    .sort((a, b) => pathTo(live, a.id).length - pathTo(live, b.id).length)
   for (const f of folders) {
     const parentDir = f.parent_id ? (dirOf.get(f.parent_id) ?? '') : ''
     const base = sanitizeFileName(f.title)

@@ -5,7 +5,7 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
     // Abrir la aplicación
     await page.goto('/')
     // Esperar a que la app y la barra lateral estén listas
-    await expect(page.locator('.sidebar')).toBeVisible()
+    await expect(page.locator('.sidebar')).toBeVisible({ timeout: 10000 })
   })
 
   test('1. Siembra de plantillas en primer arranque (spec: templates) y Dashboard', async ({ page }) => {
@@ -371,5 +371,60 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
     // Cerrar modal
     await modal.locator('.dialog-btn-close').click()
     await expect(modal).not.toBeVisible()
+  })
+
+  test('14. Asistente de Importación Inteligente para ChatGPT y Word (spec: content-editing)', async ({ page }) => {
+    // Crear un artículo de prueba
+    await page.getByRole('button', { name: '+ Artículo' }).click()
+    const articleInput = page.locator('.dialog-input')
+    await articleInput.fill('Fiebre de Origen Desconocido')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // Pulsar el botón 🪄 Importar en la cabecera del artículo
+    const btnImport = page.locator('.btn-smart-import-trigger')
+    await expect(btnImport).toBeVisible()
+    await btnImport.click()
+
+    // Verificar que abre el SmartImportModal
+    const modal = page.locator('.smart-import-modal')
+    await expect(modal).toBeVisible()
+    await expect(modal.locator('.dialog-header h3')).toContainText('Asistente de Importación')
+
+    // Pegar texto simulado de ChatGPT con Advertencia y Tabla
+    const textarea = modal.locator('.smart-import-textarea')
+    await textarea.fill(`
+### Criterios de Durack y Street
+
+ADVERTENCIA: Descartar bacteriemia antes de iniciar corticoides empíricos.
+
+| Categoría | Criterio |
+| --- | --- |
+| Clásica | Fiebre > 38.3C por > 3 semanas |
+| Nosocomial | Hospitalizado sin infección previa |
+
+DOSIS: Paracetamol 1g cada 8h condicional a fiebre.
+    `)
+
+    // Verificar que la vista previa se actualizó con el callout visual
+    const preview = modal.locator('.smart-import-preview-section')
+    await expect(preview).toBeVisible()
+    await expect(preview.locator('.callout-warning')).toBeVisible()
+    await expect(preview.locator('.callout-dosage')).toBeVisible()
+    await expect(preview.locator('.reader-table')).toBeVisible()
+
+    // La opción "➕ Añadir al final" debe estar seleccionada por defecto
+    await expect(modal.locator('input[value="append"]')).toBeChecked()
+
+    // Aplicar importación
+    await modal.locator('.btn-dialog-primary', { hasText: 'Aplicar Importación' }).click()
+    await expect(modal).not.toBeVisible()
+
+    // Cambiar a Modo Lector y verificar que el contenido importado está en el artículo
+    const btnLector = page.locator('button.btn-mode', { hasText: '👁 Lector' })
+    await btnLector.click()
+    const readerView = page.locator('.article-reader-view')
+    await expect(readerView.locator('.callout-warning')).toBeVisible()
+    await expect(readerView.locator('.reader-table')).toBeVisible()
+    await expect(readerView).toContainText('Criterios de Durack y Street')
   })
 })

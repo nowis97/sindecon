@@ -9,6 +9,7 @@ export interface CommandPaletteProps {
   onSelectArticle: (id: string) => void
   onOpenCreatePrompt: (kind: 'folder' | 'article') => void
   onOpenQuickCapture: () => void
+  onOpenSmartImport?: () => void
   onToggleTheme: () => void
   onGoHome: () => void
   onGoInbox: () => void
@@ -41,6 +42,7 @@ export function CommandPalette({
   onSelectArticle,
   onOpenCreatePrompt,
   onOpenQuickCapture,
+  onOpenSmartImport,
   onToggleTheme,
   onGoHome,
   onGoInbox,
@@ -61,6 +63,16 @@ export function CommandPalette({
         run: () => {
           onClose()
           onOpenQuickCapture()
+        },
+      },
+      {
+        id: 'action-smart-import',
+        type: 'action',
+        title: 'Importar desde ChatGPT, IA o Word (.docx)',
+        icon: '🪄',
+        run: () => {
+          onClose()
+          onOpenSmartImport?.()
         },
       },
       {
@@ -118,6 +130,7 @@ export function CommandPalette({
       onClose,
       onOpenCreatePrompt,
       onOpenQuickCapture,
+      onOpenSmartImport,
       onToggleTheme,
       onGoHome,
       onGoInbox,

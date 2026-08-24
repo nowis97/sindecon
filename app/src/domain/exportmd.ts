@@ -77,9 +77,14 @@ export function mimeToExt(mime: string): string {
   return MIME_EXT[mime] ?? 'bin'
 }
 
-const EXT_MIME: Record<string, string> = Object.fromEntries(
-  Object.entries(MIME_EXT).map(([m, e]) => [e, m]),
-)
+const EXT_MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+}
 
 export function extToMime(ext: string): string {
   return EXT_MIME[ext.toLowerCase()] ?? 'application/octet-stream'

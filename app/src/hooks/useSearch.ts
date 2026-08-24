@@ -38,14 +38,12 @@ export function useSearchIndex(): { articles: IndexedArticle[]; titleOf: Map<str
 }
 
 export function useSearchResults(query: string, limit = 15): SearchResult[] {
-  const { articles, titleOf } = useSearchIndex()
+  const { articles } = useSearchIndex()
   return useMemo(() => {
     if (!query.trim()) return []
-    // Reconstruimos el índice solo cuando el corpus cambia
     const index = buildIndex(articles)
-    void titleOf // mantener referencia viva en deps, ya consumida al construir el corpus
     return searchIndex(index, query, limit)
-  }, [query, articles, titleOf, limit])
+  }, [query, articles, limit])
 }
 
 /** Lista única de todos los tags en uso (orden alfabético). */
