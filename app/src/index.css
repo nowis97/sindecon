@@ -2732,6 +2732,10 @@ select.dialog-input {
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   transition: all var(--dur-fast) var(--ease-smooth);
 }
 
@@ -2751,6 +2755,8 @@ select.dialog-input {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  text-align: center;
   gap: 6px;
   transition: all var(--dur-fast) var(--ease-spring);
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
@@ -2850,20 +2856,40 @@ select.dialog-input {
     font-size: 0.68rem;
   }
 
-  .dialog-footer,
-  .capture-footer {
+  .dialog-footer {
     padding: 12px 18px;
-    gap: 8px;
+    gap: 10px;
   }
 
   .capture-footer {
-    flex-direction: column-reverse;
+    padding: 14px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-subtle);
   }
 
   .capture-footer-actions {
     width: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1.6fr;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .capture-btn-cancel {
+    flex: 0 0 92px;
+    height: 46px;
+    padding: 0 10px;
+    font-size: 0.88rem;
+    border-radius: var(--radius-lg);
+  }
+
+  .capture-btn-save {
+    flex: 1;
+    height: 46px;
+    padding: 0 16px;
+    font-size: 0.94rem;
+    font-weight: 700;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 3px 12px rgba(99, 102, 241, 0.35);
   }
 
   .capture-footer-hint {
