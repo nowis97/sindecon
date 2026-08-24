@@ -23,9 +23,9 @@ const GDRIVE_EXPIRY_KEY = 'cuaderno-gdrive-expiry'
 const GDRIVE_EMAIL_KEY = 'cuaderno-gdrive-email'
 const GDRIVE_CLIENT_ID_KEY = 'cuaderno-gdrive-client-id'
 
-// Client ID por defecto para la PWA de Cuaderno Médico
+// Client ID por defecto para la PWA de Cuaderno Médico (sindecon.app)
 export const DEFAULT_GOOGLE_CLIENT_ID =
-  '1084285817293-placeholder-cuaderno-medico.apps.googleusercontent.com'
+  '538691015189-7etnuoh6rmuo6koo53jpghh0ujc3gs18.apps.googleusercontent.com'
 
 export function getStoredClientId(): string {
   return localStorage.getItem(GDRIVE_CLIENT_ID_KEY) || DEFAULT_GOOGLE_CLIENT_ID
