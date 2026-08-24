@@ -98,7 +98,7 @@ export function Dashboard({
 
       {/* Grid de Estadísticas */}
       <section className="dashboard-stats-grid">
-        <div className="stat-card">
+        <div className="stat-card" style={{ '--stagger-index': 1 } as React.CSSProperties}>
           <span className="stat-icon">📄</span>
           <div className="stat-info">
             <span className="stat-value">{totalArticles}</span>
@@ -106,7 +106,7 @@ export function Dashboard({
           </div>
         </div>
 
-        <div className="stat-card">
+        <div className="stat-card" style={{ '--stagger-index': 2 } as React.CSSProperties}>
           <span className="stat-icon">📁</span>
           <div className="stat-info">
             <span className="stat-value">{totalFolders}</span>
@@ -117,7 +117,10 @@ export function Dashboard({
         <div
           className={`stat-card ${inboxCount > 0 ? 'stat-card-highlight' : ''}`}
           onClick={() => inboxFolder && onSelectArticle(inboxFolder.id)}
-          style={{ cursor: inboxFolder ? 'pointer' : 'default' }}
+          style={{
+            '--stagger-index': 3,
+            cursor: inboxFolder ? 'pointer' : 'default',
+          } as React.CSSProperties}
           title={inboxFolder ? 'Ver capturas en Inbox' : undefined}
         >
           <span className="stat-icon">📥</span>
@@ -130,7 +133,7 @@ export function Dashboard({
           {inboxCount > 0 && <span className="stat-badge">Pendiente</span>}
         </div>
 
-        <div className="stat-card">
+        <div className="stat-card" style={{ '--stagger-index': 4 } as React.CSSProperties}>
           <span className="stat-icon">🏷️</span>
           <div className="stat-info">
             <span className="stat-value">{allTags.length}</span>
@@ -146,6 +149,7 @@ export function Dashboard({
           <button
             type="button"
             className="action-card action-capture"
+            style={{ '--stagger-index': 5 } as React.CSSProperties}
             onClick={onOpenQuickCapture}
           >
             <div className="action-card-icon">📸</div>
@@ -159,6 +163,7 @@ export function Dashboard({
             <button
               type="button"
               className="action-card action-smart-import"
+              style={{ '--stagger-index': 6 } as React.CSSProperties}
               onClick={onOpenSmartImport}
             >
               <div className="action-card-icon">🪄</div>
@@ -172,6 +177,7 @@ export function Dashboard({
           <button
             type="button"
             className="action-card"
+            style={{ '--stagger-index': 7 } as React.CSSProperties}
             onClick={() => onCreateNode('article')}
           >
             <div className="action-card-icon">📝</div>
@@ -184,6 +190,7 @@ export function Dashboard({
           <button
             type="button"
             className="action-card"
+            style={{ '--stagger-index': 8 } as React.CSSProperties}
             onClick={() => onCreateNode('folder')}
           >
             <div className="action-card-icon">📁</div>

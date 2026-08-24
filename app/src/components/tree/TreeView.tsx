@@ -89,14 +89,14 @@ export function TreeView({
             {isFolder && (
               <button
                 type="button"
-                className="tree-caret"
+                className={`tree-caret ${isCollapsed ? 'collapsed' : 'expanded'}`}
                 onClick={(e) => {
                   e.stopPropagation()
                   toggle(node.id)
                 }}
                 aria-label={isCollapsed ? 'Desplegar carpeta' : 'Colapsar carpeta'}
               >
-                {hasChildren ? (isCollapsed ? '▸' : '▾') : '·'}
+                {hasChildren ? '▾' : '·'}
               </button>
             )}
             <span className="tree-icon">{isFolder ? '📁' : '📄'}</span>
@@ -201,7 +201,13 @@ export function TreeView({
               </div>
             )}
           </div>
-          {isFolder && !isCollapsed && renderLevel(node.id, depth + 1)}
+          {isFolder && (
+            <div className={`tree-children-accordion ${isCollapsed ? 'collapsed' : 'expanded'}`}>
+              <div className="tree-children-inner">
+                {renderLevel(node.id, depth + 1)}
+              </div>
+            </div>
+          )}
         </div>
       )
     })
@@ -230,41 +236,43 @@ export function TreeView({
           >
             <span className="favorites-header-title">⭐ Favoritos / Clave</span>
             <span className="favorites-header-count">{favoriteNodes.length}</span>
-            <span className="favorites-caret">
-              {favoritesCollapsed ? '▸' : '▾'}
+            <span className={`favorites-caret ${favoritesCollapsed ? 'collapsed' : 'expanded'}`}>
+              ▾
             </span>
           </div>
 
-          {!favoritesCollapsed && (
-            <div className="favorites-list">
-              {favoriteNodes.map((fav) => (
-                <div
-                  key={`fav-${fav.id}`}
-                  className={`tree-row favorite-row ${
-                    fav.id === selectedId ? 'selected' : ''
-                  }`}
-                  style={{ paddingLeft: 12 }}
-                  onClick={() => onSelect(fav.id)}
-                >
-                  <span className="tree-icon">⭐</span>
-                  <span className="tree-title">{fav.title}</span>
-                  {onToggleFavorite && (
-                    <button
-                      type="button"
-                      className="btn-remove-fav"
-                      title="Quitar de favoritos"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onToggleFavorite(fav.id)
-                      }}
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              ))}
+          <div className={`tree-favorites-accordion ${favoritesCollapsed ? 'collapsed' : 'expanded'}`}>
+            <div className="tree-favorites-inner">
+              <div className="favorites-list">
+                {favoriteNodes.map((fav) => (
+                  <div
+                    key={`fav-${fav.id}`}
+                    className={`tree-row favorite-row ${
+                      fav.id === selectedId ? 'selected' : ''
+                    }`}
+                    style={{ paddingLeft: 12 }}
+                    onClick={() => onSelect(fav.id)}
+                  >
+                    <span className="tree-icon">⭐</span>
+                    <span className="tree-title">{fav.title}</span>
+                    {onToggleFavorite && (
+                      <button
+                        type="button"
+                        className="btn-remove-fav"
+                        title="Quitar de favoritos"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onToggleFavorite(fav.id)
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 

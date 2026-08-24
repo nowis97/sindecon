@@ -76,3 +76,29 @@ El sistema SHALL ofrecer una vista de lectura de cada artículo que renderice el
 
 - **WHEN** el usuario abre un artículo con un algoritmo mermaid ancho en el móvil
 - **THEN** puede leer el artículo y hacer zoom/pan sobre el diagrama sin perder legibilidad
+
+### Requirement: Micro-interacciones en lectura, edición e importación
+
+El sistema SHALL proveer retroalimentación visual fluida al alternar modos de visualización, interactuar con elementos médicos enriquecidos y procesar contenidos importados.
+
+#### Scenario: Alternancia animada entre modo Lector y Editor
+
+- **WHEN** el usuario hace clic en los botones del control segmentado (Lector / Editor)
+- **THEN** el indicador de selección se desplaza hacia el modo elegido y el contenido realiza un desvanecimiento cruzado suave sin alterar la posición de scroll
+
+#### Scenario: Interacción táctil en Callouts clínicos y tablas
+
+- **WHEN** el usuario visualiza o interactúa con callouts de alerta, dosis de fármacos o perlas clínicas en modo lector
+- **THEN** los elementos proporcionan una respuesta visual de realce con micro-sombras y bordes con brillo clínico
+
+#### Scenario: Retroalimentación en el asistente de importación inteligente
+
+- **WHEN** el usuario arrastra un archivo Word (.docx) o pega texto en el modal de importación
+- **THEN** la zona de suelta reacciona visualmente y la vista previa de conversión se actualiza con transiciones suaves
+
+### Requirement: Cabecera de artículo estilo Notion con segmented tabs y pill tags
+La vista de artículo DEBE contar con una cabecera limpia con breadcrumbs jerárquicos, segmented control para alternar entre `Lector`, `Editor` e `Importar IA`, etiquetas estilo pastilla (`badge-pill`) con colores distintivos y soporte completo de modo oscuro.
+
+#### Scenario: Edición de etiquetas y cambio de vista
+- **WHEN** el usuario añade una etiqueta o cambia entre modo Lector y Editor
+- **THEN** la vista actualiza el control segmentado con animación suave y renderiza las etiquetas con alto contraste

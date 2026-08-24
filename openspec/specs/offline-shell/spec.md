@@ -40,3 +40,43 @@ El sistema SHALL solicitar al navegador almacenamiento persistente en el primer 
 
 - **WHEN** el navegador deniega o no soporta almacenamiento persistente
 - **THEN** la app muestra un aviso permanente y visible recomendando exportar backups
+
+### Requirement: Transiciones de navegación y micro-interacciones del shell
+
+El sistema SHALL presentar transiciones fluidas en la barra de navegación móvil, el drawer lateral y el cambio de temas (claro/oscuro), respetando las preferencias de accesibilidad del usuario.
+
+#### Scenario: Apertura fluida del drawer lateral en móvil
+
+- **WHEN** el usuario pulsa el botón de menú o el botón de temas en la barra superior/inferior móvil
+- **THEN** el drawer lateral se despliega con una transición de aceleración suave y el fondo oscurecido aplica un desenfoque progresivo
+
+#### Scenario: Cambio de tema visual sin saltos abruptos
+
+- **WHEN** el usuario pulsa el botón de alternar tema (modo claro / modo oscuro)
+- **THEN** la paleta de colores y los fondos de la interfaz realizan una transición suave de 200ms sin parpadeos
+
+#### Scenario: Respeto a preferencias de movimiento reducido
+
+- **WHEN** el sistema operativo o navegador tiene activada la opción `prefers-reduced-motion: reduce`
+- **THEN** las transiciones cinéticas y animaciones complejas se desactivan o se reducen a desvanecimientos instantáneos
+
+### Requirement: Tema visual moderno estilo Obsidian y Notion
+El sistema DEBE aplicar una jerarquía visual de alto contraste y densidad limpia con paleta Obsidian Dark (`#0f141c`) y Notion Light (`#ffffff`), con bordes translúcidos de 1px, tipografía sans-serif legible y compatibilidad con pantallas OLED y móviles.
+
+#### Scenario: Alternar tema con persistencia y contraste correcto
+- **WHEN** el usuario alterna entre modo claro y oscuro
+- **THEN** todas las superficies, tarjetas, inputs de tags y modales adaptan sus colores de fondo y texto sin pérdida de contraste
+
+### Requirement: Floating Dock de navegación móvil con Glassmorphism
+El sistema DEBE proveer en dispositivos móviles una barra inferior translúcida con desenfoque de cristal (`backdrop-filter: blur(16px)`), botón central flotante para captura rápida y accesos directos a Temas, Favoritos, Inbox y Sincronización.
+
+#### Scenario: Navegar mediante el dock móvil
+- **WHEN** el usuario interactúa con la barra inferior en un dispositivo móvil
+- **THEN** el sistema navega instantáneamente a la sección seleccionada con respuesta visual activa
+
+### Requirement: Protección de la interfaz mediante Error Boundary
+El shell de la aplicación DEBE estar envuelto en un Error Boundary que prevenga caídas globales de la aplicación y preserve el estado de navegación y datos en caso de errores en subárboles de componentes.
+
+#### Scenario: Recuperación ante fallo de interfaz
+- **WHEN** un componente de la interfaz lanza una excepción no controlada
+- **THEN** la aplicación captura el error sin cerrar la app y permite al usuario reintentar el renderizado
