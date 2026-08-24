@@ -10,6 +10,9 @@ vite-dev.log
 # Cachés y temporales
 .cache/
 *.local
+.env
+.env.*
+!.env.example
 .codegraph/
 
 # SO
