@@ -29,6 +29,7 @@ import {
   ConfirmDialog,
   AlertDialog,
 } from './components/common/DialogModal'
+import { Toast } from './components/common/Toast'
 import { ensurePersistentStorage } from './pwa/persistence'
 import { childrenOf } from './domain/tree'
 import { db } from './db/db'
@@ -98,6 +99,7 @@ function App() {
   const [promptState, setPromptState] = useState<PromptState>(null)
   const [deleteState, setDeleteState] = useState<DeleteState>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   const storagePersisted = useStoragePersisted()
   const editorRef = useRef<MarkdownEditorHandle | null>(null)
@@ -212,10 +214,15 @@ function App() {
         title: value.trim(),
         parent_id: promptState.parentId,
       })
-      setSelectedId(node.id)
-      setSeedBody(null)
-      setIsEditMode(true)
-      setSidebarOpen(false)
+      if (promptState.kind === 'article') {
+        setSelectedId(node.id)
+        setSeedBody(null)
+        setIsEditMode(true)
+        setSidebarOpen(false)
+      } else {
+        // Al crear carpeta: NO cambiamos la selección activa ni el modo edición
+        setToastMessage(`📁 Carpeta "${node.title}" creada con éxito`)
+      }
     } else if (promptState.type === 'create-from-template') {
       const tpl = templates.find((t) => t.node.title === promptState.templateTitle)
       if (!tpl) return
@@ -788,6 +795,9 @@ function App() {
           onClose={() => setErrorMessage(null)}
         />
       )}
+
+      {/* Notificación Toast Flotante */}
+      <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
     </div>
   )
 }
