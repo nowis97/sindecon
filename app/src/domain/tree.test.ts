@@ -37,6 +37,22 @@ describe('domain/tree', () => {
     expect(canMove(rows, 'B', 'E')).toBe(true) // rama bajo otra raíz
   })
 
+  it('canMove protege la carpeta de plantillas y sus elementos', () => {
+    const tplFolder: NodeRow = { ...n('tpl-folder', null), system: 'templates' }
+    const tplArticle: NodeRow = { ...n('tpl-art', 'tpl-folder'), system: 'templates', kind: 'article' }
+    const normalArticle: NodeRow = { ...n('art-1', null), kind: 'article' }
+    const all = [...rows, tplFolder, tplArticle, normalArticle]
+
+    // No se puede mover una plantilla ni la carpeta de plantillas
+    expect(canMove(all, 'tpl-folder', 'A')).toBe(false)
+    expect(canMove(all, 'tpl-art', 'A')).toBe(false)
+    expect(canMove(all, 'tpl-art', null)).toBe(false)
+
+    // No se puede mover un artículo o carpeta normal hacia la carpeta de plantillas
+    expect(canMove(all, 'art-1', 'tpl-folder')).toBe(false)
+    expect(canMove(all, 'A', 'tpl-folder')).toBe(false)
+  })
+
   it('pathTo devuelve la ruta raíz → nodo', () => {
     expect(pathTo(rows, 'D').map((x) => x.id)).toEqual(['A', 'B', 'D'])
     expect(pathTo(rows, 'E').map((x) => x.id)).toEqual(['E'])

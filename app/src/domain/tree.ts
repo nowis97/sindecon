@@ -31,16 +31,36 @@ export function isDescendant(
 }
 
 /**
- * Un movimiento es válido si el destino no es el propio nodo,
- * ni uno de sus descendientes (crearía un ciclo).
+ * Un movimiento es válido si:
+ * 1. No es un elemento protegido del sistema 'templates' (carpeta de plantillas o plantillas maestras).
+ * 2. El destino no es 'templates' ni descendiente de 'templates'.
+ * 3. El destino no es el propio nodo, ni uno de sus descendientes (evita ciclos).
  */
 export function canMove(
   rows: NodeRow[],
   id: string,
   newParentId: string | null,
 ): boolean {
+  const byId = new Map(rows.map((r) => [r.id, r]))
+  const sourceNode = byId.get(id)
+
+  // No permitir mover plantillas ni la carpeta del sistema 'templates'
+  if (sourceNode?.system === 'templates') return false
+
   if (newParentId === null) return true
   if (newParentId === id) return false
+
+  const targetNode = byId.get(newParentId)
+  // No permitir mover elementos hacia la carpeta 'templates' ni dentro de sus subcarpetas
+  if (targetNode?.system === 'templates') return false
+
+  let currentParentId = targetNode?.parent_id
+  while (currentParentId) {
+    const ancestor = byId.get(currentParentId)
+    if (ancestor?.system === 'templates') return false
+    currentParentId = ancestor?.parent_id
+  }
+
   return !isDescendant(rows, id, newParentId)
 }
 

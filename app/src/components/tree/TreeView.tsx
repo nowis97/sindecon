@@ -111,9 +111,9 @@ export function TreeView({
               .filter(Boolean)
               .join(' ')}
             style={{ paddingLeft: 8 + depth * 16 }}
-            draggable={!moveMode}
+            draggable={!moveMode && node.system !== 'templates'}
             onDragStart={(e) => {
-              if (moveMode) return
+              if (moveMode || node.system === 'templates') return
               globalDraggingId = node.id
               e.dataTransfer.setData('text/plain', node.id)
               e.dataTransfer.setData('application/sindecon-node-id', node.id)
@@ -188,7 +188,7 @@ export function TreeView({
             }}
             onClick={() => {
               if (moveMode) {
-                if (isFolder) onMoveTarget(node.id)
+                if (isFolder && node.system !== 'templates') onMoveTarget(node.id)
                 return
               }
               onSelect(node.id)
@@ -211,7 +211,7 @@ export function TreeView({
             <span className="tree-title">{node.title}</span>
 
             {/* Menú de acciones contextuales por fila */}
-            {!moveMode && (
+            {!moveMode && !(node.system === 'templates' && isFolder) && (
               <div
                 className="tree-row-actions"
                 onClick={(e) => e.stopPropagation()}
@@ -258,7 +258,7 @@ export function TreeView({
                       </button>
                     )}
 
-                    {isFolder && (
+                    {isFolder && node.system !== 'templates' && (
                       <>
                         <button
                           type="button"
@@ -286,40 +286,50 @@ export function TreeView({
                       </>
                     )}
 
-                    <button
-                      type="button"
-                      className="context-menu-item"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setActiveMenuId(null)
-                        onRenameNode?.(node.id)
-                      }}
-                    >
-                      ✏️ Renombrar
-                    </button>
-                    <button
-                      type="button"
-                      className="context-menu-item"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setActiveMenuId(null)
-                        onMoveNode?.(node.id)
-                      }}
-                    >
-                      📦 Mover
-                    </button>
-                    <hr className="context-menu-divider" />
-                    <button
-                      type="button"
-                      className="context-menu-item item-danger"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setActiveMenuId(null)
-                        onDeleteNode?.(node.id)
-                      }}
-                    >
-                      🗑️ Eliminar
-                    </button>
+                    {node.system !== 'templates' && (
+                      <>
+                        <button
+                          type="button"
+                          className="context-menu-item"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setActiveMenuId(null)
+                            onRenameNode?.(node.id)
+                          }}
+                        >
+                          ✏️ Renombrar
+                        </button>
+                        {node.system !== 'inbox' && (
+                          <button
+                            type="button"
+                            className="context-menu-item"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setActiveMenuId(null)
+                              onMoveNode?.(node.id)
+                            }}
+                          >
+                            📦 Mover
+                          </button>
+                        )}
+                        {node.system !== 'inbox' && (
+                          <>
+                            <hr className="context-menu-divider" />
+                            <button
+                              type="button"
+                              className="context-menu-item item-danger"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setActiveMenuId(null)
+                                onDeleteNode?.(node.id)
+                              }}
+                            >
+                              🗑️ Eliminar
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
