@@ -202,6 +202,16 @@ export async function parseDocxFile(file: File): Promise<string> {
 }
 
 /**
+ * Detecta si el texto ingresado es predominantemente HTML (copiado de Word o web)
+ * en vez de texto plano o Markdown.
+ */
+export function isLikelyHtml(text: string): boolean {
+  if (/<html[\s>]|<body[\s>]|<!--\[if|<xml|class="?Mso/i.test(text)) return true
+  const htmlTagCount = (text.match(/<\/(?:p|div|table|tr|td|li|ul|ol|h[1-6]|span)>/gi) || []).length
+  return htmlTagCount >= 2
+}
+
+/**
  * Procesa texto o HTML pegado y lo normaliza a Markdown clínico.
  */
 export function processImportText(
@@ -210,8 +220,8 @@ export function processImportText(
 ): string {
   let md = input
 
-  // Si contiene etiquetas HTML evidentes o se indica explícitamente
-  if (options.isHtml || (input.includes('<p>') || input.includes('<table>') || input.includes('<div>') || input.includes('class="Mso'))) {
+  // Si contiene estructura HTML evidente o se indica explícitamente
+  if (options.isHtml || isLikelyHtml(input)) {
     md = cleanWordHtml(input)
   }
 

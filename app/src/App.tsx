@@ -102,10 +102,11 @@ function App() {
   const storagePersisted = useStoragePersisted()
   const editorRef = useRef<MarkdownEditorHandle | null>(null)
 
-  // Para el artículo recién creado: guardamos el body en local state
+  // Para el artículo recién creado o importado: guardamos el body en local state
   // para evitar la carrera con useLiveQuery (el editor podría montar
   // brevemente con body vacío y sobrescribir el contenido sembrado).
   const [seedBody, setSeedBody] = useState<string | null>(null)
+  const [editorRevision, setEditorRevision] = useState(0)
 
   useEffect(() => {
     void (async () => {
@@ -262,10 +263,14 @@ function App() {
       ? `${current.trim()}\n\n---\n\n${additionalMarkdown.trim()}`
       : additionalMarkdown.trim()
     await saveArticle(articleId, updated)
+    setSeedBody(updated)
+    setEditorRevision((r) => r + 1)
   }
 
   const handleReplaceCurrentArticle = async (articleId: string, newMarkdown: string) => {
     await saveArticle(articleId, newMarkdown)
+    setSeedBody(newMarkdown)
+    setEditorRevision((r) => r + 1)
   }
 
   const handleCreateNewArticle = async (
@@ -583,7 +588,7 @@ function App() {
                         />
                       </div>
                       <MarkdownEditor
-                        key={selected.id}
+                        key={`${selected.id}-${editorRevision}`}
                         nodeId={selected.id}
                         defaultValue={currentBody}
                         onChange={(nodeId, md) => saveArticle(nodeId, md)}

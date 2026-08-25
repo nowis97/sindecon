@@ -119,12 +119,17 @@ const hostRef = useRef<HTMLDivElement>(null)
       .addFeature(imageAssetFeature)
       .addFeature((editor) => editor.use(wikiLinkPlugin(onWikiClickRef.current)))
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
     crepe.on((listener) => {
       listener.markdownUpdated((_ctx, md) => {
         // Usamos el nodeId capturado al mount (NO reasignado), para evitar
         // que un markdownUpdated tardío del editor viejo guarde el body viejo
         // sobre el contenido recién sembrado del nuevo artículo.
-        onChangeForNode(nodeIdRef.current, md)
+        if (debounceTimer) clearTimeout(debounceTimer)
+        debounceTimer = setTimeout(() => {
+          onChangeForNode(nodeIdRef.current, md)
+        }, 150)
       })
     })
 
@@ -147,6 +152,7 @@ const hostRef = useRef<HTMLDivElement>(null)
     })
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
       if (editorRef) editorRef.current = null
       crepe.destroy()
     }
