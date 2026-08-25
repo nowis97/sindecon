@@ -9,6 +9,7 @@ import { useBacklinks } from './hooks/useBacklinks'
 import { useTheme } from './hooks/useTheme'
 import { useFavorites } from './hooks/useFavorites'
 import { useGoogleSync } from './hooks/useGoogleSync'
+import { usePWAUpdate } from './hooks/usePWAUpdate'
 import { TreeView } from './components/tree/TreeView'
 import { Breadcrumbs } from './components/tree/Breadcrumbs'
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/editor/MarkdownEditor'
@@ -18,6 +19,7 @@ import { SmartImportModal } from './components/editor/SmartImportModal'
 import { PortabilityBar } from './components/portability/PortabilityBar'
 import { SyncIndicator } from './components/portability/SyncIndicator'
 import { GoogleDriveModal } from './components/portability/GoogleDriveModal'
+import { UpdateToast } from './components/pwa/UpdateToast'
 import { SearchBox } from './components/search/SearchBox'
 import { CommandPalette } from './components/search/CommandPalette'
 import { TagInput } from './components/search/TagInput'
@@ -101,6 +103,9 @@ function App() {
   const [deleteState, setDeleteState] = useState<DeleteState>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  // Hook de Actualización PWA y Sondeo Activo
+  const { needRefresh, updateApp, closeToast } = usePWAUpdate()
 
   const storagePersisted = useStoragePersisted()
   const editorRef = useRef<MarkdownEditorHandle | null>(null)
@@ -824,6 +829,13 @@ function App() {
 
       {/* Notificación Toast Flotante */}
       <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
+
+      {/* Aviso Flotante de Actualización PWA */}
+      <UpdateToast
+        needRefresh={needRefresh}
+        onUpdate={updateApp}
+        onDismiss={closeToast}
+      />
     </div>
   )
 }

@@ -3880,3 +3880,117 @@ select.dialog-input {
     margin-bottom: 4pt !important;
   }
 }
+
+/* ==========================================================================
+   PWA Update Toast (Aviso flotante de nueva versión)
+   ========================================================================== */
+.pwa-update-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  background: var(--bg-surface-elevated, #ffffff);
+  color: var(--text-primary, #1e293b);
+  border: 1px solid var(--accent-primary, #2563eb);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  animation: slide-in-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 420px;
+}
+
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pwa-update-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pwa-update-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.pwa-update-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pwa-update-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+}
+
+.pwa-update-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.3;
+}
+
+.pwa-update-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-pwa-update {
+  padding: 6px 12px;
+  background: var(--accent-primary, #2563eb);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md, 6px);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
+}
+
+.btn-pwa-update:hover {
+  background: var(--accent-hover, #1d4ed8);
+  transform: translateY(-1px);
+}
+
+.btn-pwa-dismiss {
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.btn-pwa-dismiss:hover {
+  color: var(--text-primary, #1e293b);
+  background: var(--bg-hover, rgba(0, 0, 0, 0.05));
+}
+
+@media (max-width: 640px) {
+  .pwa-update-toast {
+    bottom: 76px; /* Para no tapar la barra de navegación móvil */
+    left: 12px;
+    right: 12px;
+    max-width: none;
+  }
+}
