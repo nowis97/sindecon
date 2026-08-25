@@ -142,7 +142,7 @@ export function TreeView({
               if (!currentDragged || currentDragged === node.id) return
 
               const rect = e.currentTarget.getBoundingClientRect()
-              const relY = (e.clientY - rect.top) / rect.height
+              const relY = (e.clientY - rect.top) / (rect.height || 1)
 
               let position: 'above' | 'inside' | 'below' = 'inside'
               if (isFolder) {
@@ -155,7 +155,8 @@ export function TreeView({
               }
 
               const targetFolder = position === 'inside' ? node.id : node.parent_id
-              if (!canMove(nodes, currentDragged, targetFolder)) return
+              const ok = canMove(nodes, currentDragged, targetFolder)
+              if (!ok) return
 
               e.preventDefault()
               e.stopPropagation()
@@ -198,7 +199,6 @@ export function TreeView({
             onDrop={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              const currentDrop = dragOverState
               setDragOverState(null)
               setDragOverId(null)
               if (hoverExpandTimerRef.current) {
@@ -212,12 +212,20 @@ export function TreeView({
                 draggedId
               setDraggedId(null)
 
-              let targetFolder: string | null = null
-              if (currentDrop && currentDrop.nodeId === node.id) {
-                targetFolder = currentDrop.position === 'inside' ? node.id : node.parent_id
+              const rect = e.currentTarget.getBoundingClientRect()
+              const relY = (e.clientY - rect.top) / (rect.height || 1)
+
+              let position: 'above' | 'inside' | 'below' = 'inside'
+              if (isFolder) {
+                if (relY < 0.25) position = 'above'
+                else if (relY > 0.75) position = 'below'
+                else position = 'inside'
               } else {
-                targetFolder = isFolder ? node.id : node.parent_id
+                if (relY < 0.5) position = 'above'
+                else position = 'below'
               }
+
+              const targetFolder = position === 'inside' ? node.id : node.parent_id
 
               if (sourceId && sourceId !== targetFolder && canMove(nodes, sourceId, targetFolder)) {
                 if (targetFolder) {
