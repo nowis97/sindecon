@@ -90,6 +90,7 @@ function App() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [moveMode, setMoveMode] = useState(false)
+  const [movingNodeId, setMovingNodeId] = useState<string | null>(null)
   const [isEditMode, setIsEditMode] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isQuickCaptureOpen, setIsQuickCaptureOpen] = useState(false)
@@ -253,10 +254,12 @@ function App() {
   }
 
   const onMoveTarget = async (folderId: string | null) => {
+    const targetId = movingNodeId || selectedId
     setMoveMode(false)
-    if (!selected) return
+    setMovingNodeId(null)
+    if (!targetId) return
     try {
-      await moveNode(selected.id, folderId)
+      await moveNode(targetId, folderId)
     } catch (e) {
       setErrorMessage((e as Error).message)
     }
@@ -454,8 +457,16 @@ function App() {
 
           {moveMode && (
             <div className="move-mode-banner">
-              <span>Moviendo "{selected?.title}". Selecciona la carpeta destino:</span>
-              <button type="button" onClick={() => setMoveMode(false)}>
+              <span>
+                Moviendo "{nodes.find((n) => n.id === (movingNodeId || selectedId))?.title || 'elemento'}". Selecciona la carpeta destino:
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setMoveMode(false)
+                  setMovingNodeId(null)
+                }}
+              >
                 Cancelar
               </button>
             </div>
@@ -475,11 +486,14 @@ function App() {
             onSelect={selectArticle}
             moveMode={moveMode}
             onMoveTarget={onMoveTarget}
-            onCancelMove={() => setMoveMode(false)}
+            onCancelMove={() => {
+              setMoveMode(false)
+              setMovingNodeId(null)
+            }}
             onMoveNodeDirect={handleMoveNodeDirect}
             onRenameNode={handleOpenRenamePrompt}
             onMoveNode={(id) => {
-              setSelectedId(id)
+              setMovingNodeId(id)
               setMoveMode(true)
             }}
             onDeleteNode={handleOpenDeleteConfirm}

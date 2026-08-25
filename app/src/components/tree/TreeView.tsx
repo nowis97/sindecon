@@ -389,14 +389,20 @@ export function TreeView({
     <div
       className="tree tree-view"
       onDragOver={(e) => {
-        if (!draggedId) return
+        const current = globalDraggingId || draggedId
+        if (!current || !canMove(nodes, current, null)) return
         e.preventDefault()
         e.dataTransfer.dropEffect = 'move'
       }}
       onDrop={(e) => {
         e.preventDefault()
         setDragOverId(null)
-        const sourceId = e.dataTransfer.getData('text/plain') || draggedId
+        const sourceId =
+          e.dataTransfer.getData('application/sindecon-node-id') ||
+          e.dataTransfer.getData('text/plain') ||
+          globalDraggingId ||
+          draggedId
+        globalDraggingId = null
         setDraggedId(null)
         if (sourceId && canMove(nodes, sourceId, null)) {
           void onMoveNodeDirect?.(sourceId, null)
@@ -435,9 +441,11 @@ export function TreeView({
             e.preventDefault()
             e.stopPropagation()
             e.dataTransfer.dropEffect = 'move'
-            setDragOverId('__root__')
+            if (dragOverId !== '__root__') setDragOverId('__root__')
           }}
-          onDragLeave={() => {
+          onDragLeave={(e) => {
+            e.stopPropagation()
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return
             if (dragOverId === '__root__') setDragOverId(null)
           }}
           onDrop={(e) => {
@@ -456,7 +464,7 @@ export function TreeView({
             }
           }}
         >
-          📂 Soltar aquí para mover a la raíz (Temas)
+          📂 Soltar aquí para mover a la raíz (Nivel principal)
         </div>
       )}
 
@@ -533,9 +541,11 @@ export function TreeView({
             e.preventDefault()
             e.stopPropagation()
             e.dataTransfer.dropEffect = 'move'
-            setDragOverId('__root__')
+            if (dragOverId !== '__root__') setDragOverId('__root__')
           }}
-          onDragLeave={() => {
+          onDragLeave={(e) => {
+            e.stopPropagation()
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return
             if (dragOverId === '__root__') setDragOverId(null)
           }}
           onDrop={(e) => {
@@ -554,7 +564,7 @@ export function TreeView({
             }
           }}
         >
-          📂 Soltar aquí para mover a la raíz (Temas)
+          📂 Soltar aquí para mover a la raíz (Nivel principal)
         </div>
       )}
     </div>
