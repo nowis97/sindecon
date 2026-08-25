@@ -468,6 +468,7 @@ function App() {
             onSelect={selectArticle}
             moveMode={moveMode}
             onMoveTarget={onMoveTarget}
+            onCancelMove={() => setMoveMode(false)}
             onMoveNodeDirect={handleMoveNodeDirect}
             onRenameNode={handleOpenRenamePrompt}
             onMoveNode={(id) => {

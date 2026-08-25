@@ -11,6 +11,7 @@ interface TreeViewProps {
   /** Cuando está activo, un click en carpeta = elegirla como destino de movimiento */
   moveMode: boolean
   onMoveTarget: (folderId: string | null) => void
+  onCancelMove?: () => void
   onMoveNodeDirect?: (nodeId: string, targetFolderId: string | null) => Promise<void>
   onRenameNode?: (id: string) => void
   onMoveNode?: (id: string) => void
@@ -26,6 +27,7 @@ export function TreeView({
   onSelect,
   moveMode,
   onMoveTarget,
+  onCancelMove,
   onMoveNodeDirect,
   onRenameNode,
   onMoveNode,
@@ -53,7 +55,12 @@ export function TreeView({
       setActiveMenuId(null)
     }
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setActiveMenuId(null)
+      if (e.key === 'Escape') {
+        setActiveMenuId(null)
+        if (moveMode) {
+          onCancelMove?.()
+        }
+      }
     }
 
     window.addEventListener('click', handleGlobalClick)
@@ -65,7 +72,7 @@ export function TreeView({
         clearTimeout(hoverExpandTimerRef.current)
       }
     }
-  }, [])
+  }, [moveMode, onCancelMove])
 
   const toggle = (id: string) =>
     setCollapsed((prev) => {
@@ -371,14 +378,23 @@ export function TreeView({
     >
       {moveMode && (
         <div className="move-banner">
-          <span>Elige la carpeta destino…</span>
-          <button
-            type="button"
-            className="btn-move-root"
-            onClick={() => onMoveTarget(null)}
-          >
-            Mover a raíz (Tema)
-          </button>
+          <span className="move-banner-title">📦 Selecciona la carpeta destino…</span>
+          <div className="move-banner-actions">
+            <button
+              type="button"
+              className="btn-move-root"
+              onClick={() => onMoveTarget(null)}
+            >
+              Mover a raíz
+            </button>
+            <button
+              type="button"
+              className="btn-move-cancel"
+              onClick={() => onCancelMove?.()}
+            >
+              ✕ Cancelar (Esc)
+            </button>
+          </div>
         </div>
       )}
 
