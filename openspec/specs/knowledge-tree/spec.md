@@ -85,3 +85,21 @@ El árbol de carpetas y artículos DEBE presentarse con un diseño minimalista d
 #### Scenario: Interacción fluida con el árbol de carpetas
 - **WHEN** el usuario navega o expande carpetas en la barra lateral
 - **THEN** el árbol responde con transiciones suaves y permite gestionar artículos directamente desde el menú contextual
+
+### Requirement: Drag and Drop de Artículos y Carpetas en el Árbol
+El sistema SHALL permitir organizar el árbol de conocimiento arrastrando y soltando artículos y subcarpetas directamente sobre carpetas de destino o hacia la raíz.
+
+#### Scenario: Arrastrar artículo a una carpeta
+- **GIVEN** el usuario tiene un artículo en la raíz o en una carpeta
+- **WHEN** arrastra el artículo sobre una carpeta de destino y lo suelta
+- **THEN** el artículo se mueve a la carpeta de destino y el árbol se actualiza inmediatamente
+
+#### Scenario: Auto-despliegue de carpeta al arrastrar
+- **GIVEN** una carpeta con subcarpetas está colapsada
+- **WHEN** el usuario arrastra un artículo y mantiene el cursor sobre la carpeta por más de 600ms
+- **THEN** la carpeta se despliega automáticamente mostrando sus subcarpetas para permitir soltar dentro de ellas
+
+#### Scenario: Validación anti-ciclos al arrastrar carpetas
+- **GIVEN** una carpeta que contiene subcarpetas
+- **WHEN** el usuario intenta arrastrar la carpeta padre dentro de una de sus subcarpetas o dentro de sí misma
+- **THEN** la acción no se permite y la carpeta destino no se resalta como válida

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { NodeRow } from '../../db/db'
-import { childrenOf } from '../../domain/tree'
+import { canMove, childrenOf } from '../../domain/tree'
 
 interface TreeViewProps {
   nodes: NodeRow[]
@@ -9,6 +9,7 @@ interface TreeViewProps {
   /** Cuando está activo, un click en carpeta = elegirla como destino de movimiento */
   moveMode: boolean
   onMoveTarget: (folderId: string | null) => void
+  onMoveNodeDirect?: (nodeId: string, targetFolderId: string | null) => Promise<void>
   onRenameNode?: (id: string) => void
   onMoveNode?: (id: string) => void
   onDeleteNode?: (id: string) => void
@@ -23,6 +24,7 @@ export function TreeView({
   onSelect,
   moveMode,
   onMoveTarget,
+  onMoveNodeDirect,
   onRenameNode,
   onMoveNode,
   onDeleteNode,
@@ -33,6 +35,11 @@ export function TreeView({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [favoritesCollapsed, setFavoritesCollapsed] = useState(false)
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null)
+
+  // Drag and Drop State
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const hoverExpandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const handleGlobalClick = () => setActiveMenuId(null)
@@ -45,6 +52,9 @@ export function TreeView({
     return () => {
       window.removeEventListener('click', handleGlobalClick)
       window.removeEventListener('keydown', handleKeyDown)
+      if (hoverExpandTimerRef.current) {
+        clearTimeout(hoverExpandTimerRef.current)
+      }
     }
   }, [])
 
@@ -68,6 +78,8 @@ export function TreeView({
       const hasChildren = childrenOf(nodes, node.id).length > 0
       const isMenuOpen = activeMenuId === node.id
       const isFav = favoriteIds.includes(node.id)
+      const isBeingDragged = draggedId === node.id
+      const isDragTarget = dragOverId === node.id
 
       return (
         <div key={node.id} className="tree-node-wrapper">
@@ -76,8 +88,74 @@ export function TreeView({
               'tree-row',
               node.id === selectedId ? 'selected' : '',
               moveMode && isFolder ? 'move-target' : '',
-            ].join(' ')}
+              isBeingDragged ? 'dragging' : '',
+              isDragTarget ? 'drag-over' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             style={{ paddingLeft: 8 + depth * 16 }}
+            draggable={!moveMode}
+            onDragStart={(e) => {
+              if (moveMode) return
+              e.dataTransfer.setData('text/plain', node.id)
+              e.dataTransfer.effectAllowed = 'move'
+              setDraggedId(node.id)
+            }}
+            onDragEnd={() => {
+              setDraggedId(null)
+              setDragOverId(null)
+              if (hoverExpandTimerRef.current) {
+                clearTimeout(hoverExpandTimerRef.current)
+                hoverExpandTimerRef.current = null
+              }
+            }}
+            onDragOver={(e) => {
+              if (!draggedId || draggedId === node.id) return
+              if (!isFolder) return
+              if (!canMove(nodes, draggedId, node.id)) return
+
+              e.preventDefault()
+              e.stopPropagation()
+              e.dataTransfer.dropEffect = 'move'
+
+              if (dragOverId !== node.id) {
+                setDragOverId(node.id)
+                if (isCollapsed) {
+                  if (hoverExpandTimerRef.current) clearTimeout(hoverExpandTimerRef.current)
+                  hoverExpandTimerRef.current = setTimeout(() => {
+                    setCollapsed((prev) => {
+                      const next = new Set(prev)
+                      next.delete(node.id)
+                      return next
+                    })
+                  }, 600)
+                }
+              }
+            }}
+            onDragLeave={(e) => {
+              e.stopPropagation()
+              if (dragOverId === node.id) {
+                setDragOverId(null)
+                if (hoverExpandTimerRef.current) {
+                  clearTimeout(hoverExpandTimerRef.current)
+                  hoverExpandTimerRef.current = null
+                }
+              }
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setDragOverId(null)
+              if (hoverExpandTimerRef.current) {
+                clearTimeout(hoverExpandTimerRef.current)
+                hoverExpandTimerRef.current = null
+              }
+              const sourceId = e.dataTransfer.getData('text/plain') || draggedId
+              setDraggedId(null)
+              if (sourceId && isFolder && sourceId !== node.id && canMove(nodes, sourceId, node.id)) {
+                void onMoveNodeDirect?.(sourceId, node.id)
+              }
+            }}
             onClick={() => {
               if (moveMode) {
                 if (isFolder) onMoveTarget(node.id)
@@ -277,6 +355,32 @@ export function TreeView({
       )}
 
       {renderLevel(null, 0)}
+
+      {/* Zona para soltar y mover a la raíz */}
+      {draggedId && canMove(nodes, draggedId, null) && (
+        <div
+          className={`tree-root-dropzone ${dragOverId === '__root__' ? 'drag-over' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+            setDragOverId('__root__')
+          }}
+          onDragLeave={() => {
+            if (dragOverId === '__root__') setDragOverId(null)
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragOverId(null)
+            const sourceId = e.dataTransfer.getData('text/plain') || draggedId
+            setDraggedId(null)
+            if (sourceId && canMove(nodes, sourceId, null)) {
+              void onMoveNodeDirect?.(sourceId, null)
+            }
+          }}
+        >
+          📥 Soltar aquí para mover a la raíz
+        </div>
+      )}
     </div>
   )
 }

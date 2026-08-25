@@ -1035,6 +1035,44 @@ body {
   font-weight: 600;
 }
 
+/* Drag and Drop en TreeView */
+.tree-row.dragging {
+  opacity: 0.45;
+  outline: 1px dashed var(--accent-primary);
+  transform: scale(0.98);
+}
+
+.tree-row.drag-over {
+  background: var(--accent-surface) !important;
+  outline: 2px solid var(--accent-primary) !important;
+  color: var(--accent-primary) !important;
+  transform: scale(1.02) translateX(4px);
+  box-shadow: 0 0 10px var(--accent-glow);
+  z-index: 2;
+}
+
+.tree-root-dropzone {
+  margin: 12px 6px;
+  padding: 8px 10px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  transition: all var(--dur-fast) var(--ease-smooth);
+  animation: fade-in-up var(--dur-fast) var(--ease-smooth);
+}
+
+.tree-root-dropzone.drag-over {
+  border-color: var(--accent-primary);
+  background: var(--accent-surface);
+  color: var(--accent-text);
+  box-shadow: 0 0 12px var(--accent-glow);
+  transform: scale(1.02);
+}
+
 .tree-caret {
   background: none;
   border: none;

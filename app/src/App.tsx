@@ -255,6 +255,14 @@ function App() {
     }
   }
 
+  const handleMoveNodeDirect = async (nodeId: string, folderId: string | null) => {
+    try {
+      await moveNode(nodeId, folderId)
+    } catch (e) {
+      setErrorMessage((e as Error).message)
+    }
+  }
+
   // --- Handlers de Importación Inteligente (ChatGPT / Word) ---
   const handleAppendToCurrentArticle = async (articleId: string, additionalMarkdown: string) => {
     const art = await db.articles.get(articleId)
@@ -460,6 +468,7 @@ function App() {
             onSelect={selectArticle}
             moveMode={moveMode}
             onMoveTarget={onMoveTarget}
+            onMoveNodeDirect={handleMoveNodeDirect}
             onRenameNode={handleOpenRenamePrompt}
             onMoveNode={(id) => {
               setSelectedId(id)
