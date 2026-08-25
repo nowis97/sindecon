@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { NodeRow } from '../../db/db'
 import { canMove, childrenOf } from '../../domain/tree'
 
+let globalDraggingId: string | null = null
+
 interface TreeViewProps {
   nodes: NodeRow[]
   selectedId: string | null
@@ -97,11 +99,14 @@ export function TreeView({
             draggable={!moveMode}
             onDragStart={(e) => {
               if (moveMode) return
+              globalDraggingId = node.id
               e.dataTransfer.setData('text/plain', node.id)
+              e.dataTransfer.setData('application/sindecon-node-id', node.id)
               e.dataTransfer.effectAllowed = 'move'
               setDraggedId(node.id)
             }}
             onDragEnd={() => {
+              globalDraggingId = null
               setDraggedId(null)
               setDragOverId(null)
               if (hoverExpandTimerRef.current) {
@@ -110,9 +115,10 @@ export function TreeView({
               }
             }}
             onDragOver={(e) => {
-              if (!draggedId || draggedId === node.id) return
+              const currentDragged = globalDraggingId || draggedId
+              if (!currentDragged || currentDragged === node.id) return
               const targetFolder = isFolder ? node.id : node.parent_id
-              if (!canMove(nodes, draggedId, targetFolder)) return
+              if (!canMove(nodes, currentDragged, targetFolder)) return
 
               e.preventDefault()
               e.stopPropagation()
@@ -153,7 +159,12 @@ export function TreeView({
                 clearTimeout(hoverExpandTimerRef.current)
                 hoverExpandTimerRef.current = null
               }
-              const sourceId = e.dataTransfer.getData('text/plain') || draggedId
+              const sourceId =
+                e.dataTransfer.getData('application/sindecon-node-id') ||
+                e.dataTransfer.getData('text/plain') ||
+                globalDraggingId ||
+                draggedId
+              globalDraggingId = null
               setDraggedId(null)
               const targetFolder = isFolder ? node.id : node.parent_id
               if (sourceId && sourceId !== targetFolder && canMove(nodes, sourceId, targetFolder)) {
@@ -366,7 +377,12 @@ export function TreeView({
             e.preventDefault()
             e.stopPropagation()
             setDragOverId(null)
-            const sourceId = e.dataTransfer.getData('text/plain') || draggedId
+            const sourceId =
+              e.dataTransfer.getData('application/sindecon-node-id') ||
+              e.dataTransfer.getData('text/plain') ||
+              globalDraggingId ||
+              draggedId
+            globalDraggingId = null
             setDraggedId(null)
             if (sourceId && canMove(nodes, sourceId, null)) {
               void onMoveNodeDirect?.(sourceId, null)
@@ -404,11 +420,14 @@ export function TreeView({
                     draggable={!moveMode}
                     onDragStart={(e) => {
                       if (moveMode) return
+                      globalDraggingId = fav.id
                       e.dataTransfer.setData('text/plain', fav.id)
+                      e.dataTransfer.setData('application/sindecon-node-id', fav.id)
                       e.dataTransfer.effectAllowed = 'move'
                       setDraggedId(fav.id)
                     }}
                     onDragEnd={() => {
+                      globalDraggingId = null
                       setDraggedId(null)
                       setDragOverId(null)
                     }}
@@ -456,7 +475,12 @@ export function TreeView({
             e.preventDefault()
             e.stopPropagation()
             setDragOverId(null)
-            const sourceId = e.dataTransfer.getData('text/plain') || draggedId
+            const sourceId =
+              e.dataTransfer.getData('application/sindecon-node-id') ||
+              e.dataTransfer.getData('text/plain') ||
+              globalDraggingId ||
+              draggedId
+            globalDraggingId = null
             setDraggedId(null)
             if (sourceId && canMove(nodes, sourceId, null)) {
               void onMoveNodeDirect?.(sourceId, null)
