@@ -44,7 +44,13 @@ export function TreeView({
   const hoverExpandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    const handleGlobalClick = () => setActiveMenuId(null)
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target?.closest?.('.tree-row-actions, .tree-context-menu, .btn-tree-row-menu')) {
+        return
+      }
+      setActiveMenuId(null)
+    }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setActiveMenuId(null)
     }
@@ -84,7 +90,7 @@ export function TreeView({
       const isDragTarget = dragOverId === node.id
 
       return (
-        <div key={node.id} className="tree-node-wrapper">
+        <div key={node.id} className={`tree-node-wrapper ${isMenuOpen ? 'has-open-menu' : ''}`}>
           <div
             className={[
               'tree-row',
@@ -92,6 +98,7 @@ export function TreeView({
               moveMode && isFolder ? 'move-target' : '',
               isBeingDragged ? 'dragging' : '',
               isDragTarget ? 'drag-over' : '',
+              isMenuOpen ? 'has-open-menu' : '',
             ]
               .filter(Boolean)
               .join(' ')}
@@ -200,10 +207,11 @@ export function TreeView({
               <div
                 className="tree-row-actions"
                 onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
               >
                 <button
                   type="button"
-                  className="btn-tree-row-menu"
+                  className={`btn-tree-row-menu ${isMenuOpen ? 'active' : ''}`}
                   title="Opciones"
                   aria-label={`Opciones para ${node.title}`}
                   onClick={(e) => {
@@ -218,12 +226,14 @@ export function TreeView({
                   <div
                     className="tree-context-menu"
                     onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
                   >
                     {node.kind === 'article' && onToggleFavorite && (
                       <button
                         type="button"
                         className="context-menu-item"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation()
                           setActiveMenuId(null)
                           onToggleFavorite(node.id)
                         }}
@@ -237,7 +247,8 @@ export function TreeView({
                         <button
                           type="button"
                           className="context-menu-item"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation()
                             setActiveMenuId(null)
                             onCreateChild?.(node.id, 'article')
                           }}
@@ -247,7 +258,8 @@ export function TreeView({
                         <button
                           type="button"
                           className="context-menu-item"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation()
                             setActiveMenuId(null)
                             onCreateChild?.(node.id, 'folder')
                           }}
@@ -261,7 +273,8 @@ export function TreeView({
                     <button
                       type="button"
                       className="context-menu-item"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation()
                         setActiveMenuId(null)
                         onRenameNode?.(node.id)
                       }}
@@ -271,7 +284,8 @@ export function TreeView({
                     <button
                       type="button"
                       className="context-menu-item"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation()
                         setActiveMenuId(null)
                         onMoveNode?.(node.id)
                       }}
@@ -282,7 +296,8 @@ export function TreeView({
                     <button
                       type="button"
                       className="context-menu-item item-danger"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation()
                         setActiveMenuId(null)
                         onDeleteNode?.(node.id)
                       }}
