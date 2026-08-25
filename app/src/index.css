@@ -1165,7 +1165,6 @@ body {
 /* Context Menu */
 .tree-context-menu {
   position: absolute;
-  top: calc(100% + 4px);
   right: 6px;
   z-index: 99999 !important;
   background: var(--bg-card);
@@ -1175,18 +1174,43 @@ body {
   backdrop-filter: blur(14px);
   padding: 6px;
   min-width: 175px;
+  max-height: 80vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  transform-origin: top right;
-  animation: context-menu-pop var(--dur-fast) var(--ease-spring);
   pointer-events: auto;
 }
 
-@keyframes context-menu-pop {
+.tree-context-menu.placement-down {
+  top: calc(100% + 4px);
+  bottom: auto;
+  transform-origin: top right;
+  animation: context-menu-pop-down var(--dur-fast) var(--ease-spring);
+}
+
+.tree-context-menu.placement-up {
+  bottom: calc(100% + 4px);
+  top: auto;
+  transform-origin: bottom right;
+  animation: context-menu-pop-up var(--dur-fast) var(--ease-spring);
+}
+
+@keyframes context-menu-pop-down {
   from {
     opacity: 0;
     transform: scale(0.92) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes context-menu-pop-up {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(4px);
   }
   to {
     opacity: 1;

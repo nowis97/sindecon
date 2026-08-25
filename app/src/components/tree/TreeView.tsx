@@ -37,6 +37,7 @@ export function TreeView({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [favoritesCollapsed, setFavoritesCollapsed] = useState(false)
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null)
+  const [menuPlacement, setMenuPlacement] = useState<'down' | 'up'>('down')
 
   // Drag and Drop State
   const [draggedId, setDraggedId] = useState<string | null>(null)
@@ -216,7 +217,15 @@ export function TreeView({
                   aria-label={`Opciones para ${node.title}`}
                   onClick={(e) => {
                     e.stopPropagation()
-                    setActiveMenuId(isMenuOpen ? null : node.id)
+                    if (isMenuOpen) {
+                      setActiveMenuId(null)
+                    } else {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const spaceBelow = window.innerHeight - rect.bottom
+                      const openUp = spaceBelow < 260 && rect.top > 220
+                      setMenuPlacement(openUp ? 'up' : 'down')
+                      setActiveMenuId(node.id)
+                    }
                   }}
                 >
                   ···
@@ -224,7 +233,7 @@ export function TreeView({
 
                 {isMenuOpen && (
                   <div
-                    className="tree-context-menu"
+                    className={`tree-context-menu placement-${menuPlacement}`}
                     onClick={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
                   >
