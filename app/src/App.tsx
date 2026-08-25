@@ -260,6 +260,12 @@ function App() {
     if (!targetId) return
     try {
       await moveNode(targetId, folderId)
+      const movedNode = nodes.find((n) => n.id === targetId)
+      const targetNode = folderId ? nodes.find((n) => n.id === folderId) : null
+      const targetName = targetNode ? `"${targetNode.title}"` : 'la raíz'
+      if (movedNode) {
+        setToastMessage(`📦 "${movedNode.title}" movido a ${targetName}`)
+      }
     } catch (e) {
       setErrorMessage((e as Error).message)
     }
@@ -268,6 +274,12 @@ function App() {
   const handleMoveNodeDirect = async (nodeId: string, folderId: string | null) => {
     try {
       await moveNode(nodeId, folderId)
+      const movedNode = nodes.find((n) => n.id === nodeId)
+      const targetNode = folderId ? nodes.find((n) => n.id === folderId) : null
+      const targetName = targetNode ? `"${targetNode.title}"` : 'la raíz'
+      if (movedNode) {
+        setToastMessage(`📦 "${movedNode.title}" movido a ${targetName}`)
+      }
     } catch (e) {
       setErrorMessage((e as Error).message)
     }

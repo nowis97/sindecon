@@ -121,7 +121,9 @@ export function TreeView({
               setDraggedId(node.id)
             }}
             onDragEnd={() => {
-              globalDraggingId = null
+              setTimeout(() => {
+                globalDraggingId = null
+              }, 200)
               setDraggedId(null)
               setDragOverId(null)
               if (hoverExpandTimerRef.current) {
@@ -155,7 +157,7 @@ export function TreeView({
             }}
             onDragLeave={(e) => {
               e.stopPropagation()
-              if (e.currentTarget.contains(e.relatedTarget as Node)) {
+              if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) {
                 return
               }
               if (dragOverId === node.id) {
@@ -179,7 +181,6 @@ export function TreeView({
                 e.dataTransfer.getData('text/plain') ||
                 globalDraggingId ||
                 draggedId
-              globalDraggingId = null
               setDraggedId(null)
               const targetFolder = isFolder ? node.id : node.parent_id
               if (sourceId && sourceId !== targetFolder && canMove(nodes, sourceId, targetFolder)) {

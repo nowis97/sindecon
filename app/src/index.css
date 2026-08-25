@@ -1050,6 +1050,7 @@ body {
   justify-content: center;
   font-size: 0.95rem;
   flex-shrink: 0;
+  pointer-events: none;
 }
 
 .tree-title {
@@ -1058,6 +1059,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .tree-row-actions {
