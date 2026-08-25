@@ -1088,13 +1088,52 @@ body {
   transform: scale(0.98);
 }
 
+.tree-row.drag-over-inside,
 .tree-row.drag-over {
   background: var(--accent-surface) !important;
   outline: 2px solid var(--accent-primary) !important;
   color: var(--accent-primary) !important;
   transform: scale(1.02) translateX(4px);
-  box-shadow: 0 0 10px var(--accent-glow);
-  z-index: 2;
+  box-shadow: 0 0 12px var(--accent-glow);
+  z-index: 5;
+}
+
+.tree-row.drag-over-above {
+  position: relative;
+  background: var(--accent-surface);
+}
+
+.tree-row.drag-over-above::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 4px;
+  right: 4px;
+  height: 3px;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  box-shadow: 0 0 8px var(--accent-glow);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.tree-row.drag-over-below {
+  position: relative;
+  background: var(--accent-surface);
+}
+
+.tree-row.drag-over-below::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 4px;
+  right: 4px;
+  height: 3px;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  box-shadow: 0 0 8px var(--accent-glow);
+  z-index: 10;
+  pointer-events: none;
 }
 
 .tree-root-dropzone {
@@ -1110,6 +1149,14 @@ body {
   transition: all var(--dur-fast) var(--ease-smooth);
   animation: fade-in-up var(--dur-fast) var(--ease-smooth);
   cursor: pointer;
+}
+
+.tree-root-dropzone.hidden {
+  display: none;
+}
+
+.tree-root-dropzone.visible {
+  display: block;
 }
 
 .tree-root-dropzone.drag-over {

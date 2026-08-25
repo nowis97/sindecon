@@ -44,6 +44,10 @@ export function TreeView({
   // Drag and Drop State
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [dragOverState, setDragOverState] = useState<{
+    nodeId: string
+    position: 'above' | 'inside' | 'below'
+  } | null>(null)
   const hoverExpandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -96,6 +100,7 @@ export function TreeView({
       const isFav = favoriteIds.includes(node.id)
       const isBeingDragged = draggedId === node.id
       const isDragTarget = dragOverId === node.id
+      const dragPosition = dragOverState?.nodeId === node.id ? dragOverState.position : null
 
       return (
         <div key={node.id} className={`tree-node-wrapper ${isMenuOpen ? 'has-open-menu' : ''}`}>
@@ -105,7 +110,7 @@ export function TreeView({
               node.id === selectedId ? 'selected' : '',
               moveMode && isFolder ? 'move-target' : '',
               isBeingDragged ? 'dragging' : '',
-              isDragTarget ? 'drag-over' : '',
+              isDragTarget && dragPosition ? `drag-over-${dragPosition}` : isDragTarget ? 'drag-over' : '',
               isMenuOpen ? 'has-open-menu' : '',
             ]
               .filter(Boolean)
@@ -126,6 +131,7 @@ export function TreeView({
               }, 200)
               setDraggedId(null)
               setDragOverId(null)
+              setDragOverState(null)
               if (hoverExpandTimerRef.current) {
                 clearTimeout(hoverExpandTimerRef.current)
                 hoverExpandTimerRef.current = null
@@ -134,16 +140,36 @@ export function TreeView({
             onDragOver={(e) => {
               const currentDragged = globalDraggingId || draggedId
               if (!currentDragged || currentDragged === node.id) return
-              const targetFolder = isFolder ? node.id : node.parent_id
+
+              const rect = e.currentTarget.getBoundingClientRect()
+              const relY = (e.clientY - rect.top) / rect.height
+
+              let position: 'above' | 'inside' | 'below' = 'inside'
+              if (isFolder) {
+                if (relY < 0.25) position = 'above'
+                else if (relY > 0.75) position = 'below'
+                else position = 'inside'
+              } else {
+                if (relY < 0.5) position = 'above'
+                else position = 'below'
+              }
+
+              const targetFolder = position === 'inside' ? node.id : node.parent_id
               if (!canMove(nodes, currentDragged, targetFolder)) return
 
               e.preventDefault()
               e.stopPropagation()
               e.dataTransfer.dropEffect = 'move'
 
-              if (dragOverId !== node.id) {
+              if (
+                !dragOverState ||
+                dragOverState.nodeId !== node.id ||
+                dragOverState.position !== position
+              ) {
+                setDragOverState({ nodeId: node.id, position })
                 setDragOverId(node.id)
-                if (isFolder && isCollapsed) {
+
+                if (isFolder && isCollapsed && position === 'inside') {
                   if (hoverExpandTimerRef.current) clearTimeout(hoverExpandTimerRef.current)
                   hoverExpandTimerRef.current = setTimeout(() => {
                     setCollapsed((prev) => {
@@ -151,7 +177,7 @@ export function TreeView({
                       next.delete(node.id)
                       return next
                     })
-                  }, 250)
+                  }, 300)
                 }
               }
             }}
@@ -160,7 +186,8 @@ export function TreeView({
               if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) {
                 return
               }
-              if (dragOverId === node.id) {
+              if (dragOverState?.nodeId === node.id) {
+                setDragOverState(null)
                 setDragOverId(null)
                 if (hoverExpandTimerRef.current) {
                   clearTimeout(hoverExpandTimerRef.current)
@@ -171,6 +198,8 @@ export function TreeView({
             onDrop={(e) => {
               e.preventDefault()
               e.stopPropagation()
+              const currentDrop = dragOverState
+              setDragOverState(null)
               setDragOverId(null)
               if (hoverExpandTimerRef.current) {
                 clearTimeout(hoverExpandTimerRef.current)
@@ -182,7 +211,14 @@ export function TreeView({
                 globalDraggingId ||
                 draggedId
               setDraggedId(null)
-              const targetFolder = isFolder ? node.id : node.parent_id
+
+              let targetFolder: string | null = null
+              if (currentDrop && currentDrop.nodeId === node.id) {
+                targetFolder = currentDrop.position === 'inside' ? node.id : node.parent_id
+              } else {
+                targetFolder = isFolder ? node.id : node.parent_id
+              }
+
               if (sourceId && sourceId !== targetFolder && canMove(nodes, sourceId, targetFolder)) {
                 if (targetFolder) {
                   setCollapsed((prev) => {
