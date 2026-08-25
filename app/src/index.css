@@ -992,12 +992,18 @@ body {
   border-radius: var(--radius-sm);
   font-size: 0.86rem;
   color: var(--text-secondary);
-  cursor: pointer;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
   margin: 1px 0;
   transition: background-color var(--dur-fast) var(--ease-smooth),
               color var(--dur-fast) var(--ease-smooth),
               transform var(--dur-fast) var(--ease-spring);
   position: relative;
+}
+
+.tree-row:active {
+  cursor: grabbing;
 }
 
 .tree-icon {

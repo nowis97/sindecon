@@ -111,8 +111,8 @@ export function TreeView({
             }}
             onDragOver={(e) => {
               if (!draggedId || draggedId === node.id) return
-              if (!isFolder) return
-              if (!canMove(nodes, draggedId, node.id)) return
+              const targetFolder = isFolder ? node.id : node.parent_id
+              if (!canMove(nodes, draggedId, targetFolder)) return
 
               e.preventDefault()
               e.stopPropagation()
@@ -120,7 +120,7 @@ export function TreeView({
 
               if (dragOverId !== node.id) {
                 setDragOverId(node.id)
-                if (isCollapsed) {
+                if (isFolder && isCollapsed) {
                   if (hoverExpandTimerRef.current) clearTimeout(hoverExpandTimerRef.current)
                   hoverExpandTimerRef.current = setTimeout(() => {
                     setCollapsed((prev) => {
@@ -128,12 +128,15 @@ export function TreeView({
                       next.delete(node.id)
                       return next
                     })
-                  }, 600)
+                  }, 500)
                 }
               }
             }}
             onDragLeave={(e) => {
               e.stopPropagation()
+              if (e.currentTarget.contains(e.relatedTarget as Node)) {
+                return
+              }
               if (dragOverId === node.id) {
                 setDragOverId(null)
                 if (hoverExpandTimerRef.current) {
@@ -152,8 +155,9 @@ export function TreeView({
               }
               const sourceId = e.dataTransfer.getData('text/plain') || draggedId
               setDraggedId(null)
-              if (sourceId && isFolder && sourceId !== node.id && canMove(nodes, sourceId, node.id)) {
-                void onMoveNodeDirect?.(sourceId, node.id)
+              const targetFolder = isFolder ? node.id : node.parent_id
+              if (sourceId && sourceId !== targetFolder && canMove(nodes, sourceId, targetFolder)) {
+                void onMoveNodeDirect?.(sourceId, targetFolder)
               }
             }}
             onClick={() => {
@@ -327,8 +331,19 @@ export function TreeView({
                     key={`fav-${fav.id}`}
                     className={`tree-row favorite-row ${
                       fav.id === selectedId ? 'selected' : ''
-                    }`}
+                    } ${draggedId === fav.id ? 'dragging' : ''}`}
                     style={{ paddingLeft: 12 }}
+                    draggable={!moveMode}
+                    onDragStart={(e) => {
+                      if (moveMode) return
+                      e.dataTransfer.setData('text/plain', fav.id)
+                      e.dataTransfer.effectAllowed = 'move'
+                      setDraggedId(fav.id)
+                    }}
+                    onDragEnd={() => {
+                      setDraggedId(null)
+                      setDragOverId(null)
+                    }}
                     onClick={() => onSelect(fav.id)}
                   >
                     <span className="tree-icon">⭐</span>
