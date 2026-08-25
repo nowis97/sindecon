@@ -15,7 +15,16 @@ export interface CreateNodeInput {
 
 /** Crea un nodo al final de sus hermanos, con uuid y timestamps. */
 export async function createNode(input: CreateNodeInput): Promise<NodeRow> {
-  const parentId = input.parent_id ?? null
+  let parentId = input.parent_id ?? null
+
+  // Si se intenta crear un nodo no-plantilla dentro de Plantillas, forzar parent_id a null (raíz)
+  if (parentId && input.system !== 'templates') {
+    const parent = await db.nodes.get(parentId)
+    if (parent?.system === 'templates') {
+      parentId = null
+    }
+  }
+
   const siblings = await db.nodes
     .filter((n) => n.parent_id === parentId && n.deleted_at === null)
     .toArray()
@@ -43,7 +52,7 @@ export async function createNode(input: CreateNodeInput): Promise<NodeRow> {
 
 /**
  * Detecta y consolida/elimina carpetas o artículos duplicados de sistema
- * (ej. múltiples carpetas "Inbox" o "Plantillas" provocadas por sincronizaciones anteriores).
+ * ('Inbox' y 'Plantillas') preservando siempre las notas del usuario.
  */
 export async function deduplicateSystemNodes(): Promise<{
   inboxFixed: number
@@ -53,9 +62,8 @@ export async function deduplicateSystemNodes(): Promise<{
   let templatesFixed = 0
   const now = Date.now()
 
-  await db.transaction('rw', [db.nodes, db.articles], async () => {
-    const allNodes = await db.nodes.toArray()
-    const liveNodes = allNodes.filter((n) => n.deleted_at === null)
+  await db.transaction('rw', db.nodes, async () => {
+    const liveNodes = await db.nodes.filter((n) => n.deleted_at === null).toArray()
 
     // 1. Deduplicar carpetas Inbox
     const inboxFolders = liveNodes.filter(
@@ -133,6 +141,20 @@ export async function deduplicateSystemNodes(): Promise<{
           seenTitles.set(art.title, keep)
           templatesFixed++
         }
+      }
+    }
+
+    // 4. Rescatar nodos de usuario que hayan quedado accidentalmente dentro de Plantillas
+    const templateFolderIds = new Set(activeTemplateFolders.map((f) => f.id))
+    for (const node of currentNodes) {
+      if (
+        node.deleted_at === null &&
+        node.parent_id &&
+        templateFolderIds.has(node.parent_id) &&
+        node.system !== 'templates'
+      ) {
+        await db.nodes.update(node.id, { parent_id: null, updated_at: now })
+        templatesFixed++
       }
     }
   })

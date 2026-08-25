@@ -149,7 +149,7 @@ export function TreeView({
                       next.delete(node.id)
                       return next
                     })
-                  }, 500)
+                  }, 250)
                 }
               }
             }}
@@ -183,6 +183,13 @@ export function TreeView({
               setDraggedId(null)
               const targetFolder = isFolder ? node.id : node.parent_id
               if (sourceId && sourceId !== targetFolder && canMove(nodes, sourceId, targetFolder)) {
+                if (targetFolder) {
+                  setCollapsed((prev) => {
+                    const next = new Set(prev)
+                    next.delete(targetFolder)
+                    return next
+                  })
+                }
                 void onMoveNodeDirect?.(sourceId, targetFolder)
               }
             }}
@@ -353,9 +360,19 @@ export function TreeView({
                   e.preventDefault()
                   e.stopPropagation()
                   setDragOverId(null)
-                  const sourceId = e.dataTransfer.getData('text/plain') || draggedId
+                  const sourceId =
+                    e.dataTransfer.getData('application/sindecon-node-id') ||
+                    e.dataTransfer.getData('text/plain') ||
+                    globalDraggingId ||
+                    draggedId
+                  globalDraggingId = null
                   setDraggedId(null)
                   if (sourceId && sourceId !== node.id && canMove(nodes, sourceId, node.id)) {
+                    setCollapsed((prev) => {
+                      const next = new Set(prev)
+                      next.delete(node.id)
+                      return next
+                    })
                     void onMoveNodeDirect?.(sourceId, node.id)
                   }
                 }}
