@@ -239,6 +239,33 @@ body {
   }
 }
 
+@keyframes fade-in-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-fab-subtle {
+  0%, 100% {
+    box-shadow: 0 4px 14px var(--accent-glow);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.45);
+  }
+}
+
+@keyframes badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -1828,7 +1855,6 @@ body {
   color: var(--reader-body-color);
   margin-bottom: 12px;
 }
-
 /* Prevención de corte de bloques en columnas */
 .article-reader-view .reader-heading,
 .article-reader-view .reader-callout,
@@ -1837,9 +1863,39 @@ body {
 .article-reader-view .reader-code-block,
 .article-reader-view .reader-list,
 .article-reader-view .reader-blockquote,
-.article-reader-view .reader-paragraph {
+.article-reader-view .reader-paragraph,
+.article-reader-view .reader-hr {
   break-inside: avoid;
   page-break-inside: avoid;
+}
+
+/* Línea divisoria horizontal */
+.reader-hr {
+  border: none;
+  border-top: 1.5px solid var(--border-subtle);
+  margin: 24px 0;
+}
+
+/* Listas con sangría y sub-viñetas */
+.reader-list {
+  margin: 10px 0 14px 0;
+  padding-left: 24px;
+  line-height: 1.65;
+  color: var(--reader-body-color);
+}
+
+.reader-list li {
+  margin: 4px 0;
+}
+
+.reader-list-nested {
+  margin: 4px 0 6px 0;
+  padding-left: 22px;
+  list-style-type: circle;
+}
+
+.reader-list-nested .reader-list-nested {
+  list-style-type: square;
 }
 
 /* Adaptación en Pantallas Móviles */
@@ -3063,15 +3119,6 @@ select.dialog-input {
     animation: fade-in-backdrop var(--dur-normal) var(--ease-smooth);
   }
 
-  @keyframes fade-in-backdrop {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
   .mobile-topbar {
     display: flex;
     align-items: center;
@@ -3206,15 +3253,6 @@ select.dialog-input {
     animation: pulse-fab-subtle 3s ease-in-out infinite;
   }
 
-  @keyframes pulse-fab-subtle {
-    0%, 100% {
-      box-shadow: 0 4px 14px var(--accent-glow);
-    }
-    50% {
-      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.45);
-    }
-  }
-
   .bottom-nav-fab:hover {
     transform: translateY(-10px) scale(1.04);
   }
@@ -3245,15 +3283,6 @@ select.dialog-input {
     padding: 1px 5px;
     line-height: 1.2;
     animation: badge-pulse 2s infinite ease-in-out;
-  }
-
-  @keyframes badge-pulse {
-    0%, 100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.18);
-    }
   }
 }
 

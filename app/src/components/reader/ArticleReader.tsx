@@ -10,13 +10,20 @@ interface ArticleReaderProps {
 
 export type CalloutKind = 'warning' | 'tip' | 'dosage' | 'important' | 'note'
 
+export interface NestedListItem {
+  text: string
+  ordered: boolean
+  children: NestedListItem[]
+}
+
 type Block =
   | { type: 'header'; level: number; text: string }
   | { type: 'mermaid'; code: string }
   | { type: 'code'; lang: string; code: string }
-  | { type: 'table'; headers: string[]; rows: string[][] }
+  | { type: 'table'; headers: string[]; rows: string[][]; alignments?: ('left' | 'center' | 'right')[] }
+  | { type: 'hr' }
   | { type: 'image'; alt: string; src: string }
-  | { type: 'list'; items: string[]; ordered: boolean }
+  | { type: 'list'; items: NestedListItem[]; ordered: boolean }
   | { type: 'callout'; kind: CalloutKind; title: string; text: string }
   | { type: 'blockquote'; text: string }
   | { type: 'paragraph'; text: string }
@@ -36,6 +43,37 @@ function parseCalloutType(typeStr: string): { kind: CalloutKind; defaultTitle: s
     return { kind: 'important', defaultTitle: 'Criterios Diagnósticos', icon: '📋' }
   }
   return { kind: 'note', defaultTitle: 'Nota', icon: 'ℹ️' }
+}
+
+function parseTableAlignment(cell: string): 'left' | 'center' | 'right' {
+  const trimmed = cell.trim()
+  if (trimmed.startsWith(':') && trimmed.endsWith(':')) return 'center'
+  if (trimmed.endsWith(':')) return 'right'
+  if (trimmed.startsWith(':')) return 'left'
+  return 'left'
+}
+
+function isSeparatorRow(cells: string[]): boolean {
+  return cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c.trim()))
+}
+
+function parseListTree(rawLines: Array<{ indent: number; text: string; ordered: boolean }>): NestedListItem[] {
+  const items: NestedListItem[] = []
+  const stack: Array<{ depth: number; children: NestedListItem[] }> = [{ depth: -1, children: items }]
+
+  for (const line of rawLines) {
+    const depth = Math.floor(line.indent / 2)
+    const node: NestedListItem = { text: line.text, ordered: line.ordered, children: [] }
+
+    while (stack.length > 1 && stack[stack.length - 1].depth >= depth) {
+      stack.pop()
+    }
+
+    stack[stack.length - 1].children.push(node)
+    stack.push({ depth, children: node.children })
+  }
+
+  return items
 }
 
 function parseMarkdownBlocks(md: string): Block[] {
@@ -69,6 +107,13 @@ function parseMarkdownBlocks(md: string): Block[] {
     const imgMatch = line.trim().match(/^!\[(.*?)\]\((.*?)\)$/)
     if (imgMatch) {
       blocks.push({ type: 'image', alt: imgMatch[1], src: imgMatch[2] })
+      i++
+      continue
+    }
+
+    // Horizontal Rule: ---, ***, ___
+    if (line.trim().match(/^([-*_])\s*\1\s*\1+$/)) {
+      blocks.push({ type: 'hr' })
       i++
       continue
     }
@@ -140,30 +185,38 @@ function parseMarkdownBlocks(md: string): Block[] {
             .map((c) => c.trim())
 
         const headers = parseRow(tableLines[0])
-        const dataLines = tableLines.slice(1).filter((r) => !r.match(/^\|[\s-:]+\|$/))
-        const rows = dataLines.map(parseRow)
+        let alignments: Array<'left' | 'center' | 'right'> = headers.map(() => 'left')
+        const rows: string[][] = []
 
-        blocks.push({ type: 'table', headers, rows })
+        for (let rIdx = 1; rIdx < tableLines.length; rIdx++) {
+          const cells = parseRow(tableLines[rIdx])
+          if (isSeparatorRow(cells)) {
+            alignments = cells.map(parseTableAlignment)
+          } else {
+            rows.push(cells)
+          }
+        }
+
+        blocks.push({ type: 'table', headers, rows, alignments })
         continue
       }
     }
 
-    // Lists: - item or 1. item
-    if (line.trim().match(/^[-*]\s+/) || line.trim().match(/^\d+\.\s+/)) {
-      const isOrdered = Boolean(line.trim().match(/^\d+\.\s+/))
-      const listItems: string[] = []
-      while (
-        i < lines.length &&
-        (lines[i].trim().match(/^[-*]\s+/) || lines[i].trim().match(/^\d+\.\s+/))
-      ) {
-        const itemText = lines[i]
-          .trim()
-          .replace(/^[-*]\s+/, '')
-          .replace(/^\d+\.\s+/, '')
-        listItems.push(itemText)
+    // Lists: - item or 1. item (with hierarchy and indentation)
+    if (line.match(/^\s*([-*+]|\d+\.)\s+/)) {
+      const rawListLines: Array<{ indent: number; text: string; ordered: boolean }> = []
+      while (i < lines.length && lines[i].match(/^\s*([-*+]|\d+\.)\s+/)) {
+        const match = lines[i].match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/)
+        if (match) {
+          const indent = match[1].replace(/\t/g, '  ').length
+          const isOrdered = /^\d+\./.test(match[2])
+          const text = match[3].trim()
+          rawListLines.push({ indent, text, ordered: isOrdered })
+        }
         i++
       }
-      blocks.push({ type: 'list', items: listItems, ordered: isOrdered })
+      const tree = parseListTree(rawListLines)
+      blocks.push({ type: 'list', items: tree, ordered: rawListLines[0]?.ordered ?? false })
       continue
     }
 
@@ -182,8 +235,8 @@ function parseMarkdownBlocks(md: string): Block[] {
       !lines[i].trim().startsWith('#') &&
       !lines[i].trim().startsWith('>') &&
       !lines[i].trim().startsWith('|') &&
-      !lines[i].trim().match(/^[-*]\s+/) &&
-      !lines[i].trim().match(/^\d+\.\s+/) &&
+      !lines[i].match(/^\s*([-*+]|\d+\.)\s+/) &&
+      !lines[i].trim().match(/^([-*_])\s*\1\s*\1+$/) &&
       !lines[i].trim().match(/^!\[(.*?)\]\((.*?)\)$/)
     ) {
       paragraphLines.push(lines[i])
@@ -256,6 +309,22 @@ function renderBasicFormatting(segment: string, keyPrefix: string): React.ReactN
   )
 }
 
+function renderListItems(
+  items: NestedListItem[],
+  onWikiLinkClick: (uuid: string) => void,
+): React.ReactNode {
+  return items.map((item, idx) => (
+    <li key={idx}>
+      <span>{renderFormattedInline(item.text, onWikiLinkClick)}</span>
+      {item.children.length > 0 && (
+        <ul className="reader-list-nested">
+          {renderListItems(item.children, onWikiLinkClick)}
+        </ul>
+      )}
+    </li>
+  ))
+}
+
 export function ArticleReader({ markdown, onWikiLinkClick }: ArticleReaderProps) {
   const [isTwoColumns, setIsTwoColumns] = useState<boolean>(() => {
     try {
@@ -321,6 +390,8 @@ export function ArticleReader({ markdown, onWikiLinkClick }: ArticleReaderProps)
               </Tag>
             )
           }
+          case 'hr':
+            return <hr key={idx} className="reader-hr" />
           case 'callout':
             return (
               <div key={idx} className={`reader-callout callout-${block.kind}`}>
@@ -364,7 +435,12 @@ export function ArticleReader({ markdown, onWikiLinkClick }: ArticleReaderProps)
                   <thead>
                     <tr>
                       {block.headers.map((h, hIdx) => (
-                        <th key={hIdx}>{renderFormattedInline(h, onWikiLinkClick)}</th>
+                        <th
+                          key={hIdx}
+                          style={{ textAlign: block.alignments?.[hIdx] ?? 'left' }}
+                        >
+                          {renderFormattedInline(h, onWikiLinkClick)}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -372,7 +448,12 @@ export function ArticleReader({ markdown, onWikiLinkClick }: ArticleReaderProps)
                     {block.rows.map((row, rIdx) => (
                       <tr key={rIdx}>
                         {row.map((cell, cIdx) => (
-                          <td key={cIdx}>{renderFormattedInline(cell, onWikiLinkClick)}</td>
+                          <td
+                            key={cIdx}
+                            style={{ textAlign: block.alignments?.[cIdx] ?? 'left' }}
+                          >
+                            {renderFormattedInline(cell, onWikiLinkClick)}
+                          </td>
                         ))}
                       </tr>
                     ))}
@@ -386,9 +467,7 @@ export function ArticleReader({ markdown, onWikiLinkClick }: ArticleReaderProps)
             const ListTag = block.ordered ? 'ol' : 'ul'
             return (
               <ListTag key={idx} className="reader-list">
-                {block.items.map((it, itIdx) => (
-                  <li key={itIdx}>{renderFormattedInline(it, onWikiLinkClick)}</li>
-                ))}
+                {renderListItems(block.items, onWikiLinkClick)}
               </ListTag>
             )
           }
