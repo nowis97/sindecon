@@ -906,10 +906,38 @@ body {
 /* ==========================================================================
    Tree View (Obsidian Vault Tree)
    ========================================================================== */
+.tree,
 .tree-view {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.tree::-webkit-scrollbar,
+.tree-view::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tree::-webkit-scrollbar-track,
+.tree-view::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tree::-webkit-scrollbar-thumb,
+.tree-view::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+
+.tree::-webkit-scrollbar-thumb:hover,
+.tree-view::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 .tree-favorites-section {

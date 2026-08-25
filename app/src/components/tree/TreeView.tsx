@@ -360,7 +360,7 @@ export function TreeView({
 
   return (
     <div
-      className="tree"
+      className="tree tree-view"
       onDragOver={(e) => {
         if (!draggedId) return
         e.preventDefault()
