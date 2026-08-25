@@ -285,7 +285,29 @@ export function TreeView({
           </div>
           {isFolder && (
             <div className={`tree-children-accordion ${isCollapsed ? 'collapsed' : 'expanded'}`}>
-              <div className="tree-children-inner">
+              <div
+                className="tree-children-inner"
+                onDragOver={(e) => {
+                  if (!draggedId || draggedId === node.id) return
+                  if (!canMove(nodes, draggedId, node.id)) return
+                  e.preventDefault()
+                  e.stopPropagation()
+                  e.dataTransfer.dropEffect = 'move'
+                  if (dragOverId !== node.id) {
+                    setDragOverId(node.id)
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setDragOverId(null)
+                  const sourceId = e.dataTransfer.getData('text/plain') || draggedId
+                  setDraggedId(null)
+                  if (sourceId && sourceId !== node.id && canMove(nodes, sourceId, node.id)) {
+                    void onMoveNodeDirect?.(sourceId, node.id)
+                  }
+                }}
+              >
                 {renderLevel(node.id, depth + 1)}
               </div>
             </div>
@@ -295,7 +317,23 @@ export function TreeView({
     })
 
   return (
-    <div className="tree">
+    <div
+      className="tree"
+      onDragOver={(e) => {
+        if (!draggedId) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragOverId(null)
+        const sourceId = e.dataTransfer.getData('text/plain') || draggedId
+        setDraggedId(null)
+        if (sourceId && canMove(nodes, sourceId, null)) {
+          void onMoveNodeDirect?.(sourceId, null)
+        }
+      }}
+    >
       {moveMode && (
         <div className="move-banner">
           <span>Elige la carpeta destino…</span>
@@ -306,6 +344,36 @@ export function TreeView({
           >
             Mover a raíz (Tema)
           </button>
+        </div>
+      )}
+
+      {/* Zona superior para soltar y mover a la raíz */}
+      {draggedId && canMove(nodes, draggedId, null) && (
+        <div
+          className={`tree-root-dropzone tree-root-dropzone-top ${
+            dragOverId === '__root__' ? 'drag-over' : ''
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            e.dataTransfer.dropEffect = 'move'
+            setDragOverId('__root__')
+          }}
+          onDragLeave={() => {
+            if (dragOverId === '__root__') setDragOverId(null)
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setDragOverId(null)
+            const sourceId = e.dataTransfer.getData('text/plain') || draggedId
+            setDraggedId(null)
+            if (sourceId && canMove(nodes, sourceId, null)) {
+              void onMoveNodeDirect?.(sourceId, null)
+            }
+          }}
+        >
+          📂 Soltar aquí para mover a la raíz (Temas)
         </div>
       )}
 
@@ -371,12 +439,13 @@ export function TreeView({
 
       {renderLevel(null, 0)}
 
-      {/* Zona para soltar y mover a la raíz */}
+      {/* Zona inferior para soltar y mover a la raíz */}
       {draggedId && canMove(nodes, draggedId, null) && (
         <div
           className={`tree-root-dropzone ${dragOverId === '__root__' ? 'drag-over' : ''}`}
           onDragOver={(e) => {
             e.preventDefault()
+            e.stopPropagation()
             e.dataTransfer.dropEffect = 'move'
             setDragOverId('__root__')
           }}
@@ -385,6 +454,7 @@ export function TreeView({
           }}
           onDrop={(e) => {
             e.preventDefault()
+            e.stopPropagation()
             setDragOverId(null)
             const sourceId = e.dataTransfer.getData('text/plain') || draggedId
             setDraggedId(null)
@@ -393,7 +463,7 @@ export function TreeView({
             }
           }}
         >
-          📥 Soltar aquí para mover a la raíz
+          📂 Soltar aquí para mover a la raíz (Temas)
         </div>
       )}
     </div>

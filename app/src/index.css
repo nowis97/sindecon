@@ -1058,24 +1058,25 @@ body {
 }
 
 .tree-root-dropzone {
-  margin: 12px 6px;
-  padding: 8px 10px;
-  border: 1.5px dashed var(--border-strong);
+  margin: 8px 6px;
+  padding: 10px 12px;
+  border: 2px dashed var(--accent-primary);
   border-radius: var(--radius-md);
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  color: var(--text-muted);
-  background: var(--bg-card);
+  color: var(--accent-text);
+  background: var(--accent-surface);
   transition: all var(--dur-fast) var(--ease-smooth);
   animation: fade-in-up var(--dur-fast) var(--ease-smooth);
+  cursor: pointer;
 }
 
 .tree-root-dropzone.drag-over {
   border-color: var(--accent-primary);
-  background: var(--accent-surface);
-  color: var(--accent-text);
-  box-shadow: 0 0 12px var(--accent-glow);
+  background: var(--accent-primary);
+  color: #ffffff;
+  box-shadow: 0 0 16px var(--accent-glow);
   transform: scale(1.02);
 }
 
