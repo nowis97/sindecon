@@ -37,6 +37,7 @@ import {
   renameNode,
   moveNode,
   deleteNodeCascade,
+  deduplicateSystemNodes,
 } from './db/nodes'
 import { saveArticle } from './db/articles'
 import { ensureInboxFolder } from './db/inbox'
@@ -107,9 +108,12 @@ function App() {
   const [seedBody, setSeedBody] = useState<string | null>(null)
 
   useEffect(() => {
-    void ensurePersistentStorage()
-    void seedTemplatesIfNeeded()
-    void ensureInboxFolder()
+    void (async () => {
+      await ensurePersistentStorage()
+      await seedTemplatesIfNeeded()
+      await ensureInboxFolder()
+      await deduplicateSystemNodes()
+    })()
   }, [])
 
   // Listener global para atajo Ctrl+K / Cmd+K

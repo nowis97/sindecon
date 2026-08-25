@@ -110,4 +110,119 @@ describe('fusión por uuid (design D6)', () => {
     const { result } = mergeDatabase(local, incoming)
     expect(result.articles).toHaveLength(0)
   })
+
+  it('unifica carpetas Inbox de diferentes dispositivos sin duplicarlas y reubica capturas', () => {
+    const local = {
+      ...empty,
+      nodes: [
+        node('local-inbox-uuid', {
+          kind: 'folder',
+          title: 'Inbox',
+          system: 'inbox',
+          parent_id: null,
+          updated_at: 1000,
+        }),
+      ],
+      articles: [],
+    }
+
+    const incoming = {
+      ...empty,
+      nodes: [
+        node('remote-inbox-uuid', {
+          kind: 'folder',
+          title: 'Inbox',
+          system: 'inbox',
+          parent_id: null,
+          updated_at: 2000,
+        }),
+        node('remote-capture-1', {
+          kind: 'article',
+          title: 'Nota rápida remota',
+          parent_id: 'remote-inbox-uuid',
+          updated_at: 2000,
+        }),
+      ],
+      articles: [article('remote-capture-1', 'Contenido de nota remota')],
+    }
+
+    const { result } = mergeDatabase(local, incoming)
+
+    // Solo debe quedar 1 carpeta Inbox (la local)
+    const inboxes = result.nodes.filter(
+      (n) => n.kind === 'folder' && (n.system === 'inbox' || n.title === 'Inbox'),
+    )
+    expect(inboxes).toHaveLength(1)
+    expect(inboxes[0].id).toBe('local-inbox-uuid')
+
+    // La captura remota debe tener como parent_id el Inbox local
+    const capture = result.nodes.find((n) => n.id === 'remote-capture-1')!
+    expect(capture).toBeDefined()
+    expect(capture.parent_id).toBe('local-inbox-uuid')
+    expect(result.articles.find((a) => a.node_id === 'remote-capture-1')?.body_md).toBe(
+      'Contenido de nota remota',
+    )
+  })
+
+  it('unifica carpetas Plantillas y artículos de plantilla sin duplicar', () => {
+    const local = {
+      ...empty,
+      nodes: [
+        node('local-tpl-folder', {
+          kind: 'folder',
+          title: 'Plantillas',
+          system: 'templates',
+          parent_id: null,
+          updated_at: 1000,
+        }),
+        node('local-patologia', {
+          kind: 'article',
+          title: 'Patología / Enfermedad',
+          system: 'templates',
+          parent_id: 'local-tpl-folder',
+          updated_at: 1000,
+        }),
+      ],
+      articles: [article('local-patologia', 'Plantilla local')],
+    }
+
+    const incoming = {
+      ...empty,
+      nodes: [
+        node('remote-tpl-folder', {
+          kind: 'folder',
+          title: 'Plantillas',
+          system: 'templates',
+          parent_id: null,
+          updated_at: 2000,
+        }),
+        node('remote-patologia', {
+          kind: 'article',
+          title: 'Patología / Enfermedad',
+          system: 'templates',
+          parent_id: 'remote-tpl-folder',
+          updated_at: 3000,
+        }),
+      ],
+      articles: [article('remote-patologia', 'Plantilla remota actualizada')],
+    }
+
+    const { result } = mergeDatabase(local, incoming)
+
+    const tplFolders = result.nodes.filter(
+      (n) => n.kind === 'folder' && (n.system === 'templates' || n.title === 'Plantillas'),
+    )
+    expect(tplFolders).toHaveLength(1)
+    expect(tplFolders[0].id).toBe('local-tpl-folder')
+
+    const patologiaArticles = result.nodes.filter(
+      (n) => n.kind === 'article' && n.title === 'Patología / Enfermedad',
+    )
+    expect(patologiaArticles).toHaveLength(1)
+    expect(patologiaArticles[0].id).toBe('local-patologia')
+    expect(patologiaArticles[0].parent_id).toBe('local-tpl-folder')
+    expect(result.articles.find((a) => a.node_id === 'local-patologia')?.body_md).toBe(
+      'Plantilla remota actualizada',
+    )
+  })
 })

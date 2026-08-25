@@ -5,11 +5,22 @@ import { createAssetFromFile, setAssetOwner } from './assets'
 import { compressImage } from '../utils/imageCompress'
 
 export const INBOX_SYSTEM_MARKER = 'inbox'
+export const SYSTEM_INBOX_ID = 'sys-folder-inbox'
 
-/** Obtiene o crea la carpeta de sistema Inbox. */
+/** Obtiene o crea la carpeta de sistema Inbox de manera determinista e idempotente. */
 export async function ensureInboxFolder(): Promise<NodeRow> {
+  const existingById = await db.nodes.get(SYSTEM_INBOX_ID)
+  if (existingById && existingById.deleted_at === null && existingById.kind === 'folder') {
+    return existingById
+  }
+
   const existing = await db.nodes
-    .filter((n) => n.system === INBOX_SYSTEM_MARKER && n.deleted_at === null && n.kind === 'folder')
+    .filter(
+      (n) =>
+        (n.system === INBOX_SYSTEM_MARKER || (n.title === 'Inbox' && n.parent_id === null)) &&
+        n.deleted_at === null &&
+        n.kind === 'folder',
+    )
     .first()
 
   if (existing) {
@@ -17,6 +28,7 @@ export async function ensureInboxFolder(): Promise<NodeRow> {
   }
 
   return await createNode({
+    id: SYSTEM_INBOX_ID,
     kind: 'folder',
     title: 'Inbox',
     system: INBOX_SYSTEM_MARKER,

@@ -1,6 +1,4 @@
-// Formato de export: Markdown + frontmatter YAML controlado.
-// El formato lo escribimos nosotros, así que el parser solo necesita
-// entender nuestra propia salida.
+import type { SystemMarker } from '../db/db'
 
 export interface ArticleFrontmatter {
   id: string
@@ -9,6 +7,7 @@ export interface ArticleFrontmatter {
   created_at: number
   updated_at: number
   tags: string[]
+  system?: SystemMarker | null
 }
 
 /** Nombres de archivo seguros en Windows/Linux/macOS. */
@@ -19,7 +18,7 @@ export function sanitizeFileName(title: string): string {
 
 export function buildFrontmatter(meta: ArticleFrontmatter): string {
   const tags = `[${meta.tags.join(', ')}]`
-  return [
+  const lines = [
     '---',
     `id: ${meta.id}`,
     `title: ${meta.title}`,
@@ -27,8 +26,12 @@ export function buildFrontmatter(meta: ArticleFrontmatter): string {
     `created_at: ${meta.created_at}`,
     `updated_at: ${meta.updated_at}`,
     `tags: ${tags}`,
-    '---',
-  ].join('\n')
+  ]
+  if (meta.system) {
+    lines.push(`system: ${meta.system}`)
+  }
+  lines.push('---')
+  return lines.join('\n')
 }
 
 /** Inverso de buildFrontmatter. body = contenido tras el frontmatter. */
@@ -52,15 +55,23 @@ export function parseFrontmatter(raw: string): {
     .map((t) => t.trim())
     .filter((t) => t.length > 0)
 
+  const meta: ArticleFrontmatter = {
+    id: fields.get('id') ?? '',
+    title: fields.get('title') ?? '',
+    order: Number(fields.get('order') ?? 0),
+    created_at: Number(fields.get('created_at') ?? 0),
+    updated_at: Number(fields.get('updated_at') ?? 0),
+    tags,
+  }
+
+  if (fields.has('system')) {
+    const systemRaw = fields.get('system')
+    meta.system =
+      systemRaw === 'inbox' || systemRaw === 'templates' ? systemRaw : null
+  }
+
   return {
-    meta: {
-      id: fields.get('id') ?? '',
-      title: fields.get('title') ?? '',
-      order: Number(fields.get('order') ?? 0),
-      created_at: Number(fields.get('created_at') ?? 0),
-      updated_at: Number(fields.get('updated_at') ?? 0),
-      tags,
-    },
+    meta,
     body: raw.slice(match[0].length),
   }
 }

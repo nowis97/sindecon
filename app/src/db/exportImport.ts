@@ -1,6 +1,7 @@
 import JSZip from 'jszip'
 import { db } from './db'
 import type { NodeRow, ArticleRow, AssetRow } from './db'
+import { deduplicateSystemNodes } from './nodes'
 import { mergeDatabase, type DbSnapshot, type MergeReport } from '../domain/merge'
 import { pathTo } from '../domain/tree'
 import {
@@ -121,6 +122,7 @@ export async function buildExportZip(): Promise<JSZip> {
         created_at: a.created_at,
         updated_at: a.updated_at,
         tags: article?.tags ?? [],
+        system: a.system,
       }) +
         '\n' +
         body,
@@ -234,7 +236,7 @@ export async function importFromZip(
       kind: 'article',
       title: meta.title,
       order: meta.order,
-      system: null,
+      system: meta.system ?? null,
       created_at: meta.created_at,
       updated_at: meta.updated_at,
       deleted_at: null,
@@ -278,5 +280,6 @@ export async function importFromZip(
     await db.articles.bulkPut(result.articles)
     await db.assets.bulkPut(result.assets)
   })
+  await deduplicateSystemNodes()
   return report
 }

@@ -235,35 +235,83 @@ export function fillTitlePlaceholder(body: string, title: string): string {
   return body.replace(/\{título\}/g, title)
 }
 
+export const SYSTEM_TEMPLATES_FOLDER_ID = 'sys-folder-templates'
+
+/** Genera un ID determinista y estable para cada plantilla maestra. */
+export function getTemplateId(title: string): string {
+  const slug = title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+  return `sys-tpl-${slug}`
+}
+
 const SEED_KEY = 'seeded_templates_v1'
 
 /**
- * Siembra la carpeta "Plantillas" con los 10 formatos del PDF.
- * Idempotente (marcador en meta), no pisa ediciones del usuario.
+ * Siembra la carpeta "Plantillas" con los 10 formatos del PDF de forma determinista e idempotente.
+ * No pisa ediciones del usuario.
  */
 export async function seedTemplatesIfNeeded(): Promise<boolean> {
   const marker = await db.meta.get(SEED_KEY)
   if (marker?.value) return false
 
-  const plantillas = await createNode({
-    kind: 'folder',
-    title: 'Plantillas',
-    system: 'templates',
-  })
+  let plantillas = await db.nodes.get(SYSTEM_TEMPLATES_FOLDER_ID)
+  if (!plantillas || plantillas.deleted_at !== null) {
+    const existingFolder = await db.nodes
+      .filter(
+        (n) =>
+          (n.system === 'templates' || (n.title === 'Plantillas' && n.parent_id === null)) &&
+          n.kind === 'folder' &&
+          n.deleted_at === null,
+      )
+      .first()
+
+    if (existingFolder) {
+      plantillas = existingFolder
+    } else {
+      plantillas = await createNode({
+        id: SYSTEM_TEMPLATES_FOLDER_ID,
+        kind: 'folder',
+        title: 'Plantillas',
+        system: 'templates',
+        parent_id: null,
+      })
+    }
+  }
+
   const now = Date.now()
   for (const t of TEMPLATES) {
-    const nodo = await createNode({
-      kind: 'article',
-      title: t.title,
-      parent_id: plantillas.id,
-      system: 'templates',
-    })
-    await db.articles.put({
-      node_id: nodo.id,
-      body_md: buildTemplateBody(t),
-      tags: [],
-    })
-    await db.nodes.update(nodo.id, { created_at: now, updated_at: now })
+    const tplId = getTemplateId(t.title)
+    const existingTpl = await db.nodes.get(tplId)
+    if (!existingTpl || existingTpl.deleted_at !== null) {
+      const existingByTitle = await db.nodes
+        .filter(
+          (n) =>
+            n.parent_id === plantillas.id &&
+            n.title === t.title &&
+            n.deleted_at === null,
+        )
+        .first()
+
+      if (!existingByTitle) {
+        const nodo = await createNode({
+          id: tplId,
+          kind: 'article',
+          title: t.title,
+          parent_id: plantillas.id,
+          system: 'templates',
+        })
+        await db.articles.put({
+          node_id: nodo.id,
+          body_md: buildTemplateBody(t),
+          tags: [],
+        })
+        await db.nodes.update(nodo.id, { created_at: now, updated_at: now })
+      }
+    }
   }
   await db.meta.put({ key: SEED_KEY, value: true })
   return true
