@@ -55,8 +55,14 @@ html[data-theme='light'] {
   --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.05);
   --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.08);
 
-  --font-main: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-main: 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Paleta Médica de Plantillas Word (v2) */
+  --reader-h1-color: #142337;
+  --reader-h2-color: #008080;
+  --reader-h3-color: #00aca8;
+  --reader-body-color: #1e1e1e;
 
   /* Motion Tokens (Transiciones y Curvas Bézier Fluidas) */
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
@@ -115,6 +121,12 @@ html[data-theme='dark'],
   --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.4);
   --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.6);
+
+  /* Paleta Médica Dark Mode */
+  --reader-h1-color: #f1f5f9;
+  --reader-h2-color: #2dd4bf;
+  --reader-h3-color: #5eead4;
+  --reader-body-color: #e2e8f0;
 }
 
 /* ==========================================================================
@@ -1710,6 +1722,47 @@ body {
   background: var(--bg-card-hover);
 }
 
+/* Barra de Herramientas y Contenedor del Lector */
+.article-reader-container {
+  position: relative;
+  width: 100%;
+}
+
+.reader-toolbar-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.btn-reader-layout-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-smooth);
+  box-shadow: var(--shadow-subtle);
+}
+
+.btn-reader-layout-toggle:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.btn-reader-layout-toggle.active {
+  background: var(--accent-surface);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
 /* Lector & Editor Host */
 .article-reader-view,
 .editor-host {
@@ -1723,29 +1776,83 @@ body {
   animation: fade-in-up var(--dur-fast) var(--ease-smooth);
 }
 
+/* Maquetación a 2 Columnas (Estilo Ficha Médica / Word) */
+.article-reader-view.layout-two-columns {
+  columns: 2;
+  column-gap: 2.25rem;
+  column-rule: 1px solid var(--border-subtle);
+}
+
+.article-reader-view.layout-two-columns .reader-heading.h1 {
+  column-span: all;
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+}
+
 .reader-heading {
-  color: var(--text-primary);
+  font-family: var(--font-main);
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 
 .reader-heading.h1 {
-  font-size: 1.6rem;
-  border-bottom: 1px solid var(--border-subtle);
+  color: var(--reader-h1-color);
+  font-size: 1.65rem;
+  border-bottom: 2px solid var(--border-subtle);
   padding-bottom: 8px;
   margin-top: 24px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .reader-heading.h2 {
-  font-size: 1.3rem;
-  border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 6px;
-  margin-top: 20px;
+  color: var(--reader-h2-color);
+  font-size: 1.22rem;
+  border-bottom: 2px solid var(--reader-h2-color);
+  padding-bottom: 4px;
+  margin-top: 22px;
+  margin-bottom: 8px;
+  display: inline-block;
 }
 
 .reader-heading.h3 {
-  font-size: 1.1rem;
+  color: var(--reader-h3-color);
+  font-size: 1.05rem;
   margin-top: 16px;
+  margin-bottom: 6px;
+}
+
+.reader-paragraph {
+  color: var(--reader-body-color);
+  margin-bottom: 12px;
+}
+
+/* Prevención de corte de bloques en columnas */
+.article-reader-view .reader-heading,
+.article-reader-view .reader-callout,
+.article-reader-view .reader-table-wrapper,
+.article-reader-view .mermaid-viewer-card,
+.article-reader-view .reader-code-block,
+.article-reader-view .reader-list,
+.article-reader-view .reader-blockquote,
+.article-reader-view .reader-paragraph {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Adaptación en Pantallas Móviles */
+@media (max-width: 820px) {
+  .article-reader-view.layout-two-columns {
+    columns: 1;
+    column-rule: none;
+    padding: 24px 20px;
+  }
+
+  .article-reader-view.layout-two-columns .reader-heading.h1 {
+    text-align: left;
+  }
 }
 
 /* Banner de Mover Nodo */
@@ -3375,4 +3482,57 @@ select.dialog-input {
   padding: 1px 4px;
   border-radius: 4px;
   font-family: var(--font-mono);
+}
+
+/* ==========================================================================
+   Impresión en PDF / Ficha de Bolsillo en 2 Columnas
+   ========================================================================== */
+@media print {
+  .reader-toolbar-row,
+  .sidebar,
+  .mobile-bottom-bar,
+  .article-header-row,
+  .article-meta,
+  .breadcrumbs,
+  .portability-bar,
+  .command-palette-backdrop,
+  .btn-fav-star,
+  .btn-smart-import-trigger,
+  .view-mode-toggle {
+    display: none !important;
+  }
+
+  body, .app-layout, .content, .article-container {
+    background: #ffffff !important;
+    color: #1e1e1e !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .article-reader-view {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    columns: 2 !important;
+    column-gap: 1.5rem !important;
+    column-rule: 1px solid #cbd5e1 !important;
+    font-size: 9.5pt !important;
+    line-height: 1.4 !important;
+  }
+
+  .reader-heading.h1 {
+    column-span: all !important;
+    text-align: center !important;
+    color: #142337 !important;
+    font-size: 14pt !important;
+    margin-bottom: 12pt !important;
+  }
+
+  .reader-heading.h2 {
+    color: #008080 !important;
+    font-size: 11pt !important;
+    border-bottom: 1.5px solid #008080 !important;
+    margin-top: 10pt !important;
+    margin-bottom: 4pt !important;
+  }
 }

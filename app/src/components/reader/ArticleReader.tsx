@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { MermaidViewer } from './MermaidViewer'
 import { AssetImage } from './AssetImage'
 import { WIKI_LINK_REGEX } from '../../domain/wikiLinks'
@@ -257,6 +257,25 @@ function renderBasicFormatting(segment: string, keyPrefix: string): React.ReactN
 }
 
 export function ArticleReader({ markdown, onWikiLinkClick }: ArticleReaderProps) {
+  const [isTwoColumns, setIsTwoColumns] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('sindecon_reader_columns')
+      return saved !== null ? saved === '2' : true
+    } catch {
+      return true
+    }
+  })
+
+  const toggleColumns = () => {
+    setIsTwoColumns((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem('sindecon_reader_columns', next ? '2' : '1')
+      } catch {}
+      return next
+    })
+  }
+
   const blocks = useMemo(() => parseMarkdownBlocks(markdown), [markdown])
 
   if (!markdown.trim()) {
@@ -279,7 +298,19 @@ export function ArticleReader({ markdown, onWikiLinkClick }: ArticleReaderProps)
   }
 
   return (
-    <div className="article-reader-view">
+    <div className="article-reader-container">
+      <div className="reader-toolbar-row">
+        <button
+          type="button"
+          className={`btn-reader-layout-toggle ${isTwoColumns ? 'active' : ''}`}
+          onClick={toggleColumns}
+          title={isTwoColumns ? 'Cambiar a vista de 1 columna' : 'Cambiar a diseño de 2 columnas (Ficha médica)'}
+        >
+          {isTwoColumns ? '📖 Vista 2 Columnas (Word)' : '📄 Vista 1 Columna'}
+        </button>
+      </div>
+
+      <div className={`article-reader-view ${isTwoColumns ? 'layout-two-columns' : 'layout-single-column'}`}>
       {blocks.map((block, idx) => {
         switch (block.type) {
           case 'header': {
@@ -371,6 +402,7 @@ export function ArticleReader({ markdown, onWikiLinkClick }: ArticleReaderProps)
             return null
         }
       })}
+      </div>
     </div>
   )
 }

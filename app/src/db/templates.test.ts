@@ -41,14 +41,17 @@ describe('plantillas (spec templates)', () => {
     expect(fillTitlePlaceholder('# {título}\nTexto', 'FA')).toBe('# FA\nTexto')
   })
 
-  it('seedTemplatesIfNeeded siembra 10 plantillas en primer arranque', async () => {
+  it('seedTemplatesIfNeeded siembra 11 plantillas en primer arranque (v2)', async () => {
     const seeded = await seedTemplatesIfNeeded()
     expect(seeded).toBe(true)
     const tpls = await listTemplates()
-    expect(tpls.length).toBe(10)
+    expect(tpls.length).toBe(11)
     expect(tpls[0].node.title).toBe('Patología / Enfermedad')
-    expect(tpls[9].node.title).toBe('Fármaco / Ficha farmacológica')
+    expect(tpls[1].node.title).toBe('Síndrome clínico / Diagnóstico sindromático')
+    expect(tpls[10].node.title).toBe('Patología oncológica / Cáncer')
     expect(tpls[0].body).toContain('## Definición')
+    expect(tpls[10].body).toContain('## Estadificación / TNM')
+    expect(tpls[10].body).toContain('## Tratamiento según estadio')
     expect(tpls[0].body).toContain('{título}')
   })
 
@@ -62,7 +65,7 @@ describe('plantillas (spec templates)', () => {
     expect(seededAgain).toBe(false)
     const tpls2 = await listTemplates()
     expect(tpls2[0].body).toBe('EDITADO')
-    expect(tpls2.length).toBe(10)
+    expect(tpls2.length).toBe(11)
   })
 
   it('createNode de artículo NO crea fila de cuerpo (la fila es lazy para evitar la carrera con saveArticle)', async () => {

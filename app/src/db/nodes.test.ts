@@ -122,13 +122,13 @@ describe('capa de datos: nodos', () => {
       title: 'Plantillas',
       system: 'templates',
     })
-    const tplArt1 = await createNode({
+    await createNode({
       kind: 'article',
       title: 'Patología / Enfermedad',
       system: 'templates',
       parent_id: tpl1.id,
     })
-    const tplArt2 = await createNode({
+    await createNode({
       kind: 'article',
       title: 'Patología / Enfermedad',
       system: 'templates',

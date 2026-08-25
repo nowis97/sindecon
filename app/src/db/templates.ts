@@ -2,9 +2,8 @@ import { db } from './db'
 import type { NodeRow } from './db'
 import { createNode } from './nodes'
 
-// Sembrados según Formatos_sintesis_conocimiento_medico.pdf
-// (10 plantillas maestras). El PDF marca dónde el campo es tabla o
-// algoritmo para inyectar bloques semilla (vacíos, listos para usar).
+// Sembrados según plantillas_sindecon/ (11 plantillas maestras v2 en formato Word).
+// Inyecta tablas, algoritmos Mermaid y listas de perlas clínicas según corresponda.
 
 interface Section {
   title: string
@@ -32,16 +31,15 @@ export const TEMPLATES: Template[] = [
       {
         title: 'Tratamiento',
         kind: 'table',
-        tableHeaders: ['Fármaco', 'Dosis', 'Vía', 'Notas'],
+        tableHeaders: ['Fármaco / Medida', 'Dosis / Esquema', 'Vía', 'Notas'],
       },
-      { title: 'Algoritmo de manejo', kind: 'algorithm' },
       { title: 'Complicaciones' },
       { title: 'Pronóstico y seguimiento' },
       { title: 'Perlas clínicas', kind: 'list' },
     ],
   },
   {
-    title: 'Síndrome clínico',
+    title: 'Síndrome clínico / Diagnóstico sindromático',
     sections: [
       { title: 'Definición' },
       { title: 'Mecanismo fisiopatológico' },
@@ -89,12 +87,12 @@ export const TEMPLATES: Template[] = [
       },
       { title: 'Intervenciones o procedimientos' },
       { title: 'Reevaluación y metas de respuesta' },
-      { title: 'Destino: alta / observación / hospitalización / UCI' },
+      { title: 'Destino: alta, observación, hospitalización o UCI' },
       { title: 'Algoritmo y errores frecuentes', kind: 'algorithm' },
     ],
   },
   {
-    title: 'Procedimiento / Técnica',
+    title: 'Procedimiento / Técnica / Exploración clínica',
     sections: [
       { title: 'Definición y objetivo' },
       { title: 'Indicaciones' },
@@ -104,13 +102,14 @@ export const TEMPLATES: Template[] = [
       { title: 'Anatomía o referencias relevantes' },
       { title: 'Técnica paso a paso' },
       { title: 'Confirmación de correcta ejecución' },
+      { title: 'Hallazgos normales y patológicos (si aplica)' },
       { title: 'Complicaciones' },
       { title: 'Cuidados posteriores' },
       { title: 'Errores frecuentes y perlas técnicas', kind: 'list' },
     ],
   },
   {
-    title: 'Examen / Prueba diagnóstica',
+    title: 'Examen / Prueba / Interpretación diagnóstica',
     sections: [
       { title: 'Qué evalúa' },
       { title: 'Indicaciones' },
@@ -120,13 +119,13 @@ export const TEMPLATES: Template[] = [
       { title: 'Interpretación sistemática' },
       { title: 'Patrones patológicos principales' },
       { title: 'Diagnósticos asociados' },
-      { title: 'Limitaciones y falsos positivos / negativos' },
+      { title: 'Limitaciones y falsos positivos/negativos' },
       { title: 'Cuándo repetir o complementar' },
       { title: 'Perlas de interpretación', kind: 'list' },
     ],
   },
   {
-    title: 'Concepto básico / Anatomía / Fisiología',
+    title: 'Concepto / Anatomía / Fisiología / Fisiopatología',
     sections: [
       { title: 'Definición' },
       { title: 'Estructuras o componentes' },
@@ -200,6 +199,37 @@ export const TEMPLATES: Template[] = [
       { title: 'Perlas clínicas', kind: 'list' },
     ],
   },
+  {
+    title: 'Patología oncológica / Cáncer',
+    sections: [
+      { title: 'Definición' },
+      { title: 'Epidemiología' },
+      { title: 'Factores de riesgo' },
+      { title: 'Etiología y patogenia' },
+      { title: 'Anatomía patológica / histología' },
+      { title: 'Clasificación y subtipos' },
+      { title: 'Manifestaciones clínicas' },
+      { title: 'Diagnóstico' },
+      { title: 'Estudio de extensión' },
+      {
+        title: 'Estadificación / TNM',
+        kind: 'table',
+        tableHeaders: ['Categoría / Estadio', 'Definición', 'Criterios clínicos'],
+      },
+      { title: 'Factores pronósticos y biomarcadores' },
+      { title: 'Diagnóstico diferencial' },
+      { title: 'Tratamiento' },
+      {
+        title: 'Tratamiento según estadio',
+        kind: 'table',
+        tableHeaders: ['Estadio', 'Estrategia', 'Esquema de referencia'],
+      },
+      { title: 'Complicaciones' },
+      { title: 'Seguimiento y vigilancia' },
+      { title: 'Pronóstico' },
+      { title: 'Perlas clínicas', kind: 'list' },
+    ],
+  },
 ]
 
 /** Construye el cuerpo Markdown vacío de un template. */
@@ -248,10 +278,10 @@ export function getTemplateId(title: string): string {
   return `sys-tpl-${slug}`
 }
 
-const SEED_KEY = 'seeded_templates_v1'
+const SEED_KEY = 'seeded_templates_v2'
 
 /**
- * Siembra la carpeta "Plantillas" con los 10 formatos del PDF de forma determinista e idempotente.
+ * Siembra la carpeta "Plantillas" con los 11 formatos oficiales de forma determinista e idempotente.
  * No pisa ediciones del usuario.
  */
 export async function seedTemplatesIfNeeded(): Promise<boolean> {
@@ -283,6 +313,7 @@ export async function seedTemplatesIfNeeded(): Promise<boolean> {
   }
 
   const now = Date.now()
+  let anySeeded = false
   for (const t of TEMPLATES) {
     const tplId = getTemplateId(t.title)
     const existingTpl = await db.nodes.get(tplId)
@@ -310,11 +341,12 @@ export async function seedTemplatesIfNeeded(): Promise<boolean> {
           tags: [],
         })
         await db.nodes.update(nodo.id, { created_at: now, updated_at: now })
+        anySeeded = true
       }
     }
   }
   await db.meta.put({ key: SEED_KEY, value: true })
-  return true
+  return anySeeded || true
 }
 
 /** Lista de plantillas vivas (nodo + cuerpo). Vacía si no hay siembra. */
