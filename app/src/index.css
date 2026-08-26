@@ -3407,7 +3407,10 @@ select.dialog-input {
     position: fixed;
     top: 0;
     left: 0;
-    bottom: 0;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    height: auto;
+    max-height: calc(100vh - 64px - env(safe-area-inset-bottom, 0px));
+    z-index: 35;
     transform: translateX(-100%);
     box-shadow: var(--shadow-float);
     transition: transform var(--dur-sheet) var(--ease-spring);
@@ -3423,7 +3426,7 @@ select.dialog-input {
     background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
-    z-index: 28;
+    z-index: 30;
     animation: fade-in-backdrop var(--dur-normal) var(--ease-smooth);
   }
 
