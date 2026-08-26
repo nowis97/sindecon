@@ -1987,11 +1987,8 @@ body {
 }
 
 .article-reader-view.layout-two-columns .reader-heading.h1 {
-  column-span: all;
-  text-align: center;
   margin-top: 0;
-  margin-bottom: 24px;
-  padding-bottom: 12px;
+  margin-bottom: 20px;
 }
 
 .reader-heading {
@@ -2080,10 +2077,6 @@ body {
     columns: 1;
     column-rule: none;
     padding: 24px 20px;
-  }
-
-  .article-reader-view.layout-two-columns .reader-heading.h1 {
-    text-align: left;
   }
 }
 
