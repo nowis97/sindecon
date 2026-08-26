@@ -22,6 +22,7 @@ const GDRIVE_TOKEN_KEY = 'cuaderno-gdrive-token'
 const GDRIVE_EXPIRY_KEY = 'cuaderno-gdrive-expiry'
 const GDRIVE_EMAIL_KEY = 'cuaderno-gdrive-email'
 const GDRIVE_CLIENT_ID_KEY = 'cuaderno-gdrive-client-id'
+const GDRIVE_ENABLED_KEY = 'cuaderno-gdrive-enabled'
 
 // Client ID configurado mediante variable de entorno VITE_GOOGLE_CLIENT_ID o localStorage
 export const DEFAULT_GOOGLE_CLIENT_ID =
@@ -35,6 +36,25 @@ export function setStoredClientId(clientId: string) {
   localStorage.setItem(GDRIVE_CLIENT_ID_KEY, clientId)
 }
 
+export function isGoogleSyncEnabled(): boolean {
+  return localStorage.getItem(GDRIVE_ENABLED_KEY) === 'true'
+}
+
+export function setGoogleSyncEnabled(enabled: boolean) {
+  if (enabled) {
+    localStorage.setItem(GDRIVE_ENABLED_KEY, 'true')
+  } else {
+    localStorage.removeItem(GDRIVE_ENABLED_KEY)
+  }
+}
+
+export function isTokenExpired(marginMinutes = 2): boolean {
+  const expiryStr = localStorage.getItem(GDRIVE_EXPIRY_KEY)
+  if (!expiryStr) return true
+  const expiry = Number.parseInt(expiryStr, 10)
+  return Date.now() >= expiry - marginMinutes * 60 * 1000
+}
+
 export function getStoredToken(): string | null {
   const token = localStorage.getItem(GDRIVE_TOKEN_KEY)
   const expiryStr = localStorage.getItem(GDRIVE_EXPIRY_KEY)
@@ -43,8 +63,8 @@ export function getStoredToken(): string | null {
   if (expiryStr) {
     const expiry = Number.parseInt(expiryStr, 10)
     if (Date.now() > expiry) {
-      // Token expirado
-      clearStoredToken()
+      // Token expirado: NO borramos email ni la bandera gdrive-enabled para permitir renovación silenciosa
+      localStorage.removeItem(GDRIVE_TOKEN_KEY)
       return null
     }
   }
@@ -54,6 +74,7 @@ export function getStoredToken(): string | null {
 export function setStoredToken(token: string, expiresInSeconds = 3600, email?: string) {
   localStorage.setItem(GDRIVE_TOKEN_KEY, token)
   localStorage.setItem(GDRIVE_EXPIRY_KEY, (Date.now() + expiresInSeconds * 1000).toString())
+  localStorage.setItem(GDRIVE_ENABLED_KEY, 'true')
   if (email) {
     localStorage.setItem(GDRIVE_EMAIL_KEY, email)
   }
@@ -63,10 +84,61 @@ export function getStoredEmail(): string | null {
   return localStorage.getItem(GDRIVE_EMAIL_KEY)
 }
 
-export function clearStoredToken() {
+export function clearStoredToken(disconnectExplicit = false) {
   localStorage.removeItem(GDRIVE_TOKEN_KEY)
   localStorage.removeItem(GDRIVE_EXPIRY_KEY)
-  localStorage.removeItem(GDRIVE_EMAIL_KEY)
+  if (disconnectExplicit) {
+    localStorage.removeItem(GDRIVE_EMAIL_KEY)
+    localStorage.removeItem(GDRIVE_ENABLED_KEY)
+  }
+}
+
+/**
+ * Solicita silenciosamente un nuevo Access Token a Google Identity Services (GIS)
+ * sin abrir pop-ups ni requerir clics del usuario si ya ha concedido permisos previamente.
+ */
+export function requestSilentAccessToken(
+  clientId: string,
+  onSuccess: (token: string, expiresIn: number) => void,
+  onError?: (err: string) => void,
+): void {
+  const win = window as unknown as {
+    google?: {
+      accounts?: {
+        oauth2?: {
+          initTokenClient: (config: {
+            client_id: string
+            scope: string
+            prompt?: string
+            callback: (res: { access_token?: string; expires_in?: number; error?: string }) => void
+          }) => { requestAccessToken: (opts?: { prompt?: string }) => void }
+        }
+      }
+    }
+  }
+
+  if (!win.google?.accounts?.oauth2) {
+    onError?.('Google Identity Services no está listo')
+    return
+  }
+
+  try {
+    const client = win.google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/drive.appdata',
+      prompt: '',
+      callback: (response) => {
+        if (response.access_token) {
+          onSuccess(response.access_token, response.expires_in || 3600)
+        } else if (response.error) {
+          onError?.(response.error)
+        }
+      },
+    })
+    client.requestAccessToken({ prompt: '' })
+  } catch (err) {
+    onError?.((err as Error).message)
+  }
 }
 
 /**

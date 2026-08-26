@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   getStoredToken,
   getStoredEmail,
@@ -6,6 +6,9 @@ import {
   clearStoredToken,
   fetchGoogleUserEmail,
   getStoredClientId,
+  isGoogleSyncEnabled,
+  isTokenExpired,
+  requestSilentAccessToken,
 } from '../pwa/googleDrive'
 import {
   performGoogleDriveSync,
@@ -19,29 +22,9 @@ export function useGoogleSync() {
   const [syncState, setSyncState] = useState<SyncState>('idle')
   const [lastSyncedTime, setLastSyncedTime] = useState<number>(() => getLastSyncTime())
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const isRefreshingRef = useRef(false)
 
-  const isConnected = Boolean(token)
-
-  const triggerSync = useCallback(async () => {
-    const currentToken = getStoredToken()
-    if (!currentToken) return
-
-    if (!navigator.onLine) {
-      setSyncState('offline')
-      return
-    }
-
-    try {
-      setSyncState('syncing')
-      setErrorMessage(null)
-      const res = await performGoogleDriveSync(currentToken)
-      setLastSyncedTime(res.timestamp)
-      setSyncState('idle')
-    } catch (e) {
-      setSyncState('error')
-      setErrorMessage((e as Error).message)
-    }
-  }, [])
+  const isConnected = Boolean(token) || isGoogleSyncEnabled()
 
   const connectWithToken = useCallback(
     async (newToken: string, expiresInSeconds = 3600, email?: string) => {
@@ -51,7 +34,9 @@ export function useGoogleSync() {
       }
       setStoredToken(newToken, expiresInSeconds, finalEmail)
       setToken(newToken)
-      setUserEmail(finalEmail ?? null)
+      if (finalEmail) {
+        setUserEmail(finalEmail)
+      }
       setSyncState('idle')
       setErrorMessage(null)
 
@@ -69,38 +54,138 @@ export function useGoogleSync() {
     [],
   )
 
+  const refreshSilentToken = useCallback((): Promise<string | null> => {
+    if (!isGoogleSyncEnabled() || isRefreshingRef.current) return Promise.resolve(null)
+    const clientId = getStoredClientId()
+    if (!clientId) return Promise.resolve(null)
+
+    isRefreshingRef.current = true
+
+    return new Promise<string | null>((resolve) => {
+      requestSilentAccessToken(
+        clientId,
+        async (newToken, expiresIn) => {
+          isRefreshingRef.current = false
+          await connectWithToken(newToken, expiresIn)
+          resolve(newToken)
+        },
+        (err) => {
+          isRefreshingRef.current = false
+          // Si el refresco silencioso no pudo completarse (ej. cookies de terceros bloqueadas)
+          if (err && !err.includes('no está listo')) {
+            setErrorMessage(`Sesión de Google Drive expirada: ${err}`)
+          }
+          resolve(null)
+        },
+      )
+    })
+  }, [connectWithToken])
+
+  const triggerSync = useCallback(async () => {
+    let currentToken = getStoredToken()
+    if (!currentToken && isGoogleSyncEnabled()) {
+      // Intentar renovación silenciosa previa
+      currentToken = await refreshSilentToken()
+    }
+    if (!currentToken) return
+
+    if (!navigator.onLine) {
+      setSyncState('offline')
+      return
+    }
+
+    try {
+      setSyncState('syncing')
+      setErrorMessage(null)
+      const res = await performGoogleDriveSync(currentToken)
+      setLastSyncedTime(res.timestamp)
+      setSyncState('idle')
+    } catch (e) {
+      const msg = (e as Error).message
+      // Si el error fue por token caducado (401), intentar renovación silenciosa y reintentar
+      if (msg.includes('expirada') || msg.includes('401')) {
+        const refreshedToken = await refreshSilentToken()
+        if (refreshedToken) {
+          try {
+            const retryRes = await performGoogleDriveSync(refreshedToken)
+            setLastSyncedTime(retryRes.timestamp)
+            setSyncState('idle')
+            return
+          } catch {
+            // Reintento fallido
+          }
+        }
+      }
+      setSyncState('error')
+      setErrorMessage(msg)
+    }
+  }, [refreshSilentToken])
+
   const disconnect = useCallback(() => {
-    clearStoredToken()
+    clearStoredToken(true) // Desconexión explícita
     setToken(null)
     setUserEmail(null)
     setSyncState('idle')
     setErrorMessage(null)
   }, [])
 
-  // Sincronización automática periódica y al recuperar foco/conexión
+  // Auto-reconexión silenciosa al montar la aplicación
   useEffect(() => {
-    if (!token) return
+    if (isGoogleSyncEnabled() && (!token || isTokenExpired(5))) {
+      let attempts = 0
+      const maxAttempts = 10
+      const checkGisInterval = setInterval(() => {
+        attempts++
+        const win = window as unknown as { google?: { accounts?: { oauth2?: unknown } } }
+        if (win.google?.accounts?.oauth2) {
+          clearInterval(checkGisInterval)
+          void refreshSilentToken()
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkGisInterval)
+        }
+      }, 500)
 
-    // Sincronización al montar
-    void triggerSync()
+      return () => clearInterval(checkGisInterval)
+    }
+  }, [token, refreshSilentToken])
+
+  // Sincronización automática periódica, al recuperar foco y refresco proactivo
+  useEffect(() => {
+    if (!isConnected) return
+
+    if (token) {
+      void triggerSync()
+    }
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible' && navigator.onLine) {
-        void triggerSync()
+        if (isGoogleSyncEnabled() && (!getStoredToken() || isTokenExpired(5))) {
+          void refreshSilentToken().then(() => void triggerSync())
+        } else {
+          void triggerSync()
+        }
       }
     }
 
     const handleOnline = () => {
-      void triggerSync()
+      if (isGoogleSyncEnabled() && (!getStoredToken() || isTokenExpired(5))) {
+        void refreshSilentToken().then(() => void triggerSync())
+      } else {
+        void triggerSync()
+      }
     }
 
     window.addEventListener('visibilitychange', handleVisibility)
     window.addEventListener('online', handleOnline)
 
-    // Intervalo de comprobación cada 5 minutos
+    // Intervalo cada 5 minutos: sincronizar y renovar token si está próximo a expirar (15 min)
     const interval = setInterval(() => {
       if (navigator.onLine && document.visibilityState === 'visible') {
-        void triggerSync()
+        if (isGoogleSyncEnabled() && isTokenExpired(15)) {
+          void refreshSilentToken().then(() => void triggerSync())
+        } else {
+          void triggerSync()
+        }
       }
     }, 5 * 60 * 1000)
 
@@ -109,10 +194,9 @@ export function useGoogleSync() {
       window.removeEventListener('online', handleOnline)
       clearInterval(interval)
     }
-  }, [token, triggerSync])
+  }, [isConnected, token, triggerSync, refreshSilentToken])
 
   const initiateOAuthLogin = useCallback(() => {
-    // Verificar si GIS está disponible en window.google
     const win = window as unknown as {
       google?: {
         accounts?: {
@@ -142,6 +226,8 @@ export function useGoogleSync() {
         },
       })
       client.requestAccessToken()
+    } else {
+      setErrorMessage('Google Identity Services no está disponible en este navegador')
     }
   }, [connectWithToken])
 
