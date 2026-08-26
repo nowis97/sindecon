@@ -2341,11 +2341,14 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   margin: 18px 0;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-subtle);
 }
 
 .reader-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   text-align: left;
   font-size: 0.9rem;
 }
@@ -2355,16 +2358,59 @@ body {
   color: var(--text-primary);
   font-weight: 700;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1.5px solid var(--border-strong);
 }
 
 .reader-table td {
   padding: 10px 14px;
+  border-right: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-secondary);
 }
 
-.reader-table tr:last-child td {
+.reader-table th:last-child,
+.reader-table td:last-child {
+  border-right: none;
+}
+
+.reader-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.reader-table tbody tr:hover {
+  background: var(--bg-card-hover);
+}
+
+.editor-host .ProseMirror table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin: 18px 0;
+}
+
+.editor-host .ProseMirror table th,
+.editor-host .ProseMirror table td {
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 10px 14px;
+}
+
+.editor-host .ProseMirror table th {
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  font-weight: 700;
+  border-bottom: 1.5px solid var(--border-strong);
+}
+
+.editor-host .ProseMirror table th:last-child,
+.editor-host .ProseMirror table td:last-child {
+  border-right: none;
+}
+
+.editor-host .ProseMirror table tr:last-child td {
   border-bottom: none;
 }
 

@@ -3,7 +3,7 @@
 > **Sistema de Información y Notas para Decisiones Clínicas**  
 > *Base de conocimientos médica personal, offline-first, segura y ultrarrápida para profesionales y estudiantes de la salud.*
 
-[![Version](https://img.shields.io/badge/version-v0.2.15-blue.svg)](https://github.com/nowis97/sindecon/releases/tag/v0.2.15)
+[![Version](https://img.shields.io/badge/version-v0.2.16-blue.svg)](https://github.com/nowis97/sindecon/releases/tag/v0.2.16)
 [![PWA](https://img.shields.io/badge/PWA-Offline--First-emerald.svg)](https://vite-pwa-org.netlify.app/)
 [![React](https://img.shields.io/badge/React-19.2-61dafb.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8.2-646cff.svg)](https://vitejs.dev/)
