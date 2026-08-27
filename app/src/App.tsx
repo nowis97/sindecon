@@ -10,6 +10,7 @@ import { useTheme } from './hooks/useTheme'
 import { useFavorites } from './hooks/useFavorites'
 import { useGoogleSync } from './hooks/useGoogleSync'
 import { usePWAUpdate } from './hooks/usePWAUpdate'
+import { usePwaInstall } from './hooks/usePwaInstall'
 import { TreeView } from './components/tree/TreeView'
 import { Breadcrumbs } from './components/tree/Breadcrumbs'
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/editor/MarkdownEditor'
@@ -19,6 +20,7 @@ import { SmartImportModal } from './components/editor/SmartImportModal'
 import { PortabilityBar } from './components/portability/PortabilityBar'
 import { SyncIndicator } from './components/portability/SyncIndicator'
 import { GoogleDriveModal } from './components/portability/GoogleDriveModal'
+import { IosInstallModal } from './components/portability/IosInstallModal'
 import { UpdateToast } from './components/pwa/UpdateToast'
 import { SearchBox } from './components/search/SearchBox'
 import { CommandPalette } from './components/search/CommandPalette'
@@ -106,6 +108,14 @@ function App() {
 
   // Hook de Actualización PWA y Sondeo Activo
   const { needRefresh, updateApp, closeToast } = usePWAUpdate()
+
+  // Hook de Instalación PWA
+  const {
+    canInstall: canInstallPwa,
+    showIosGuide,
+    triggerInstall: triggerInstallPwa,
+    closeIosGuide,
+  } = usePwaInstall()
 
   const storagePersisted = useStoragePersisted()
   const editorRef = useRef<MarkdownEditorHandle | null>(null)
@@ -495,6 +505,8 @@ function App() {
 
           <PortabilityBar
             onOpenGoogleDriveSync={() => setIsGoogleModalOpen(true)}
+            onInstallPwa={triggerInstallPwa}
+            canInstallPwa={canInstallPwa}
           />
 
           <TreeView
@@ -682,6 +694,8 @@ function App() {
               onCreateFromTemplate={(tplTitle) =>
                 handleOpenTemplatePrompt(tplTitle)
               }
+              onInstallPwa={triggerInstallPwa}
+              canInstallPwa={canInstallPwa}
             />
           )}
         </main>
@@ -836,6 +850,9 @@ function App() {
         onUpdate={updateApp}
         onDismiss={closeToast}
       />
+
+      {/* Guía Visual de Instalación en iOS Safari */}
+      <IosInstallModal isOpen={showIosGuide} onClose={closeIosGuide} />
     </div>
   )
 }

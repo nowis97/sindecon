@@ -16,14 +16,18 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Cuaderno Médico',
-        short_name: 'Cuaderno',
-        description: 'Base de conocimientos médica personal, offline',
+        name: 'SINDECON — Cuaderno Médico',
+        short_name: 'SINDECON',
+        description: 'Base de conocimientos médica personal offline-first para profesionales de la salud',
         lang: 'es',
-        theme_color: '#2563eb',
-        background_color: '#ffffff',
+        theme_color: '#142337',
+        background_color: '#0f172a',
         display: 'standalone',
+        orientation: 'any',
         start_url: '/',
+        scope: '/',
+        id: '/',
+        categories: ['medical', 'productivity', 'education'],
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },

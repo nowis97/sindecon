@@ -11,6 +11,8 @@ interface DashboardProps {
   onOpenSmartImport?: () => void
   onCreateNode: (kind: 'folder' | 'article') => void
   onCreateFromTemplate: (templateTitle: string) => void
+  onInstallPwa?: () => void
+  canInstallPwa?: boolean
 }
 
 export function Dashboard({
@@ -21,6 +23,8 @@ export function Dashboard({
   onOpenSmartImport,
   onCreateNode,
   onCreateFromTemplate,
+  onInstallPwa,
+  canInstallPwa,
 }: DashboardProps) {
   const allTags = useAllTags()
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
@@ -199,6 +203,21 @@ export function Dashboard({
               <span>Organiza por especialidad médica</span>
             </div>
           </button>
+
+          {canInstallPwa && onInstallPwa && (
+            <button
+              type="button"
+              className="action-card action-install-pwa"
+              style={{ '--stagger-index': 9 } as React.CSSProperties}
+              onClick={onInstallPwa}
+            >
+              <div className="action-card-icon">📲</div>
+              <div className="action-card-content">
+                <strong>Instalar en este Dispositivo</strong>
+                <span>Usa la app a pantalla completa y 100% offline</span>
+              </div>
+            </button>
+          )}
         </div>
       </section>
 

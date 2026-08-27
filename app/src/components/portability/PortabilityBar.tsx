@@ -5,10 +5,16 @@ import { AlertDialog } from '../common/DialogModal'
 
 interface PortabilityBarProps {
   onOpenGoogleDriveSync?: () => void
+  onInstallPwa?: () => void
+  canInstallPwa?: boolean
 }
 
-/** Export a zip / import con fusión (spec data-portability) + acceso a nube. */
-export function PortabilityBar({ onOpenGoogleDriveSync }: PortabilityBarProps) {
+/** Export a zip / import con fusión (spec data-portability) + acceso a nube e instalación PWA. */
+export function PortabilityBar({
+  onOpenGoogleDriveSync,
+  onInstallPwa,
+  canInstallPwa,
+}: PortabilityBarProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [report, setReport] = useState<MergeReport | null>(null)
@@ -69,6 +75,16 @@ export function PortabilityBar({ onOpenGoogleDriveSync }: PortabilityBarProps) {
             title="Configurar sincronización en Google Drive"
           >
             ☁️ Nube
+          </button>
+        )}
+        {canInstallPwa && onInstallPwa && (
+          <button
+            type="button"
+            className="btn-install-pwa-trigger"
+            onClick={onInstallPwa}
+            title="Instalar SINDECON en este dispositivo (pantalla completa y offline)"
+          >
+            📲 Instalar
           </button>
         )}
         <input
