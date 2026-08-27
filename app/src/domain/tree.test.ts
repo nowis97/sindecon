@@ -63,4 +63,11 @@ describe('domain/tree', () => {
     expect(childrenOf(conBorrado, 'A').map((x) => x.id)).toEqual(['B', 'C'])
     expect(childrenOf(rows, null).map((x) => x.id)).toEqual(['A', 'E'])
   })
+
+  it('canMove solo permite carpetas o null como destino', () => {
+    const artTarget: NodeRow = { ...n('art-target', null), kind: 'article' }
+    const all = [...rows, artTarget]
+    expect(canMove(all, 'D', 'art-target')).toBe(false)
+    expect(canMove(all, 'D', 'A')).toBe(true)
+  })
 })

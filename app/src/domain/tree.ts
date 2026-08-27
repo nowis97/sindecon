@@ -51,14 +51,15 @@ export function canMove(
   if (newParentId === id) return false
 
   const targetNode = byId.get(newParentId)
+  if (!targetNode || targetNode.kind !== 'folder') return false
   // No permitir mover elementos hacia la carpeta 'templates' ni dentro de sus subcarpetas
-  if (targetNode?.system === 'templates') return false
+  if (targetNode.system === 'templates') return false
 
-  let currentParentId = targetNode?.parent_id
+  let currentParentId: string | null = targetNode.parent_id
   while (currentParentId) {
     const ancestor = byId.get(currentParentId)
     if (ancestor?.system === 'templates') return false
-    currentParentId = ancestor?.parent_id
+    currentParentId = ancestor?.parent_id ?? null
   }
 
   return !isDescendant(rows, id, newParentId)

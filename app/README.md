@@ -3,13 +3,13 @@
 > **Sistema de Información y Notas para Decisiones Clínicas**  
 > *Base de conocimientos médica personal, offline-first, segura y ultrarrápida para profesionales y estudiantes de la salud.*
 
-[![Version](https://img.shields.io/badge/version-v0.2.17-blue.svg)](https://github.com/nowis97/sindecon/releases/tag/v0.2.17)
+[![Version](https://img.shields.io/badge/version-v0.2.18-blue.svg)](https://github.com/nowis97/sindecon/releases/tag/v0.2.18)
 [![PWA](https://img.shields.io/badge/PWA-Offline--First-emerald.svg)](https://vite-pwa-org.netlify.app/)
 [![React](https://img.shields.io/badge/React-19.2-61dafb.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8.2-646cff.svg)](https://vitejs.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6.svg)](https://www.typescriptlang.org/)
 [![Database](https://img.shields.io/badge/Dexie.js-IndexedDB-orange.svg)](https://dexie.org/)
-[![Tests](https://img.shields.io/badge/Vitest-73%20passed-success.svg)](https://vitest.dev/)
+[![Tests](https://img.shields.io/badge/Vitest-74%20passed-success.svg)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---

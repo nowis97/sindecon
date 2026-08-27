@@ -141,20 +141,19 @@ export function TreeView({
               const currentDragged = globalDraggingId || draggedId
               if (!currentDragged || currentDragged === node.id) return
 
-              const rect = e.currentTarget.getBoundingClientRect()
-              const relY = (e.clientY - rect.top) / (rect.height || 1)
-
               let position: 'above' | 'inside' | 'below' = 'inside'
+              let targetFolder: string | null = null
+
               if (isFolder) {
-                if (relY < 0.25) position = 'above'
-                else if (relY > 0.75) position = 'below'
-                else position = 'inside'
+                position = 'inside'
+                targetFolder = node.id
               } else {
-                if (relY < 0.5) position = 'above'
-                else position = 'below'
+                const rect = e.currentTarget.getBoundingClientRect()
+                const relY = (e.clientY - rect.top) / (rect.height || 1)
+                position = relY < 0.5 ? 'above' : 'below'
+                targetFolder = node.parent_id
               }
 
-              const targetFolder = position === 'inside' ? node.id : node.parent_id
               const ok = canMove(nodes, currentDragged, targetFolder)
               if (!ok) return
 
@@ -178,7 +177,7 @@ export function TreeView({
                       next.delete(node.id)
                       return next
                     })
-                  }, 300)
+                  }, 350)
                 }
               }
             }}
@@ -210,24 +209,14 @@ export function TreeView({
                 e.dataTransfer.getData('text/plain') ||
                 globalDraggingId ||
                 draggedId
+              globalDraggingId = null
               setDraggedId(null)
 
-              const rect = e.currentTarget.getBoundingClientRect()
-              const relY = (e.clientY - rect.top) / (rect.height || 1)
+              if (!sourceId || sourceId === node.id) return
 
-              let position: 'above' | 'inside' | 'below' = 'inside'
-              if (isFolder) {
-                if (relY < 0.25) position = 'above'
-                else if (relY > 0.75) position = 'below'
-                else position = 'inside'
-              } else {
-                if (relY < 0.5) position = 'above'
-                else position = 'below'
-              }
+              const targetFolder = isFolder ? node.id : node.parent_id
 
-              const targetFolder = position === 'inside' ? node.id : node.parent_id
-
-              if (sourceId && sourceId !== targetFolder && canMove(nodes, sourceId, targetFolder)) {
+              if (canMove(nodes, sourceId, targetFolder)) {
                 if (targetFolder) {
                   setCollapsed((prev) => {
                     const next = new Set(prev)
@@ -389,39 +378,7 @@ export function TreeView({
           </div>
           {isFolder && (
             <div className={`tree-children-accordion ${isCollapsed ? 'collapsed' : 'expanded'}`}>
-              <div
-                className="tree-children-inner"
-                onDragOver={(e) => {
-                  if (!draggedId || draggedId === node.id) return
-                  if (!canMove(nodes, draggedId, node.id)) return
-                  e.preventDefault()
-                  e.stopPropagation()
-                  e.dataTransfer.dropEffect = 'move'
-                  if (dragOverId !== node.id) {
-                    setDragOverId(node.id)
-                  }
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  setDragOverId(null)
-                  const sourceId =
-                    e.dataTransfer.getData('application/sindecon-node-id') ||
-                    e.dataTransfer.getData('text/plain') ||
-                    globalDraggingId ||
-                    draggedId
-                  globalDraggingId = null
-                  setDraggedId(null)
-                  if (sourceId && sourceId !== node.id && canMove(nodes, sourceId, node.id)) {
-                    setCollapsed((prev) => {
-                      const next = new Set(prev)
-                      next.delete(node.id)
-                      return next
-                    })
-                    void onMoveNodeDirect?.(sourceId, node.id)
-                  }
-                }}
-              >
+              <div className="tree-children-inner">
                 {renderLevel(node.id, depth + 1)}
               </div>
             </div>
@@ -432,7 +389,7 @@ export function TreeView({
 
   return (
     <div
-      className="tree tree-view"
+      className={`tree tree-view ${draggedId ? 'is-dragging' : ''}`}
       onDragOver={(e) => {
         const current = globalDraggingId || draggedId
         if (!current || !canMove(nodes, current, null)) return

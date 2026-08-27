@@ -1082,6 +1082,10 @@ body {
 }
 
 /* Drag and Drop en TreeView */
+.tree-view.is-dragging .tree-row * {
+  pointer-events: none !important;
+}
+
 .tree-row.dragging {
   opacity: 0.45;
   outline: 1px dashed var(--accent-primary);
