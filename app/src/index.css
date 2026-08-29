@@ -2078,7 +2078,7 @@ body {
   border-radius: var(--radius-xl);
   padding: 36px 40px;
   box-shadow: var(--shadow-subtle);
-  line-height: 1.75;
+  line-height: 1.48;
   font-size: 1rem;
   animation: fade-in-up var(--dur-fast) var(--ease-smooth);
 }
@@ -2092,33 +2092,38 @@ body {
 
 .article-reader-view.layout-two-columns .reader-heading.h1 {
   margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .reader-heading {
   font-family: var(--font-main);
   font-weight: 700;
   letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 
 .reader-heading.h1 {
-  color: var(--reader-h1-color);
-  font-size: 1.65rem;
-  border-bottom: 2px solid var(--border-subtle);
-  padding-bottom: 8px;
-  margin-top: 24px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--reader-h2-color);
+  font-size: 1.48rem;
+  border-bottom: 2px solid var(--reader-h2-color);
+  padding-bottom: 4px;
+  margin-top: 22px;
+  margin-bottom: 8px;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  text-transform: none;
+  letter-spacing: -0.01em;
 }
 
 .reader-heading.h2 {
   color: var(--reader-h2-color);
   font-size: 1.22rem;
-  border-bottom: 2px solid var(--reader-h2-color);
-  padding-bottom: 4px;
-  margin-top: 22px;
-  margin-bottom: 8px;
-  display: inline-block;
+  margin-top: 20px;
+  margin-bottom: 6px;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .reader-heading.h3 {
@@ -2130,7 +2135,8 @@ body {
 
 .reader-paragraph {
   color: var(--reader-body-color);
-  margin-bottom: 12px;
+  margin-bottom: 9px;
+  line-height: 1.48;
 }
 /* Prevención de corte de bloques en columnas */
 .article-reader-view .reader-heading,
@@ -2150,23 +2156,35 @@ body {
 .reader-hr {
   border: none;
   border-top: 1.5px solid var(--border-subtle);
-  margin: 24px 0;
+  margin: 20px 0;
+}
+
+/* Bloques de Cita Médica */
+.reader-blockquote {
+  border-left: 3.5px solid var(--border-strong);
+  margin: 10px 0;
+  padding: 6px 14px;
+  color: var(--text-secondary);
+  font-style: italic;
+  line-height: 1.45;
+  background: var(--bg-muted);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 /* Listas con sangría y sub-viñetas */
 .reader-list {
-  margin: 10px 0 14px 0;
+  margin: 6px 0 10px 0;
   padding-left: 24px;
-  line-height: 1.65;
+  line-height: 1.38;
   color: var(--reader-body-color);
 }
 
 .reader-list li {
-  margin: 4px 0;
+  margin: 2px 0;
 }
 
 .reader-list-nested {
-  margin: 4px 0 6px 0;
+  margin: 2px 0 4px 0;
   padding-left: 22px;
   list-style-type: circle;
 }
@@ -2390,7 +2408,7 @@ body {
 
 .reader-callout .callout-body {
   font-size: 0.92rem;
-  line-height: 1.6;
+  line-height: 1.45;
 }
 
 .reader-callout .callout-paragraph {
@@ -4012,18 +4030,24 @@ select.dialog-input {
 
   .reader-heading.h1 {
     column-span: all !important;
-    text-align: center !important;
-    color: #142337 !important;
-    font-size: 14pt !important;
-    margin-bottom: 12pt !important;
+    text-align: left !important;
+    color: #008080 !important;
+    font-size: 13pt !important;
+    border-bottom: 1.5px solid #008080 !important;
+    padding-bottom: 3pt !important;
+    margin-bottom: 8pt !important;
+    display: block !important;
+    width: fit-content !important;
+    text-transform: none !important;
   }
 
   .reader-heading.h2 {
     color: #008080 !important;
     font-size: 11pt !important;
-    border-bottom: 1.5px solid #008080 !important;
     margin-top: 10pt !important;
     margin-bottom: 4pt !important;
+    display: block !important;
+    width: fit-content !important;
   }
 }
 
