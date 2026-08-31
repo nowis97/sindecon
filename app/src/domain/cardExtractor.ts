@@ -140,3 +140,62 @@ export function extractCardsFromMarkdown(articleTitle: string, markdown: string)
 
   return cards
 }
+
+export interface FlashcardYieldEstimate {
+  wordCount: number
+  estimatedCards: number
+  readTimeMinutes: number
+  densityDescription: string
+}
+
+/**
+ * Calcula la cantidad recomendada de flashcards en base al volumen de palabras
+ * del artículo médico (regla de oro: 1 flashcard clínica cada ~50-70 palabras).
+ */
+export function estimateFlashcardsFromWords(markdown: string): FlashcardYieldEstimate {
+  if (!markdown || !markdown.trim()) {
+    return {
+      wordCount: 0,
+      estimatedCards: 0,
+      readTimeMinutes: 0,
+      densityDescription: 'Artículo vacío',
+    }
+  }
+
+  // Contar palabras limpiando marcas de formato markdown
+  const cleanText = markdown
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[#*`_~[\]()|>-]/g, ' ')
+    .trim()
+
+  const words = cleanText.split(/\s+/).filter((w) => w.length > 0)
+  const wordCount = words.length
+
+  if (wordCount < 30) {
+    return {
+      wordCount,
+      estimatedCards: 0,
+      readTimeMinutes: 1,
+      densityDescription: 'Texto muy breve (< 30 palabras)',
+    }
+  }
+
+  // 1 card de alto rendimiento clínico cada ~60 palabras (mínimo 3, máx 25)
+  const rawCards = Math.round(wordCount / 60)
+  const estimatedCards = Math.min(25, Math.max(3, rawCards))
+  const readTimeMinutes = Math.max(1, Math.ceil(wordCount / 200))
+
+  let densityDescription = 'Ficha clínica estándar'
+  if (wordCount < 200) {
+    densityDescription = 'Nota rápida / Resumen conciso'
+  } else if (wordCount > 800) {
+    densityDescription = 'Guía clínica extensa / Protocolo completo'
+  }
+
+  return {
+    wordCount,
+    estimatedCards,
+    readTimeMinutes,
+    densityDescription,
+  }
+}

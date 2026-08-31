@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractCardsFromMarkdown } from './cardExtractor'
+import { extractCardsFromMarkdown, estimateFlashcardsFromWords } from './cardExtractor'
 
 describe('Structural Flashcard Extractor', () => {
   it('extracts explicit Q/A and P/R pairs', () => {
@@ -64,6 +64,25 @@ Se requieren 2 criterios mayores o 1 mayor y 2 menores.
 `
     const cards = extractCardsFromMarkdown('Insuficiencia Cardíaca', md)
     expect(cards.some((c) => c.front.includes('Criterios de Framingham'))).toBe(true)
+  })
+
+  it('estimates flashcards based on medical word count rules', () => {
+    // Texto vacío
+    expect(estimateFlashcardsFromWords('').estimatedCards).toBe(0)
+    
+    // Texto corto (< 30 palabras)
+    expect(estimateFlashcardsFromWords('Paciente con fiebre.').estimatedCards).toBe(0)
+    
+    // Artículo estándar de ~180 palabras (debe estimar ~3 flashcards)
+    const midText = 'Esta es una palabra clínica médica importante para diagnosticar pacientes. '.repeat(18)
+    const midEstimate = estimateFlashcardsFromWords(midText)
+    expect(midEstimate.wordCount).toBeGreaterThan(150)
+    expect(midEstimate.estimatedCards).toBeGreaterThanOrEqual(3)
+    
+    // Guía extensa de ~1200 palabras (debe estimar ~20 flashcards)
+    const longText = 'Fármaco tratamiento diagnóstico clínica signo síntoma dosis patología. '.repeat(150)
+    const longEstimate = estimateFlashcardsFromWords(longText)
+    expect(longEstimate.estimatedCards).toBeGreaterThanOrEqual(15)
   })
 })
 

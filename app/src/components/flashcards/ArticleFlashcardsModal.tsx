@@ -8,6 +8,7 @@ import {
 import type { FlashcardRow } from '../../db/db'
 import { GenerateFlashcardsModal } from './GenerateFlashcardsModal'
 import { FlashcardMarkdown } from './FlashcardMarkdown'
+import { estimateFlashcardsFromWords } from '../../domain/cardExtractor'
 
 interface ArticleFlashcardsModalProps {
   isOpen: boolean
@@ -61,6 +62,9 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
     const newCount = cards.filter((c) => c.interval === 0).length
     return { dueCount, masteredCount, newCount, total: cards.length }
   }, [cards, now])
+
+  // Estimación médica de flashcards según volumen de palabras
+  const wordEstimate = useMemo(() => estimateFlashcardsFromWords(bodyMd), [bodyMd])
 
   // Filtrado de tarjetas por búsqueda
   const filteredCards = useMemo(() => {
@@ -121,8 +125,16 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
               </span>
             </div>
             <div className="modal-header-stats-group">
+              {wordEstimate.wordCount >= 30 && (
+                <span
+                  className="topic-stat-chip words-estimate"
+                  title={`Artículo de ${wordEstimate.wordCount} palabras (${wordEstimate.densityDescription}). Estimación: 1 flashcard clínica por cada ~60 palabras.`}
+                >
+                  📝 ~{wordEstimate.estimatedCards} estimadas ({wordEstimate.wordCount} palabras)
+                </span>
+              )}
               <span className="topic-stat-chip total" title="Total de tarjetas en este tema">
-                📦 {stats.total} tarjeta{stats.total === 1 ? '' : 's'}
+                📦 {stats.total} en mazo
               </span>
               {stats.dueCount > 0 && (
                 <span className="topic-stat-chip due" title="Tarjetas listas para repasar hoy">

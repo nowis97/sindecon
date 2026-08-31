@@ -5513,6 +5513,41 @@ select.dialog-input {
   border-color: var(--accent-amber-border);
 }
 
+.topic-stat-chip.words-estimate {
+  background: #f0fdfa;
+  color: #0f766e;
+  border-color: #99f6e4;
+}
+
+[data-theme='dark'] .topic-stat-chip.words-estimate {
+  background: rgba(15, 118, 110, 0.2);
+  color: #5eead4;
+  border-color: rgba(94, 234, 212, 0.3);
+}
+
+.generator-word-estimate-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  font-size: 0.82rem;
+  color: #115e59;
+}
+
+[data-theme='dark'] .generator-word-estimate-banner {
+  background: rgba(15, 118, 110, 0.15);
+  border-color: rgba(94, 234, 212, 0.25);
+  color: #a7f3d0;
+}
+
+.generator-word-estimate-banner .estimate-badge-icon {
+  font-size: 1rem;
+}
+
 .article-flashcards-toolbar {
   display: flex;
   align-items: center;

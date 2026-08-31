@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react'
-import { extractCardsFromMarkdown, type ExtractedCard } from '../../domain/cardExtractor'
+import React, { useState, useEffect, useMemo } from 'react'
+import {
+  extractCardsFromMarkdown,
+  estimateFlashcardsFromWords,
+  type ExtractedCard,
+} from '../../domain/cardExtractor'
 import { generateFlashcardsWithCloudAi } from '../../domain/ai/cloudAiClient'
 import { getAiConfig, upsertFlashcards, type AiConfig } from '../../db/flashcards'
 import type { FlashcardRow } from '../../db/db'
@@ -30,6 +34,8 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
   const [loading, setLoading] = useState(false)
   const [progressMsg, setProgressMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const wordEstimate = useMemo(() => estimateFlashcardsFromWords(bodyMd), [bodyMd])
 
   const [candidates, setCandidates] = useState<Array<ExtractedCard & { selected: boolean }>>([])
 
@@ -152,6 +158,16 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
             ✨ IA Cloud (Gemini / Groq / OpenAI)
           </button>
         </div>
+
+        {/* Banner de Estimación Médica según palabras del artículo */}
+        {wordEstimate.wordCount >= 30 && (
+          <div className="generator-word-estimate-banner">
+            <span className="estimate-badge-icon">📊</span>
+            <span className="estimate-badge-text">
+              <strong>{wordEstimate.wordCount} palabras</strong> ({wordEstimate.densityDescription}) • Recomendadas: <strong>~{wordEstimate.estimatedCards} flashcards clínicas</strong> (~1 card / 60 palabras)
+            </span>
+          </div>
+        )}
 
         {/* Panel de Estado / Progreso */}
         {loading && (
