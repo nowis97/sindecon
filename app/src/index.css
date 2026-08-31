@@ -4313,52 +4313,58 @@ select.dialog-input {
 
   /* 4. Encabezado Médico del Documento */
   .print-article-header {
-    margin-bottom: 12pt;
-    padding-bottom: 8pt;
+    margin-bottom: 14pt !important;
+    padding-bottom: 8pt !important;
     border-bottom: 2pt solid #008080 !important;
     break-after: avoid !important;
     page-break-after: avoid !important;
   }
 
   .print-header-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 8pt;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 8.5pt !important;
     color: #64748b !important;
-    margin-bottom: 4pt;
-    font-weight: 600;
+    margin-bottom: 4pt !important;
+    font-weight: 600 !important;
   }
 
   .print-brand-tag {
     color: #008080 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: 700;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    font-weight: 700 !important;
+  }
+
+  .print-date-tag {
+    color: #64748b !important;
   }
 
   .print-article-title {
-    font-size: 17pt !important;
+    font-size: 18pt !important;
     font-weight: 800 !important;
     color: #0f172a !important;
     margin: 4pt 0 !important;
     line-height: 1.25 !important;
+    letter-spacing: -0.01em !important;
   }
 
   .print-breadcrumb-path {
-    font-size: 8.5pt !important;
+    font-size: 9pt !important;
     color: #475569 !important;
+    margin-top: 2pt !important;
   }
 
   .print-tags-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4pt;
-    margin-bottom: 10pt;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4pt !important;
+    margin-bottom: 12pt !important;
   }
 
   .print-tag-pill {
-    font-size: 7.5pt !important;
+    font-size: 8pt !important;
     background: #f1f5f9 !important;
     color: #334155 !important;
     border: 1px solid #cbd5e1 !important;
@@ -4367,7 +4373,7 @@ select.dialog-input {
     font-weight: 600 !important;
   }
 
-  /* 5. Maquetación según selección: 1 Columna vs 2 Columnas */
+  /* 5. Maquetación según selección: 1 Columna vs 2 Columnas (Estilo Ficha Médica / Modo Lector) */
   .print-layout-single .print-reader-view,
   .print-layout-single .article-reader-view {
     column-count: 1 !important;
@@ -4382,10 +4388,10 @@ select.dialog-input {
   body.print-columns-2 #print-article-document .article-reader-view {
     column-count: 2 !important;
     columns: 2 !important;
-    column-gap: 16pt !important;
+    column-gap: 2.25rem !important;
     column-rule: 1px solid #e2e8f0 !important;
-    font-size: 9pt !important;
-    line-height: 1.38 !important;
+    font-size: 9.5pt !important;
+    line-height: 1.48 !important;
   }
 
   .print-reader-view,
@@ -4396,64 +4402,202 @@ select.dialog-input {
     background: transparent !important;
   }
 
-  /* 6. Headings en Impresión */
+  /* 6. Tipografía y Encabezados Fieles al Modo Lector */
+  .reader-heading {
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
+    line-height: 1.25 !important;
+  }
+
   .reader-heading.h1 {
     column-span: all !important;
     color: #008080 !important;
-    font-size: 12pt !important;
-    border-bottom: 1.5px solid #008080 !important;
-    padding-bottom: 2pt !important;
-    margin: 10pt 0 4pt !important;
+    font-size: 14pt !important;
+    border-bottom: 2px solid #008080 !important;
+    padding-bottom: 4px !important;
+    margin-top: 18pt !important;
+    margin-bottom: 8pt !important;
     break-after: avoid !important;
     page-break-after: avoid !important;
   }
 
   .reader-heading.h2 {
     color: #008080 !important;
-    font-size: 10.5pt !important;
-    margin: 8pt 0 3pt !important;
+    font-size: 12pt !important;
+    margin-top: 14pt !important;
+    margin-bottom: 6pt !important;
     break-after: avoid !important;
     page-break-after: avoid !important;
   }
 
   .reader-heading.h3 {
-    font-size: 9.5pt !important;
-    margin: 6pt 0 2pt !important;
+    color: #0f766e !important;
+    font-size: 10.5pt !important;
+    margin-top: 12pt !important;
+    margin-bottom: 5pt !important;
     break-after: avoid !important;
     page-break-after: avoid !important;
   }
 
-  /* 7. Bloques protegidos contra cortes de página accidentales */
+  .reader-paragraph {
+    color: #1e293b !important;
+    margin-bottom: 8pt !important;
+    line-height: 1.48 !important;
+  }
+
+  /* 7. Bloques, Callouts y Tablas con Estilo Idéntico al Lector */
   table,
   .reader-table-wrapper,
   .reader-callout,
   .mermaid-container,
+  .mermaid-viewer-card,
   .reader-image-figure,
-  blockquote,
-  pre {
+  .reader-code-block,
+  .reader-blockquote,
+  .reader-hr {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
-    margin: 6pt 0 !important;
   }
 
+  /* Callouts clínicos con colores distintivos */
   .reader-callout {
-    border-width: 1px 1px 1px 4px !important;
-    padding: 6pt 8pt !important;
+    margin: 9pt 0 !important;
+    padding: 7pt 10pt !important;
+    border-radius: 6pt !important;
+    border: 1px solid #e2e8f0 !important;
+    border-left-width: 4px !important;
+  }
+
+  .reader-callout.callout-warning {
+    border-left-color: #ef4444 !important;
+    background: #fef2f2 !important;
+  }
+
+  .reader-callout.callout-tip {
+    border-left-color: #f59e0b !important;
+    background: #fffbeb !important;
+  }
+
+  .reader-callout.callout-dosage {
+    border-left-color: #8b5cf6 !important;
+    background: #f5f3ff !important;
+  }
+
+  .reader-callout.callout-important {
+    border-left-color: #008080 !important;
+    background: #f0fdfa !important;
+  }
+
+  .reader-callout.callout-note {
+    border-left-color: #3b82f6 !important;
+    background: #eff6ff !important;
+  }
+
+  .reader-callout .callout-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    margin-bottom: 3pt !important;
+  }
+
+  .reader-callout .callout-title {
+    font-weight: 700 !important;
+    font-size: 9pt !important;
+    color: #0f172a !important;
+  }
+
+  .reader-callout .callout-body {
     font-size: 8.5pt !important;
-    background: #f8fafc !important;
+    line-height: 1.4 !important;
+    color: #334155 !important;
+  }
+
+  /* Tablas Clínicas */
+  .reader-table-wrapper {
+    margin: 8pt 0 !important;
+    width: 100% !important;
   }
 
   .reader-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
     font-size: 8.5pt !important;
+    line-height: 1.35 !important;
   }
 
   .reader-table th,
   .reader-table td {
-    padding: 3pt 6pt !important;
+    padding: 4pt 7pt !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  .reader-table th {
+    background: #f1f5f9 !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+  }
+
+  .reader-table tr:nth-child(even) {
+    background: #f8fafc !important;
+  }
+
+  /* Listas con sangría y sub-viñetas */
+  .reader-list {
+    margin: 5pt 0 8pt 0 !important;
+    padding-left: 20pt !important;
+    line-height: 1.4 !important;
+    color: #1e293b !important;
+  }
+
+  .reader-list li {
+    margin: 2pt 0 !important;
+  }
+
+  .reader-list-nested {
+    margin: 2pt 0 3pt 0 !important;
+    padding-left: 16pt !important;
+    list-style-type: circle !important;
+  }
+
+  /* Bloques de Cita */
+  .reader-blockquote {
+    border-left: 3.5px solid #94a3b8 !important;
+    margin: 7pt 0 !important;
+    padding: 5pt 10pt !important;
+    color: #475569 !important;
+    font-style: italic !important;
+    line-height: 1.42 !important;
+    background: #f8fafc !important;
+    border-radius: 0 4pt 4pt 0 !important;
+  }
+
+  /* Línea divisoria horizontal */
+  .reader-hr {
+    border: none !important;
+    border-top: 1.5px solid #e2e8f0 !important;
+    margin: 12pt 0 !important;
+  }
+
+  /* Código en bloque e inline */
+  .reader-code-block {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 4pt !important;
+    padding: 6pt 8pt !important;
+    font-size: 8pt !important;
+    margin: 6pt 0 !important;
+  }
+
+  .reader-code-inline {
+    background: #f1f5f9 !important;
+    padding: 1pt 3pt !important;
+    border-radius: 3pt !important;
+    font-size: 8.5pt !important;
+    border: 1px solid #e2e8f0 !important;
   }
 
   @page {
-    margin: 12mm 14mm;
+    margin: 16mm 18mm;
     size: auto;
   }
 }
