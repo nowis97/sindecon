@@ -8,6 +8,7 @@ import {
 import type { FlashcardRow } from '../../db/db'
 import { GenerateFlashcardsModal } from './GenerateFlashcardsModal'
 import { FlashcardMarkdown } from './FlashcardMarkdown'
+import { FlashcardLivePreview } from './FlashcardLivePreview'
 import { estimateFlashcardsFromWords } from '../../domain/cardExtractor'
 
 interface ArticleFlashcardsModalProps {
@@ -35,9 +36,11 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
   const [isCreatingManual, setIsCreatingManual] = useState(false)
   const [manualFront, setManualFront] = useState('')
   const [manualBack, setManualBack] = useState('')
+  const [manualTab, setManualTab] = useState<'edit' | 'preview'>('edit')
   const [editingCardId, setEditingCardId] = useState<string | null>(null)
   const [editFront, setEditFront] = useState('')
   const [editBack, setEditBack] = useState('')
+  const [editTab, setEditTab] = useState<'edit' | 'preview'>('edit')
 
   const loadCards = async () => {
     const list = await getFlashcardsByNode(nodeId)
@@ -213,35 +216,63 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
             <form onSubmit={handleCreateManual} className="manual-card-form">
               <div className="manual-card-form-header">
                 <span className="form-title">📝 Añadir Nueva Flashcard</span>
-                <span className="form-tip">Repaso espaciado SM-2 activo</span>
-              </div>
-              <div className="form-group-duo">
-                <div className="form-group-card">
-                  <label className="label-front">
-                    <span>Pregunta / Anverso:</span>
-                    <small>¿Qué síntoma, dosis o criterio evaluar?</small>
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={manualFront}
-                    onChange={(e) => setManualFront(e.target.value)}
-                    placeholder="Ej. ¿Cuál es el tratamiento de primera línea en neumonía típica?"
-                    autoFocus
-                  />
-                </div>
-                <div className="form-group-card">
-                  <label className="label-back">
-                    <span>Respuesta / Reverso:</span>
-                    <small>Respuesta clínica concisa y directa</small>
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={manualBack}
-                    onChange={(e) => setManualBack(e.target.value)}
-                    placeholder="Ej. Amoxicilina 1g c/8h vía oral por 5 a 7 días."
-                  />
+                <div className="preview-tab-switcher">
+                  <button
+                    type="button"
+                    className={`btn-preview-tab ${manualTab === 'edit' ? 'active' : ''}`}
+                    onClick={() => setManualTab('edit')}
+                  >
+                    ✍️ Redactar
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-preview-tab ${manualTab === 'preview' ? 'active' : ''}`}
+                    onClick={() => setManualTab('preview')}
+                  >
+                    👁️ Vista Previa (Flip 3D)
+                  </button>
                 </div>
               </div>
+
+              {manualTab === 'edit' ? (
+                <div className="form-group-duo">
+                  <div className="form-group-card">
+                    <label className="label-front">
+                      <span>Pregunta / Anverso:</span>
+                      <small>¿Qué síntoma, dosis o criterio evaluar?</small>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={manualFront}
+                      onChange={(e) => setManualFront(e.target.value)}
+                      placeholder="Ej. ¿Cuál es el tratamiento de primera línea en neumonía típica?"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="form-group-card">
+                    <label className="label-back">
+                      <span>Respuesta / Reverso:</span>
+                      <small>Respuesta clínica concisa y directa (soporta Markdown)</small>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={manualBack}
+                      onChange={(e) => setManualBack(e.target.value)}
+                      placeholder="Ej. Amoxicilina 1g c/8h vía oral por 5 a 7 días."
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="manual-card-preview-stage">
+                  <FlashcardLivePreview
+                    front={manualFront}
+                    back={manualBack}
+                    articleTitle={articleTitle}
+                    sourceType="manual"
+                  />
+                </div>
+              )}
+
               <div className="form-actions-inline">
                 <button
                   type="button"
@@ -301,22 +332,56 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
                 <div key={card.id} className="article-card-row">
                   {editingCardId === card.id ? (
                     <div className="edit-card-inline-form">
-                      <div className="edit-field-group">
-                        <label>Pregunta / Anverso:</label>
-                        <textarea
-                          rows={2}
-                          value={editFront}
-                          onChange={(e) => setEditFront(e.target.value)}
-                        />
+                      <div className="edit-card-form-header">
+                        <span className="form-title">✏️ Editando Tarjeta #{idx + 1}</span>
+                        <div className="preview-tab-switcher">
+                          <button
+                            type="button"
+                            className={`btn-preview-tab ${editTab === 'edit' ? 'active' : ''}`}
+                            onClick={() => setEditTab('edit')}
+                          >
+                            ✍️ Editar
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn-preview-tab ${editTab === 'preview' ? 'active' : ''}`}
+                            onClick={() => setEditTab('preview')}
+                          >
+                            👁️ Vista Previa (Flip 3D)
+                          </button>
+                        </div>
                       </div>
-                      <div className="edit-field-group">
-                        <label>Respuesta / Reverso:</label>
-                        <textarea
-                          rows={2}
-                          value={editBack}
-                          onChange={(e) => setEditBack(e.target.value)}
-                        />
-                      </div>
+
+                      {editTab === 'edit' ? (
+                        <>
+                          <div className="edit-field-group">
+                            <label>Pregunta / Anverso:</label>
+                            <textarea
+                              rows={2}
+                              value={editFront}
+                              onChange={(e) => setEditFront(e.target.value)}
+                            />
+                          </div>
+                          <div className="edit-field-group">
+                            <label>Respuesta / Reverso (soporta Markdown):</label>
+                            <textarea
+                              rows={2}
+                              value={editBack}
+                              onChange={(e) => setEditBack(e.target.value)}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="manual-card-preview-stage">
+                          <FlashcardLivePreview
+                            front={editFront}
+                            back={editBack}
+                            articleTitle={articleTitle}
+                            sourceType={card.source_type}
+                          />
+                        </div>
+                      )}
+
                       <div className="edit-actions">
                         <button
                           type="button"

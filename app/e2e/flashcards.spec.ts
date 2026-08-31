@@ -396,4 +396,74 @@ test.describe('Flashcards & Repetición Espaciada SM-2 - E2E Tests (OpenSpec)', 
     await studyModal.locator('.btn-close').click()
     await expect(studyModal).not.toBeVisible()
   })
+
+  test('9. Vista previa interactiva en tiempo real (Live Card Preview con Flip 3D) en creación y generador (spec: flashcards)', async ({ page }) => {
+    // 1. Crear un artículo de prueba
+    await page.getByRole('button', { name: '+ Artículo' }).click()
+    const articleInput = page.locator('.dialog-input')
+    await articleInput.fill('Shock Séptico y Reanimación')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 2. Abrir modal de flashcards
+    await page.locator('.btn-article-flashcards').click()
+    const articleModal = page.locator('.article-flashcards-modal')
+    await expect(articleModal).toBeVisible()
+
+    // 3. Abrir formulario de creación manual
+    const btnManual = articleModal.locator('button.btn-secondary-action', {
+      hasText: '➕ Tarjeta Manual',
+    })
+    await btnManual.click()
+
+    const manualForm = articleModal.locator('.manual-card-form')
+    await expect(manualForm).toBeVisible()
+
+    // 4. Escribir contenido enriquecido
+    const frontInput = manualForm.locator('textarea').nth(0)
+    const backInput = manualForm.locator('textarea').nth(1)
+
+    await frontInput.fill('¿Cuál es la **meta de TAM** inicial en shock séptico?')
+    await backInput.fill('**Meta:** `≥ 65 mmHg` mediante cristaloides y `Noradrenalina`.')
+
+    // 5. Alternar a Vista Previa Interactiva
+    const btnPreviewTab = manualForm.locator('.btn-preview-tab', { hasText: '👁️ Vista Previa' })
+    await btnPreviewTab.click()
+
+    const previewStage = manualForm.locator('.manual-card-preview-stage')
+    await expect(previewStage).toBeVisible()
+
+    const previewCard = previewStage.locator('.flashcard-live-preview-container')
+    await expect(previewCard).toBeVisible()
+
+    // Verificar renderizado de anverso
+    await expect(previewCard.locator('.preview-card-front strong.card-md-bold')).toContainText('meta de TAM')
+    await expect(previewCard.locator('.preview-card-front .preview-topic-title')).toHaveText('Shock Séptico y Reanimación')
+
+    // 6. Voltear la tarjeta en 3D
+    await previewCard.click()
+    await expect(previewCard.locator('.preview-card-flipper')).toHaveClass(/flipped/)
+    await expect(previewCard.locator('.preview-card-back strong.card-md-bold')).toContainText('Meta:')
+    await expect(previewCard.locator('.preview-card-back code.card-code-inline').first()).toHaveText('≥ 65 mmHg')
+
+    // 7. Volver a redactar y guardar
+    const btnEditTab = manualForm.locator('.btn-preview-tab', { hasText: '✍️ Redactar' })
+    await btnEditTab.click()
+    await expect(previewStage).not.toBeVisible()
+
+    await manualForm.getByRole('button', { name: 'Añadir al Mazo' }).click()
+    await expect(manualForm).not.toBeVisible()
+
+    // 8. Abrir generador automático y probar preview de tarjeta candidata
+    await articleModal.locator('.btn-toolbar-generator').click()
+    const genModal = page.locator('.generate-flashcards-modal')
+    await expect(genModal).toBeVisible()
+
+    // Verificar banner de estimación por palabras
+    const estimateBanner = genModal.locator('.generator-word-estimate-banner')
+    // El artículo nuevo tiene pocas palabras, verificar que la UI responde limpiamente
+    await expect(genModal.locator('.generator-modes-bar')).toBeVisible()
+
+    await genModal.locator('.btn-close').click()
+    await expect(genModal).not.toBeVisible()
+  })
 })

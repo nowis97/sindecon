@@ -6,6 +6,7 @@ import {
 } from '../../domain/cardExtractor'
 import { generateFlashcardsWithCloudAi } from '../../domain/ai/cloudAiClient'
 import { getAiConfig, upsertFlashcards, type AiConfig } from '../../db/flashcards'
+import { FlashcardLivePreview } from './FlashcardLivePreview'
 import type { FlashcardRow } from '../../db/db'
 
 interface GenerateFlashcardsModalProps {
@@ -34,6 +35,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
   const [loading, setLoading] = useState(false)
   const [progressMsg, setProgressMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [previewCardIndex, setPreviewCardIndex] = useState<number | null>(null)
 
   const wordEstimate = useMemo(() => estimateFlashcardsFromWords(bodyMd), [bodyMd])
 
@@ -222,33 +224,55 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
                   key={idx}
                   className={`candidate-card-item ${card.selected ? 'is-selected' : ''}`}
                 >
-                  <div className="candidate-card-select">
-                    <input
-                      type="checkbox"
-                      checked={card.selected}
-                      onChange={() => handleToggleSelect(idx)}
-                    />
+                  <div className="candidate-card-top-bar">
+                    <div className="candidate-card-select">
+                      <input
+                        type="checkbox"
+                        checked={card.selected}
+                        onChange={() => handleToggleSelect(idx)}
+                      />
+                      <span className="candidate-index-label">Tarjeta #{idx + 1}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className={`btn-preview-candidate-toggle ${previewCardIndex === idx ? 'active' : ''}`}
+                      onClick={() => setPreviewCardIndex(previewCardIndex === idx ? null : idx)}
+                    >
+                      {previewCardIndex === idx ? '✍️ Editar' : '👁️ Vista Previa'}
+                    </button>
                   </div>
-                  <div className="candidate-card-fields">
-                    <div className="field-row">
-                      <span className="field-tag">Pregunta:</span>
-                      <textarea
-                        rows={2}
-                        value={card.front}
-                        onChange={(e) => handleEditCard(idx, 'front', e.target.value)}
-                        placeholder="Enunciado de la pregunta..."
+
+                  {previewCardIndex === idx ? (
+                    <div className="candidate-preview-stage">
+                      <FlashcardLivePreview
+                        front={card.front}
+                        back={card.back}
+                        articleTitle={articleTitle}
+                        sourceType={card.sourceType}
                       />
                     </div>
-                    <div className="field-row">
-                      <span className="field-tag">Respuesta:</span>
-                      <textarea
-                        rows={2}
-                        value={card.back}
-                        onChange={(e) => handleEditCard(idx, 'back', e.target.value)}
-                        placeholder="Respuesta o explicación..."
-                      />
+                  ) : (
+                    <div className="candidate-card-fields">
+                      <div className="field-row">
+                        <span className="field-tag">Pregunta:</span>
+                        <textarea
+                          rows={2}
+                          value={card.front}
+                          onChange={(e) => handleEditCard(idx, 'front', e.target.value)}
+                          placeholder="Enunciado de la pregunta..."
+                        />
+                      </div>
+                      <div className="field-row">
+                        <span className="field-tag">Respuesta:</span>
+                        <textarea
+                          rows={2}
+                          value={card.back}
+                          onChange={(e) => handleEditCard(idx, 'back', e.target.value)}
+                          placeholder="Respuesta o explicación..."
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
