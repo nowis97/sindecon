@@ -1,26 +1,31 @@
 import type { AiConfig } from '../../db/db'
-import type { ExtractedCard } from '../cardExtractor'
+import { estimateFlashcardsFromWords, type ExtractedCard } from '../cardExtractor'
 
-const MEDICAL_FLASHCARD_SYSTEM_PROMPT = `
-Eres un médico experto en educación clínica y memorización activa.
-Tu tarea es analizar un artículo médico y generar entre 4 y 8 flashcards esenciales de alto rendimiento para repaso espaciado (Anki/SM-2).
-Enfócate en:
-- Criterios diagnósticos y signos cardinales.
-- Fármacos de primera línea, dosis y contraindicaciones.
-- Fisiopatología clave y diagnósticos diferenciales.
-- Perlas clínicas y alertas de guardia.
+export function getMedicalFlashcardSystemPrompt(targetCount: number): string {
+  return `
+Eres un médico experto en educación clínica y memorización activa de alto rendimiento (Anki/SM-2).
+Tu tarea es analizar el artículo médico provisto y generar EXACTAMENTE ${targetCount} flashcards esenciales de alto rendimiento clínico.
+
+Enfócate en cubrir de forma equilibrada:
+- Criterios diagnósticos, signos cardinales y estudios de elección (Gold Standard).
+- Fármacos de primera línea, dosis exactas, vías y contraindicaciones críticas.
+- Fisiopatología clave, mecanismos y desencadenantes.
+- Complicaciones graves, criterios de alarma (Red Flags) y conductas de urgencia.
+- Perlas clínicas y diagnósticos diferenciales relevantes.
 
 REGLAS ESTRICTAS:
-1. El campo "front" debe ser una pregunta directa, clara y específica (ej. "¿Cuál es la dosis de Noradrenalina en shock séptico?").
-2. El campo "back" debe ser una respuesta concisa, estructurada y fácil de memorizar.
-3. Devuelve ÚNICAMENTE un array JSON válido con la estructura:
+1. Genera EXACTAMENTE ${targetCount} flashcards (ni más ni menos).
+2. El campo "front" debe ser una pregunta directa, clara y específica (ej. "¿Cuál es la dosis de Noradrenalina en shock séptico?").
+3. El campo "back" debe ser una respuesta concisa, bien estructurada con formato Markdown (listas con guiones, negritas en conceptos clave, o tablas si aplica).
+4. Devuelve ÚNICAMENTE un array JSON válido con la estructura:
 [
   {
-    "front": "Pregunta...",
-    "back": "Respuesta..."
+    "front": "Pregunta médica clara y específica...",
+    "back": "Respuesta estructurada en Markdown..."
   }
 ]
 `.trim()
+}
 
 /**
  * Limpia y acorta el Markdown para enviarlo al modelo de IA:
@@ -66,7 +71,8 @@ export function humanizeAiError(provider: string, status: number, rawErrorText: 
 export async function generateFlashcardsWithCloudAi(
   articleTitle: string,
   markdown: string,
-  config: AiConfig
+  config: AiConfig,
+  customTargetCount?: number
 ): Promise<ExtractedCard[]> {
   const { provider, apiKey, modelName } = config
 
@@ -74,8 +80,12 @@ export async function generateFlashcardsWithCloudAi(
     throw new Error('El artículo no contiene texto para procesar.')
   }
 
+  const estimated = estimateFlashcardsFromWords(markdown).estimatedCards
+  const targetCount = customTargetCount || (estimated > 0 ? estimated : 6)
+  const systemPrompt = getMedicalFlashcardSystemPrompt(targetCount)
+
   const cleanedMarkdown = cleanAndTruncateMarkdownForAi(markdown, 25000)
-  const promptText = `Artículo: "${articleTitle}"\n\nContenido:\n${cleanedMarkdown}`
+  const promptText = `Artículo: "${articleTitle}"\n\nPor favor genera exactamente ${targetCount} flashcards clínicas sobre el siguiente contenido:\n\n${cleanedMarkdown}`
 
   let rawJsonText = ''
 
@@ -91,7 +101,7 @@ export async function generateFlashcardsWithCloudAi(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         systemInstruction: {
-          parts: [{ text: MEDICAL_FLASHCARD_SYSTEM_PROMPT }],
+          parts: [{ text: systemPrompt }],
         },
         contents: [{ parts: [{ text: promptText }] }],
         generationConfig: {
@@ -127,7 +137,7 @@ export async function generateFlashcardsWithCloudAi(
       body: JSON.stringify({
         model: modelName || defaultModel,
         messages: [
-          { role: 'system', content: MEDICAL_FLASHCARD_SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: promptText },
         ],
         response_format: { type: 'json_object' },

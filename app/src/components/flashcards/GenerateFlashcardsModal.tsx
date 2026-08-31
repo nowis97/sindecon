@@ -38,14 +38,20 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
   const [previewCardIndex, setPreviewCardIndex] = useState<number | null>(null)
 
   const wordEstimate = useMemo(() => estimateFlashcardsFromWords(bodyMd), [bodyMd])
+  const [targetCardCount, setTargetCardCount] = useState<number>(
+    wordEstimate.estimatedCards > 0 ? wordEstimate.estimatedCards : 6
+  )
 
   const [candidates, setCandidates] = useState<Array<ExtractedCard & { selected: boolean }>>([])
 
   useEffect(() => {
     if (isOpen) {
-      getAiConfig().then(setAiConfig)
+      getAiConfig().then((cfg) => {
+        setAiConfig(cfg)
+      })
       setErrorMsg(null)
       setProgressMsg('')
+      setTargetCardCount(wordEstimate.estimatedCards > 0 ? wordEstimate.estimatedCards : 6)
       // Ejecutar automáticamente el extractor estructural al abrir
       runExtraction('structural')
     }
@@ -53,11 +59,13 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
 
   if (!isOpen) return null
 
-  const runExtraction = async (selectedMode: GeneratorMode) => {
+  const runExtraction = async (selectedMode: GeneratorMode, countOverride?: number) => {
     setLoading(true)
     setErrorMsg(null)
     setCandidates([])
     setMode(selectedMode)
+
+    const activeCount = countOverride || targetCardCount
 
     try {
       let extracted: ExtractedCard[] = []
@@ -69,8 +77,8 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
         if (!aiConfig || !aiConfig.apiKey) {
           throw new Error('Configura tu API Key de Gemini, Groq u OpenAI en Ajustes para usar este modo.')
         }
-        setProgressMsg(`Consultando ${aiConfig.provider.toUpperCase()} para extraer preguntas clínicas...`)
-        extracted = await generateFlashcardsWithCloudAi(articleTitle, bodyMd, aiConfig)
+        setProgressMsg(`Consultando ${aiConfig.provider.toUpperCase()} para generar ${activeCount} flashcards clínicas...`)
+        extracted = await generateFlashcardsWithCloudAi(articleTitle, bodyMd, aiConfig, activeCount)
       }
 
       if (extracted.length === 0) {
@@ -168,6 +176,56 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
             <span className="estimate-badge-text">
               <strong>{wordEstimate.wordCount} palabras</strong> ({wordEstimate.densityDescription}) • Recomendadas: <strong>~{wordEstimate.estimatedCards} flashcards clínicas</strong> (~1 card / 60 palabras)
             </span>
+          </div>
+        )}
+
+        {/* Selector de Cantidad Dinámica para IA Cloud */}
+        {mode === 'cloud_ai' && (
+          <div className="ai-target-stepper-panel">
+            <div className="stepper-label-group">
+              <span className="stepper-title">🎯 Cantidad a generar con IA:</span>
+              <small className="stepper-subtext">Ajusta o mantén la recomendación calculada</small>
+            </div>
+            <div className="stepper-controls-group">
+              <button
+                type="button"
+                className="btn-stepper-arrow"
+                disabled={targetCardCount <= 2 || loading}
+                onClick={() => {
+                  const next = Math.max(2, targetCardCount - 1)
+                  setTargetCardCount(next)
+                  runExtraction('cloud_ai', next)
+                }}
+                aria-label="Disminuir cantidad"
+              >
+                −
+              </button>
+              <span className="stepper-count-badge">
+                <strong>{targetCardCount}</strong> tarjetas
+              </span>
+              <button
+                type="button"
+                className="btn-stepper-arrow"
+                disabled={targetCardCount >= 25 || loading}
+                onClick={() => {
+                  const next = Math.min(25, targetCardCount + 1)
+                  setTargetCardCount(next)
+                  runExtraction('cloud_ai', next)
+                }}
+                aria-label="Aumentar cantidad"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                className="btn-stepper-reload"
+                disabled={loading}
+                onClick={() => runExtraction('cloud_ai', targetCardCount)}
+                title="Volver a generar con IA"
+              >
+                🔄 Re-generar
+              </button>
+            </div>
           </div>
         )}
 
