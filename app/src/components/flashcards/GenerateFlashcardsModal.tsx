@@ -51,9 +51,9 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
       })
       setErrorMsg(null)
       setProgressMsg('')
+      setCandidates([])
+      setPreviewCardIndex(null)
       setTargetCardCount(wordEstimate.estimatedCards > 0 ? wordEstimate.estimatedCards : 6)
-      // Ejecutar automáticamente el extractor estructural al abrir
-      runExtraction('structural')
     }
   }, [isOpen, nodeId])
 
@@ -154,7 +154,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
           <button
             type="button"
             className={`btn-mode-tab ${mode === 'structural' ? 'active' : ''}`}
-            onClick={() => runExtraction('structural')}
+            onClick={() => setMode('structural')}
             disabled={loading}
           >
             ⚡ Extractor Rápido (Offline)
@@ -162,7 +162,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
           <button
             type="button"
             className={`btn-mode-tab ${mode === 'cloud_ai' ? 'active' : ''}`}
-            onClick={() => runExtraction('cloud_ai')}
+            onClick={() => setMode('cloud_ai')}
             disabled={loading}
           >
             ✨ IA Cloud (Gemini / Groq / OpenAI)
@@ -183,19 +183,15 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
         {mode === 'cloud_ai' && (
           <div className="ai-target-stepper-panel">
             <div className="stepper-label-group">
-              <span className="stepper-title">🎯 Cantidad a generar con IA:</span>
-              <small className="stepper-subtext">Ajusta o mantén la recomendación calculada</small>
+              <span className="stepper-title">🎯 Cantidad de flashcards a generar:</span>
+              <small className="stepper-subtext">Ajusta según la profundidad del repaso deseado</small>
             </div>
             <div className="stepper-controls-group">
               <button
                 type="button"
                 className="btn-stepper-arrow"
                 disabled={targetCardCount <= 2 || loading}
-                onClick={() => {
-                  const next = Math.max(2, targetCardCount - 1)
-                  setTargetCardCount(next)
-                  runExtraction('cloud_ai', next)
-                }}
+                onClick={() => setTargetCardCount((prev) => Math.max(2, prev - 1))}
                 aria-label="Disminuir cantidad"
               >
                 −
@@ -207,27 +203,41 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
                 type="button"
                 className="btn-stepper-arrow"
                 disabled={targetCardCount >= 25 || loading}
-                onClick={() => {
-                  const next = Math.min(25, targetCardCount + 1)
-                  setTargetCardCount(next)
-                  runExtraction('cloud_ai', next)
-                }}
+                onClick={() => setTargetCardCount((prev) => Math.min(25, prev + 1))}
                 aria-label="Aumentar cantidad"
               >
                 +
               </button>
-              <button
-                type="button"
-                className="btn-stepper-reload"
-                disabled={loading}
-                onClick={() => runExtraction('cloud_ai', targetCardCount)}
-                title="Volver a generar con IA"
-              >
-                🔄 Re-generar
-              </button>
             </div>
           </div>
         )}
+
+        {/* Botón Principal para Disparar la Generación */}
+        <div className="generator-trigger-action-row">
+          <button
+            type="button"
+            className="btn-trigger-generate btn-primary"
+            onClick={() => runExtraction(mode, targetCardCount)}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <span className="spinner-sm" />
+                <span>{progressMsg || 'Generando flashcards...'}</span>
+              </>
+            ) : mode === 'cloud_ai' ? (
+              <>
+                <span className="btn-icon">🚀</span>
+                <span>Generar {targetCardCount} Flashcards con IA ({aiConfig?.provider ? aiConfig.provider.toUpperCase() : 'Cloud'})</span>
+              </>
+            ) : (
+              <>
+                <span className="btn-icon">⚡</span>
+                <span>Extraer Flashcards del Artículo</span>
+              </>
+            )}
+          </button>
+        </div>
 
         {/* Panel de Estado / Progreso */}
         {loading && (
@@ -252,6 +262,21 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
                 Configurar IA ⚙️
               </button>
             )}
+          </div>
+        )}
+
+        {/* Placeholder inicial antes de pulsar Generar */}
+        {!loading && !errorMsg && candidates.length === 0 && (
+          <div className="generator-ready-placeholder">
+            <div className="ready-icon-circle">
+              {mode === 'cloud_ai' ? '🧠' : '⚡'}
+            </div>
+            <h4>Listo para Crear Flashcards</h4>
+            <p>
+              {mode === 'cloud_ai'
+                ? `Pulsa el botón superior para consultar ${aiConfig?.provider?.toUpperCase() || 'Gemini'} y generar exactamente ${targetCardCount} tarjetas clínicas.`
+                : 'Pulsa el botón superior para analizar callouts, dosis y encabezados del artículo.'}
+            </p>
           </div>
         )}
 

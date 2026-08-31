@@ -40,7 +40,10 @@ test.describe('Flashcards & Repetición Espaciada SM-2 - E2E Tests (OpenSpec)', 
     await expect(generateModal).toBeVisible()
     await expect(generateModal.locator('.btn-mode-tab.active')).toContainText('Extractor Rápido')
 
-    // Debe extraer tarjetas automáticamente de la plantilla
+    // Pulsar botón de extracción
+    await generateModal.locator('.btn-trigger-generate').click()
+
+    // Debe extraer tarjetas de la plantilla
     await expect(generateModal.locator('.candidate-card-item').first()).toBeVisible({ timeout: 5000 })
 
     // Guardar tarjetas en el mazo
@@ -196,8 +199,9 @@ test.describe('Flashcards & Repetición Espaciada SM-2 - E2E Tests (OpenSpec)', 
     const generateModal = page.locator('.generate-flashcards-modal')
     await expect(generateModal).toBeVisible()
 
-    // Cambiar a pestaña IA Cloud
+    // Cambiar a pestaña IA Cloud y pulsar generar
     await generateModal.locator('button.btn-mode-tab', { hasText: 'IA Cloud' }).click()
+    await generateModal.locator('.btn-trigger-generate').click()
 
     // Verificar que las tarjetas mockeadas aparecen en la lista de candidatos
     await expect(generateModal.locator('.candidate-card-item')).toHaveCount(2, { timeout: 10000 })
