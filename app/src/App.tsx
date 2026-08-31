@@ -123,7 +123,6 @@ function App() {
 
   // Estados y flujo de Exportación a PDF
   const [isExportPdfOpen, setIsExportPdfOpen] = useState(false)
-  const [isPrinting, setIsPrinting] = useState(false)
   const [printOptions, setPrintOptions] = useState<ExportPdfOptions>({
     columns: '2',
     includeHeader: true,
