@@ -133,7 +133,16 @@ function App() {
   const handleConfirmExportPdf = (options: ExportPdfOptions) => {
     setPrintOptions(options)
     setIsExportPdfOpen(false)
-    setIsPrinting(true)
+
+    // Si estamos en modo editor, asegurar que el último texto tipeado se guarde
+    if (editorRef.current && selected?.id && isEditMode) {
+      try {
+        const liveMd = editorRef.current.getMarkdown()
+        if (liveMd !== undefined) {
+          saveArticle(selected.id, liveMd)
+        }
+      } catch {}
+    }
 
     document.body.classList.remove('print-columns-1', 'print-columns-2')
     document.body.classList.add(
@@ -144,7 +153,6 @@ function App() {
     setTimeout(() => {
       window.print()
       setTimeout(() => {
-        setIsPrinting(false)
         document.body.classList.remove('printing-active', 'print-columns-1', 'print-columns-2')
       }, 500)
     }, 150)

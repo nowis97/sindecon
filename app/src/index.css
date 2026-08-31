@@ -4248,8 +4248,13 @@ select.dialog-input {
    Motor de Impresión @media print de Alta Fidelidad
    ========================================================================== */
 @media print {
-  /* 1. Resetear html y body */
-  html, body {
+  /* 1. Resetear html, body y todos los contenedores ancestros */
+  html,
+  body,
+  #root,
+  .app-container,
+  .layout,
+  .app-layout {
     background: #ffffff !important;
     color: #0f172a !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
@@ -4257,24 +4262,15 @@ select.dialog-input {
     padding: 0 !important;
     font-size: 10pt !important;
     width: 100% !important;
+    min-height: auto !important;
     height: auto !important;
+    max-height: none !important;
+    position: static !important;
+    display: block !important;
     overflow: visible !important;
+    float: none !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-  }
-
-  /* Mantener el contenedor raíz visible pero sin scroll ni bordes */
-  #root,
-  .layout,
-  .app-layout {
-    display: block !important;
-    position: static !important;
-    width: 100% !important;
-    height: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-    background: transparent !important;
   }
 
   /* 2. Ocultar específicamente toda la interfaz interactiva de la app */
@@ -4306,10 +4302,12 @@ select.dialog-input {
   .print-article-document {
     display: block !important;
     visibility: visible !important;
+    position: static !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow: visible !important;
     background: #ffffff !important;
   }
 

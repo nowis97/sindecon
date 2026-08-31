@@ -34,6 +34,7 @@ const imageAssetFeature = (editor: Editor) => {
 export interface MarkdownEditorHandle {
   insertAtCursor(text: string): void
   focus(): void
+  getMarkdown(): string
 }
 
 interface MarkdownEditorProps {
@@ -148,6 +149,7 @@ const hostRef = useRef<HTMLDivElement>(null)
           view.focus()
         },
         focus: () => view?.focus(),
+        getMarkdown: () => crepe.getMarkdown(),
       }
     })
 
