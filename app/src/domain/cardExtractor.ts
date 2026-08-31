@@ -1,7 +1,7 @@
 export interface ExtractedCard {
   front: string
   back: string
-  sourceType: 'structural' | 'manual' | 'cloud_ai'
+  sourceType: 'structural' | 'manual' | 'cloud_ai' | 'local_ai'
 }
 
 /**

@@ -5,6 +5,11 @@ import {
   type ExtractedCard,
 } from '../../domain/cardExtractor'
 import { generateFlashcardsWithCloudAi } from '../../domain/ai/cloudAiClient'
+import {
+  generateFlashcardsWithWebLlm,
+  checkWebGPUSupport,
+  type LocalGenerationProgress,
+} from '../../domain/ai/webLlmClient'
 import { getAiConfig, upsertFlashcards, type AiConfig } from '../../db/flashcards'
 import { FlashcardLivePreview } from './FlashcardLivePreview'
 import type { FlashcardRow } from '../../db/db'
@@ -19,7 +24,7 @@ interface GenerateFlashcardsModalProps {
   onOpenAiSettings?: () => void
 }
 
-type GeneratorMode = 'structural' | 'cloud_ai'
+type GeneratorMode = 'structural' | 'local_ai' | 'cloud_ai'
 
 export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = ({
   isOpen,
@@ -34,6 +39,9 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
   const [aiConfig, setAiConfig] = useState<AiConfig | null>(null)
   const [loading, setLoading] = useState(false)
   const [progressMsg, setProgressMsg] = useState('')
+  const [localProgress, setLocalProgress] = useState<LocalGenerationProgress | null>(null)
+  const [webGpuSupported, setWebGpuSupported] = useState<boolean | null>(null)
+  const [webGpuReason, setWebGpuReason] = useState<string>('')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [previewCardIndex, setPreviewCardIndex] = useState<number | null>(null)
 
@@ -49,8 +57,13 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
       getAiConfig().then((cfg) => {
         setAiConfig(cfg)
       })
+      checkWebGPUSupport().then((gpu) => {
+        setWebGpuSupported(gpu.supported)
+        if (gpu.reason) setWebGpuReason(gpu.reason)
+      })
       setErrorMsg(null)
       setProgressMsg('')
+      setLocalProgress(null)
       setCandidates([])
       setPreviewCardIndex(null)
       setTargetCardCount(wordEstimate.estimatedCards > 0 ? wordEstimate.estimatedCards : 6)
@@ -62,6 +75,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
   const runExtraction = async (selectedMode: GeneratorMode, countOverride?: number) => {
     setLoading(true)
     setErrorMsg(null)
+    setLocalProgress(null)
     setCandidates([])
     setMode(selectedMode)
 
@@ -73,6 +87,18 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
       if (selectedMode === 'structural') {
         setProgressMsg('Analizando estructura clínica del artículo...')
         extracted = extractCardsFromMarkdown(articleTitle, bodyMd)
+      } else if (selectedMode === 'local_ai') {
+        setProgressMsg('Iniciando motor local WebLLM (Qwen 2.5)...')
+        extracted = await generateFlashcardsWithWebLlm(
+          articleTitle,
+          bodyMd,
+          activeCount,
+          undefined,
+          (prog) => {
+            setLocalProgress(prog)
+            setProgressMsg(prog.text)
+          }
+        )
       } else if (selectedMode === 'cloud_ai') {
         if (!aiConfig || !aiConfig.apiKey) {
           throw new Error('Configura tu API Key de Gemini, Groq u OpenAI en Ajustes para usar este modo.')
@@ -161,6 +187,14 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
           </button>
           <button
             type="button"
+            className={`btn-mode-tab ${mode === 'local_ai' ? 'active' : ''}`}
+            onClick={() => setMode('local_ai')}
+            disabled={loading}
+          >
+            🧠 IA Local (Qwen 2.5 WebGPU)
+          </button>
+          <button
+            type="button"
             className={`btn-mode-tab ${mode === 'cloud_ai' ? 'active' : ''}`}
             onClick={() => setMode('cloud_ai')}
             disabled={loading}
@@ -168,6 +202,33 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
             ✨ IA Cloud (Gemini / Groq / OpenAI)
           </button>
         </div>
+
+        {/* Banner de Compatibilidad WebGPU si no está soportado */}
+        {mode === 'local_ai' && webGpuSupported === false && (
+          <div className="generator-webgpu-warning-box">
+            <span className="warning-icon">⚠️</span>
+            <div className="warning-content">
+              <strong>WebGPU no disponible en este navegador</strong>
+              <p>{webGpuReason || 'Se requiere un navegador compatible con WebGPU (Chrome/Edge 113+, Firefox Nightly o Safari 18+).'}</p>
+              <div className="warning-actions">
+                <button
+                  type="button"
+                  className="btn-link-action"
+                  onClick={() => setMode('structural')}
+                >
+                  Cambiar a Extractor Rápido ⚡
+                </button>
+                <button
+                  type="button"
+                  className="btn-link-action"
+                  onClick={() => setMode('cloud_ai')}
+                >
+                  Usar IA Cloud (Gemini) ✨
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Banner de Estimación Médica según palabras del artículo */}
         {wordEstimate.wordCount >= 30 && (
@@ -179,12 +240,14 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
           </div>
         )}
 
-        {/* Selector de Cantidad Dinámica para IA Cloud */}
-        {mode === 'cloud_ai' && (
+        {/* Selector de Cantidad Dinámica para IA Local y Cloud */}
+        {(mode === 'cloud_ai' || mode === 'local_ai') && (
           <div className="ai-target-stepper-panel">
             <div className="stepper-label-group">
               <span className="stepper-title">🎯 Cantidad de flashcards a generar:</span>
-              <small className="stepper-subtext">Ajusta según la profundidad del repaso deseado</small>
+              <small className="stepper-subtext">
+                {mode === 'local_ai' ? 'Qwen 2.5 segmentará el artículo en secciones clínicas' : 'Ajusta según la profundidad del repaso deseado'}
+              </small>
             </div>
             <div className="stepper-controls-group">
               <button
@@ -218,12 +281,17 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
             type="button"
             className="btn-trigger-generate btn-primary"
             onClick={() => runExtraction(mode, targetCardCount)}
-            disabled={loading}
+            disabled={loading || (mode === 'local_ai' && webGpuSupported === false)}
           >
             {loading ? (
               <>
                 <span className="spinner-sm" />
                 <span>{progressMsg || 'Generando flashcards...'}</span>
+              </>
+            ) : mode === 'local_ai' ? (
+              <>
+                <span className="btn-icon">🧠</span>
+                <span>Generar {targetCardCount} Flashcards con Qwen 2.5 (Local WebGPU)</span>
               </>
             ) : mode === 'cloud_ai' ? (
               <>
@@ -239,18 +307,36 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
           </button>
         </div>
 
-        {/* Panel de Estado / Progreso */}
+        {/* Panel de Estado / Progreso de Descarga e Inferencia */}
         {loading && (
           <div className="generation-loading-state">
-            <div className="spinner-sm" />
-            <p>{progressMsg || 'Procesando contenido...'}</p>
+            {localProgress && localProgress.stage === 'downloading' ? (
+              <div className="local-download-progress-box">
+                <div className="download-header-line">
+                  <span>📥 Descargando Qwen 2.5 (~1.1 GB)...</span>
+                  <strong>{Math.round(localProgress.progress * 100)}%</strong>
+                </div>
+                <div className="download-progress-track">
+                  <div
+                    className="download-progress-bar"
+                    style={{ width: `${Math.max(5, Math.round(localProgress.progress * 100))}%` }}
+                  />
+                </div>
+                <small className="download-note">Solo se descarga una vez. Quedará guardado en el almacenamiento local.</small>
+              </div>
+            ) : (
+              <>
+                <div className="spinner-sm" />
+                <p>{progressMsg || 'Procesando contenido clínico...'}</p>
+              </>
+            )}
           </div>
         )}
 
         {errorMsg && (
           <div className="generation-error-box">
             <span>⚠️ {errorMsg}</span>
-            {onOpenAiSettings && (
+            {onOpenAiSettings && mode === 'cloud_ai' && (
               <button
                 type="button"
                 className="btn-link-settings"
@@ -269,11 +355,13 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
         {!loading && !errorMsg && candidates.length === 0 && (
           <div className="generator-ready-placeholder">
             <div className="ready-icon-circle">
-              {mode === 'cloud_ai' ? '🧠' : '⚡'}
+              {mode === 'local_ai' ? '🧠' : mode === 'cloud_ai' ? '✨' : '⚡'}
             </div>
             <h4>Listo para Crear Flashcards</h4>
             <p>
-              {mode === 'cloud_ai'
+              {mode === 'local_ai'
+                ? `Pulsa el botón superior para ejecutar Qwen 2.5 localmente en tu GPU y generar exactamente ${targetCardCount} tarjetas clínicas offline.`
+                : mode === 'cloud_ai'
                 ? `Pulsa el botón superior para consultar ${aiConfig?.provider?.toUpperCase() || 'Gemini'} y generar exactamente ${targetCardCount} tarjetas clínicas.`
                 : 'Pulsa el botón superior para analizar callouts, dosis y encabezados del artículo.'}
             </p>
@@ -297,7 +385,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
                 Seleccionar todas ({candidates.length})
               </label>
               <span className="source-indicator-badge">
-                Modo: {mode === 'structural' ? 'Estructural' : 'IA Cloud'}
+                Modo: {mode === 'structural' ? 'Estructural' : mode === 'local_ai' ? 'IA Local Qwen 2.5' : 'IA Cloud'}
               </span>
             </div>
 

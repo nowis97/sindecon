@@ -470,4 +470,81 @@ test.describe('Flashcards & Repetición Espaciada SM-2 - E2E Tests (OpenSpec)', 
     await genModal.locator('.btn-close').click()
     await expect(genModal).not.toBeVisible()
   })
+
+  test('10. Panel de gestión de IA Local WebLLM y liberación de VRAM en Ajustes (spec: local-ai-webllm)', async ({
+    page,
+  }) => {
+    // 1. Ir al Dashboard y abrir Ajustes de IA
+    await page.locator('.app-title').click()
+    await expect(page.locator('.dashboard-container')).toBeVisible()
+
+    const btnAiSettings = page.locator('.action-card.action-ai-settings')
+    await expect(btnAiSettings).toBeVisible()
+    await btnAiSettings.click()
+
+    const aiModal = page.locator('.ai-settings-modal')
+    await expect(aiModal).toBeVisible()
+
+    // 2. Verificar existencia de la sección de gestión de IA Local WebLLM
+    const localSection = aiModal.locator('.local-ai-management-section')
+    await expect(localSection).toBeVisible()
+    await expect(localSection.locator('.local-ai-title')).toHaveText('Motor de IA Local (WebLLM / WebGPU)')
+    await expect(localSection.locator('.local-detail-item').filter({ hasText: 'Hardware WebGPU:' })).toBeVisible()
+    await expect(localSection.locator('.local-detail-item').filter({ hasText: 'Modelo Local:' })).toContainText('Qwen 2.5')
+
+    // 3. Probar botón de liberar memoria VRAM
+    const btnFreeVram = localSection.locator('button.btn-local-action', { hasText: 'Liberar Memoria VRAM' })
+    await expect(btnFreeVram).toBeVisible()
+    await btnFreeVram.click()
+
+    await expect(localSection.locator('.local-ai-action-feedback')).toContainText('Memoria VRAM liberada')
+
+    // 4. Cerrar modal
+    await aiModal.locator('.btn-close').click()
+    await expect(aiModal).not.toBeVisible()
+  })
+
+  test('11. Selector de modo IA Local (Qwen 2.5 WebGPU) en GenerateFlashcardsModal (spec: local-ai-webllm)', async ({
+    page,
+  }) => {
+    // 1. Crear un artículo desde plantilla médica
+    const templateSelect = page.locator('.sidebar select.template-select')
+    await expect(templateSelect).toBeVisible()
+    await templateSelect.selectOption('Patología / Enfermedad')
+
+    const articleInput = page.locator('.dialog-input')
+    await expect(articleInput).toBeVisible()
+    await articleInput.fill('Meningitis Aguda')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 2. Abrir modal de flashcards
+    const btnFlash = page.locator('.btn-article-flashcards')
+    await expect(btnFlash).toBeVisible()
+    await btnFlash.click()
+
+    const articleModal = page.locator('.article-flashcards-modal')
+    await expect(articleModal).toBeVisible()
+
+    // 3. Abrir generador
+    await articleModal.locator('.btn-toolbar-generator').click()
+    const genModal = page.locator('.generate-flashcards-modal')
+    await expect(genModal).toBeVisible()
+
+    // 4. Verificar presencia de pestaña IA Local
+    const btnLocalTab = genModal.locator('.btn-mode-tab', { hasText: 'IA Local (Qwen 2.5 WebGPU)' })
+    await expect(btnLocalTab).toBeVisible()
+    await btnLocalTab.click()
+    await expect(btnLocalTab).toHaveClass(/active/)
+
+    // 5. Verificar stepper y botón de disparo
+    const stepper = genModal.locator('.ai-target-stepper-panel')
+    await expect(stepper).toBeVisible()
+    await expect(stepper.locator('.stepper-subtext')).toContainText('Qwen 2.5 segmentará el artículo')
+
+    const triggerBtn = genModal.locator('.btn-trigger-generate')
+    await expect(triggerBtn).toBeVisible()
+
+    await genModal.locator('.btn-close').click()
+    await expect(genModal).not.toBeVisible()
+  })
 })

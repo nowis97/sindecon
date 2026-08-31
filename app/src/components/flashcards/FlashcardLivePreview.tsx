@@ -5,7 +5,7 @@ export interface FlashcardLivePreviewProps {
   front: string
   back: string
   articleTitle?: string
-  sourceType?: 'manual' | 'structural' | 'cloud_ai'
+  sourceType?: 'manual' | 'structural' | 'cloud_ai' | 'local_ai'
   initialFlipped?: boolean
   onFlipToggle?: (flipped: boolean) => void
   className?: string
@@ -34,6 +34,8 @@ export const FlashcardLivePreview: React.FC<FlashcardLivePreviewProps> = ({
     switch (sourceType) {
       case 'structural':
         return { icon: '⚡', label: 'Estructural' }
+      case 'local_ai':
+        return { icon: '🧠', label: 'IA Local Qwen' }
       case 'cloud_ai':
         return { icon: '✨', label: 'IA Cloud' }
       case 'manual':

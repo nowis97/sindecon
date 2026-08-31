@@ -6,6 +6,13 @@ import {
   testAiConnection,
   type AiModelOption,
 } from '../../domain/ai/cloudAiClient'
+import {
+  checkWebGPUSupport,
+  isLocalModelCached,
+  unloadLocalModel,
+  clearLocalModelCache,
+  DEFAULT_LOCAL_MODEL,
+} from '../../domain/ai/webLlmClient'
 import { getStoredToken, isGoogleSyncEnabled, uploadAiConfigToDrive } from '../../pwa/googleDrive'
 
 interface AiSettingsModalProps {
@@ -20,19 +27,24 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [isCustomModel, setIsCustomModel] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [webGpuSupported, setWebGpuSupported] = useState<boolean | null>(null)
+  const [localModelCached, setLocalModelCached] = useState<boolean>(false)
+  const [localActionMsg, setLocalActionMsg] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen) {
       getAiConfig().then((loaded) => {
         setConfig(loaded)
-        // Verificar si el modelo cargado es uno de los predefinidos
         const models = PROVIDER_MODELS[loaded.provider] || []
         const isPredefined = models.some((m) => m.id === loaded.modelName)
         setIsCustomModel(!isPredefined && Boolean(loaded.modelName))
       })
+      checkWebGPUSupport().then((res) => setWebGpuSupported(res.supported))
+      isLocalModelCached().then((cached) => setLocalModelCached(cached))
       setTestResult(null)
       setSaved(false)
       setShowApiKey(false)
+      setLocalActionMsg(null)
     }
   }, [isOpen])
 
@@ -313,6 +325,70 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
                     Ingresa el identificador exacto de la API.
                   </small>
                 </div>
+              )}
+            </div>
+          </div>
+
+          {/* Panel de Motor Local WebLLM (Qwen 2.5) */}
+          <div className="local-ai-management-section">
+            <div className="local-ai-header">
+              <span className="local-ai-icon">🧠</span>
+              <div className="local-ai-title-block">
+                <span className="local-ai-title">Motor de IA Local (WebLLM / WebGPU)</span>
+                <span className="local-ai-subtitle">Inferencia médica 100% privada y offline sobre la GPU del navegador</span>
+              </div>
+            </div>
+
+            <div className="local-ai-details-grid">
+              <div className="local-detail-item">
+                <span className="detail-label">Hardware WebGPU:</span>
+                <span className={`detail-badge ${webGpuSupported ? 'badge-success' : 'badge-warning'}`}>
+                  {webGpuSupported === null ? 'Verificando...' : webGpuSupported ? '✓ Compatible' : '⚠️ No disponible'}
+                </span>
+              </div>
+              <div className="local-detail-item">
+                <span className="detail-label">Modelo Local:</span>
+                <span className="detail-value">Qwen 2.5 (1.5B) Quantized (~1.1 GB)</span>
+              </div>
+              <div className="local-detail-item">
+                <span className="detail-label">Almacenamiento Local:</span>
+                <span className={`detail-badge ${localModelCached ? 'badge-info' : 'badge-muted'}`}>
+                  {localModelCached ? '📦 Descargado en Caché' : '☁️ No descargado aún'}
+                </span>
+              </div>
+            </div>
+
+            {localActionMsg && (
+              <div className="local-ai-action-feedback">
+                <span>{localActionMsg}</span>
+              </div>
+            )}
+
+            <div className="local-ai-button-row">
+              <button
+                type="button"
+                className="btn-local-action"
+                onClick={async () => {
+                  await unloadLocalModel()
+                  setLocalActionMsg('Memoria VRAM liberada correctamente.')
+                  setTimeout(() => setLocalActionMsg(null), 3000)
+                }}
+              >
+                🧹 Liberar Memoria VRAM
+              </button>
+              {localModelCached && (
+                <button
+                  type="button"
+                  className="btn-local-action btn-danger-action"
+                  onClick={async () => {
+                    await clearLocalModelCache(DEFAULT_LOCAL_MODEL)
+                    setLocalModelCached(false)
+                    setLocalActionMsg('Caché local del modelo eliminada (~1.1 GB liberados).')
+                    setTimeout(() => setLocalActionMsg(null), 3500)
+                  }}
+                >
+                  🗑️ Eliminar Modelo del Caché
+                </button>
               )}
             </div>
           </div>
