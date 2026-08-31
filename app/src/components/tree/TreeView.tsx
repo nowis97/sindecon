@@ -50,6 +50,19 @@ export function TreeView({
   } | null>(null)
   const hoverExpandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Mobile Touch Drag State
+  const [touchDragState, setTouchDragState] = useState<{
+    nodeId: string
+    nodeTitle: string
+    isFolder: boolean
+    currentX: number
+    currentY: number
+    targetFolderId: string | null
+    isDragging: boolean
+  } | null>(null)
+  const touchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
+
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
@@ -75,6 +88,9 @@ export function TreeView({
       if (hoverExpandTimerRef.current) {
         clearTimeout(hoverExpandTimerRef.current)
       }
+      if (touchTimerRef.current) {
+        clearTimeout(touchTimerRef.current)
+      }
     }
   }, [moveMode, onCancelMove])
 
@@ -95,7 +111,9 @@ export function TreeView({
     childrenOf(nodes, parentId).map((node) => {
       const isFolder = node.kind === 'folder'
       const isCollapsed = collapsed.has(node.id)
-      const hasChildren = childrenOf(nodes, node.id).length > 0
+      const directChildren = isFolder ? childrenOf(nodes, node.id) : []
+      const hasChildren = directChildren.length > 0
+      const childCount = directChildren.length
       const isMenuOpen = activeMenuId === node.id
       const isFav = favoriteIds.includes(node.id)
       const isBeingDragged = draggedId === node.id
@@ -107,6 +125,7 @@ export function TreeView({
           <div
             className={[
               'tree-row',
+              isFolder ? 'tree-folder-row' : 'tree-article-row',
               node.id === selectedId ? 'selected' : '',
               moveMode && isFolder ? 'move-target' : '',
               isBeingDragged ? 'dragging' : '',
@@ -115,19 +134,155 @@ export function TreeView({
             ]
               .filter(Boolean)
               .join(' ')}
+            data-node-id={node.id}
+            data-kind={node.kind}
             style={{ paddingLeft: 8 + depth * 16 }}
             draggable={!moveMode && node.system !== 'templates'}
+            onTouchStart={(e) => {
+              if (moveMode || node.system === 'templates') return
+              const touch = e.touches[0]
+              touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+              if (touchTimerRef.current) clearTimeout(touchTimerRef.current)
+              touchTimerRef.current = setTimeout(() => {
+                try {
+                  navigator.vibrate?.(30)
+                } catch {
+                  /* no-op */
+                }
+                globalDraggingId = node.id
+                setDraggedId(node.id)
+                setTouchDragState({
+                  nodeId: node.id,
+                  nodeTitle: node.title,
+                  isFolder,
+                  currentX: touch.clientX,
+                  currentY: touch.clientY,
+                  targetFolderId: null,
+                  isDragging: true,
+                })
+              }, 220)
+            }}
+            onTouchMove={(e) => {
+              const touch = e.touches[0]
+              if (touchStartPosRef.current && !touchDragState?.isDragging) {
+                const dx = Math.abs(touch.clientX - touchStartPosRef.current.x)
+                const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
+                if (dx > 10 || dy > 10) {
+                  if (touchTimerRef.current) {
+                    clearTimeout(touchTimerRef.current)
+                    touchTimerRef.current = null
+                  }
+                }
+              }
+              if (touchDragState?.isDragging) {
+                e.preventDefault()
+                setTouchDragState((prev) =>
+                  prev ? { ...prev, currentX: touch.clientX, currentY: touch.clientY } : null
+                )
+                const el = document.elementFromPoint(touch.clientX, touch.clientY)
+                const targetRow = el?.closest?.('.tree-row[data-node-id], .tree-root-dropzone')
+                if (targetRow) {
+                  if (targetRow.classList.contains('tree-root-dropzone')) {
+                    setDragOverId('__root__')
+                    setTouchDragState((prev) => (prev ? { ...prev, targetFolderId: null } : null))
+                  } else {
+                    const targetId = targetRow.getAttribute('data-node-id')
+                    if (targetId && targetId !== touchDragState.nodeId) {
+                      const targetNode = nodes.find((n) => n.id === targetId)
+                      if (targetNode) {
+                        const targetFolder =
+                          targetNode.kind === 'folder' ? targetNode.id : targetNode.parent_id
+                        if (canMove(nodes, touchDragState.nodeId, targetFolder)) {
+                          setDragOverId(targetId)
+                          setTouchDragState((prev) =>
+                            prev ? { ...prev, targetFolderId: targetFolder } : null
+                          )
+                          if (targetNode.kind === 'folder' && collapsed.has(targetNode.id)) {
+                            if (hoverExpandTimerRef.current) clearTimeout(hoverExpandTimerRef.current)
+                            hoverExpandTimerRef.current = setTimeout(() => {
+                              setCollapsed((prev) => {
+                                const next = new Set(prev)
+                                next.delete(targetNode.id)
+                                return next
+                              })
+                            }, 400)
+                          }
+                        }
+                      }
+                    }
+                  }
+                } else {
+                  setDragOverId(null)
+                }
+              }
+            }}
+            onTouchEnd={() => {
+              if (touchTimerRef.current) {
+                clearTimeout(touchTimerRef.current)
+                touchTimerRef.current = null
+              }
+              if (touchDragState?.isDragging) {
+                const sourceId = touchDragState.nodeId
+                const targetFolder =
+                  touchDragState.targetFolderId !== undefined
+                    ? touchDragState.targetFolderId
+                    : dragOverId === '__root__'
+                    ? null
+                    : dragOverId
+                    ? nodes.find((n) => n.id === dragOverId)?.kind === 'folder'
+                      ? dragOverId
+                      : nodes.find((n) => n.id === dragOverId)?.parent_id ?? null
+                    : undefined
+                if (targetFolder !== undefined && canMove(nodes, sourceId, targetFolder)) {
+                  if (targetFolder) {
+                    setCollapsed((prev) => {
+                      const next = new Set(prev)
+                      next.delete(targetFolder)
+                      return next
+                    })
+                  }
+                  void onMoveNodeDirect?.(sourceId, targetFolder)
+                  try {
+                    navigator.vibrate?.([30, 40, 30])
+                  } catch {
+                    /* no-op */
+                  }
+                }
+                setTouchDragState(null)
+                setDraggedId(null)
+                setDragOverId(null)
+                globalDraggingId = null
+              }
+            }}
+            onTouchCancel={() => {
+              if (touchTimerRef.current) {
+                clearTimeout(touchTimerRef.current)
+                touchTimerRef.current = null
+              }
+              setTouchDragState(null)
+              setDraggedId(null)
+              setDragOverId(null)
+              globalDraggingId = null
+            }}
             onDragStart={(e) => {
               if (moveMode || node.system === 'templates') return
               globalDraggingId = node.id
-              e.dataTransfer.setData('text/plain', node.id)
-              e.dataTransfer.setData('application/sindecon-node-id', node.id)
-              e.dataTransfer.effectAllowed = 'move'
+              if (typeof window !== 'undefined') {
+                ;(window as unknown as { __SINDECON_DRAGGING_ID__?: string }).__SINDECON_DRAGGING_ID__ = node.id
+              }
+              if (e.dataTransfer) {
+                e.dataTransfer.setData('text/plain', node.id)
+                e.dataTransfer.setData('application/sindecon-node-id', node.id)
+                e.dataTransfer.effectAllowed = 'move'
+              }
               setDraggedId(node.id)
             }}
             onDragEnd={() => {
               setTimeout(() => {
                 globalDraggingId = null
+                if (typeof window !== 'undefined') {
+                  ;(window as unknown as { __SINDECON_DRAGGING_ID__?: string | null }).__SINDECON_DRAGGING_ID__ = null
+                }
               }, 200)
               setDraggedId(null)
               setDragOverId(null)
@@ -138,7 +293,12 @@ export function TreeView({
               }
             }}
             onDragOver={(e) => {
-              const currentDragged = globalDraggingId || draggedId
+              const currentDragged =
+                globalDraggingId ||
+                draggedId ||
+                (typeof window !== 'undefined' ? (window as unknown as { __SINDECON_DRAGGING_ID__?: string }).__SINDECON_DRAGGING_ID__ : null) ||
+                (e.dataTransfer?.types?.includes('application/sindecon-node-id') ? 'pending' : null) ||
+                (e.dataTransfer?.types?.includes('text/plain') ? 'pending' : null)
               if (!currentDragged || currentDragged === node.id) return
 
               let position: 'above' | 'inside' | 'below' = 'inside'
@@ -154,12 +314,16 @@ export function TreeView({
                 targetFolder = node.parent_id
               }
 
-              const ok = canMove(nodes, currentDragged, targetFolder)
-              if (!ok) return
+              if (currentDragged !== 'pending') {
+                const ok = canMove(nodes, currentDragged, targetFolder)
+                if (!ok) return
+              }
 
               e.preventDefault()
               e.stopPropagation()
-              e.dataTransfer.dropEffect = 'move'
+              if (e.dataTransfer) {
+                e.dataTransfer.dropEffect = 'move'
+              }
 
               if (
                 !dragOverState ||
@@ -205,11 +369,14 @@ export function TreeView({
                 hoverExpandTimerRef.current = null
               }
               const sourceId =
-                e.dataTransfer.getData('application/sindecon-node-id') ||
-                e.dataTransfer.getData('text/plain') ||
+                (e.dataTransfer ? e.dataTransfer.getData('application/sindecon-node-id') || e.dataTransfer.getData('text/plain') : null) ||
                 globalDraggingId ||
-                draggedId
+                draggedId ||
+                (typeof window !== 'undefined' ? (window as unknown as { __SINDECON_DRAGGING_ID__?: string }).__SINDECON_DRAGGING_ID__ : null)
               globalDraggingId = null
+              if (typeof window !== 'undefined') {
+                ;(window as unknown as { __SINDECON_DRAGGING_ID__?: string | null }).__SINDECON_DRAGGING_ID__ = null
+              }
               setDraggedId(null)
 
               if (!sourceId || sourceId === node.id) return
@@ -238,7 +405,7 @@ export function TreeView({
             {isFolder && (
               <button
                 type="button"
-                className={`tree-caret ${isCollapsed ? 'collapsed' : 'expanded'}`}
+                className={`tree-caret tree-folder-chevron ${isCollapsed ? 'collapsed' : 'expanded'}`}
                 onClick={(e) => {
                   e.stopPropagation()
                   toggle(node.id)
@@ -248,8 +415,22 @@ export function TreeView({
                 {hasChildren ? '▾' : '·'}
               </button>
             )}
-            <span className="tree-icon">{isFolder ? '📁' : '📄'}</span>
+            <span className={`tree-icon ${isFolder ? 'tree-icon-folder' : 'tree-icon-article'}`}>
+              {isFolder ? (isCollapsed ? '📁' : '📂') : '📄'}
+            </span>
             <span className="tree-title">{node.title}</span>
+
+            {isFolder && childCount > 0 && (
+              <span className="tree-folder-badge" title={`${childCount} elemento${childCount === 1 ? '' : 's'}`}>
+                {childCount}
+              </span>
+            )}
+
+            {!isFolder && isFav && (
+              <span className="tree-article-fav-indicator" title="Artículo favorito">
+                ⭐
+              </span>
+            )}
 
             {/* Menú de acciones contextuales por fila */}
             {!moveMode && !(node.system === 'templates' && isFolder) && (
@@ -567,6 +748,23 @@ export function TreeView({
           }}
         >
           📂 Soltar aquí para mover a la raíz (Nivel principal)
+        </div>
+      )}
+
+      {/* Avatar flotante que sigue el dedo en Mobile Touch Drag */}
+      {touchDragState?.isDragging && (
+        <div
+          className="touch-drag-avatar"
+          style={{
+            position: 'fixed',
+            left: touchDragState.currentX + 16,
+            top: touchDragState.currentY - 20,
+            pointerEvents: 'none',
+            zIndex: 99999,
+          }}
+        >
+          <span className="avatar-icon">{touchDragState.isFolder ? '📁' : '📄'}</span>
+          <span className="avatar-title">{touchDragState.nodeTitle}</span>
         </div>
       )}
     </div>

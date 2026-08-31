@@ -13,6 +13,10 @@ interface DashboardProps {
   onCreateFromTemplate: (templateTitle: string) => void
   onInstallPwa?: () => void
   canInstallPwa?: boolean
+  dueFlashcardsCount?: number
+  totalFlashcardsCount?: number
+  onOpenStudy?: () => void
+  onOpenAiSettings?: () => void
 }
 
 export function Dashboard({
@@ -25,6 +29,10 @@ export function Dashboard({
   onCreateFromTemplate,
   onInstallPwa,
   canInstallPwa,
+  dueFlashcardsCount = 0,
+  totalFlashcardsCount = 0,
+  onOpenStudy,
+  onOpenAiSettings,
 }: DashboardProps) {
   const allTags = useAllTags()
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
@@ -144,16 +152,62 @@ export function Dashboard({
             <span className="stat-label">Etiquetas / Síntomas</span>
           </div>
         </div>
+
+        <div
+          className={`stat-card ${dueFlashcardsCount > 0 ? 'stat-card-highlight' : ''}`}
+          onClick={onOpenStudy}
+          style={{
+            '--stagger-index': 5,
+            cursor: onOpenStudy ? 'pointer' : 'default',
+          } as React.CSSProperties}
+          title={onOpenStudy ? 'Iniciar sesión de repaso de flashcards' : undefined}
+        >
+          <span className="stat-icon">🧠</span>
+          <div className="stat-info">
+            <span className="stat-value">{dueFlashcardsCount}</span>
+            <span className="stat-label">
+              {dueFlashcardsCount === 1 ? 'Repaso Pendiente' : 'Repasos Pendientes'}
+            </span>
+          </div>
+          {dueFlashcardsCount > 0 ? (
+            <span className="stat-badge">¡Hoy!</span>
+          ) : (
+            totalFlashcardsCount > 0 && (
+              <span className="stat-badge-subtle">{totalFlashcardsCount} en mazo</span>
+            )
+          )}
+        </div>
       </section>
 
       {/* Acciones Rápidas */}
       <section className="dashboard-section">
         <h2 className="dashboard-section-title">⚡ Acciones Rápidas</h2>
         <div className="dashboard-actions-grid">
+          {onOpenStudy && (
+            <button
+              type="button"
+              className={`action-card action-study-deck ${dueFlashcardsCount > 0 ? 'is-due' : ''}`}
+              style={{ '--stagger-index': 6 } as React.CSSProperties}
+              onClick={onOpenStudy}
+            >
+              <div className="action-card-icon">🧠</div>
+              <div className="action-card-content">
+                <strong>Repaso Activo SM-2</strong>
+                <span>
+                  {dueFlashcardsCount > 0
+                    ? `${dueFlashcardsCount} tarjeta${dueFlashcardsCount === 1 ? '' : 's'} listas para hoy`
+                    : totalFlashcardsCount > 0
+                    ? `Al día — ${totalFlashcardsCount} tarjetas en el mazo`
+                    : 'Practica memorización con flashcards'}
+                </span>
+              </div>
+            </button>
+          )}
+
           <button
             type="button"
             className="action-card action-capture"
-            style={{ '--stagger-index': 5 } as React.CSSProperties}
+            style={{ '--stagger-index': 7 } as React.CSSProperties}
             onClick={onOpenQuickCapture}
           >
             <div className="action-card-icon">📸</div>
@@ -167,7 +221,7 @@ export function Dashboard({
             <button
               type="button"
               className="action-card action-smart-import"
-              style={{ '--stagger-index': 6 } as React.CSSProperties}
+              style={{ '--stagger-index': 8 } as React.CSSProperties}
               onClick={onOpenSmartImport}
             >
               <div className="action-card-icon">🪄</div>
@@ -181,7 +235,7 @@ export function Dashboard({
           <button
             type="button"
             className="action-card"
-            style={{ '--stagger-index': 7 } as React.CSSProperties}
+            style={{ '--stagger-index': 9 } as React.CSSProperties}
             onClick={() => onCreateNode('article')}
           >
             <div className="action-card-icon">📝</div>
@@ -194,7 +248,7 @@ export function Dashboard({
           <button
             type="button"
             className="action-card"
-            style={{ '--stagger-index': 8 } as React.CSSProperties}
+            style={{ '--stagger-index': 10 } as React.CSSProperties}
             onClick={() => onCreateNode('folder')}
           >
             <div className="action-card-icon">📁</div>
@@ -203,6 +257,21 @@ export function Dashboard({
               <span>Organiza por especialidad médica</span>
             </div>
           </button>
+
+          {onOpenAiSettings && (
+            <button
+              type="button"
+              className="action-card action-ai-settings"
+              style={{ '--stagger-index': 11 } as React.CSSProperties}
+              onClick={onOpenAiSettings}
+            >
+              <div className="action-card-icon">⚙️</div>
+              <div className="action-card-content">
+                <strong>Ajustes de IA Clínica</strong>
+                <span>Configura Gemini, Groq u OpenAI</span>
+              </div>
+            </button>
+          )}
 
           {canInstallPwa && onInstallPwa && (
             <button

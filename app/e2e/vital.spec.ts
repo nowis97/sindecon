@@ -11,7 +11,7 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
   test('1. Siembra de plantillas en primer arranque (spec: templates) y Dashboard', async ({ page }) => {
     // Esperar a que las 10 plantillas maestras terminen de sembrarse en IndexedDB
     const templateSelect = page.locator('.sidebar select.template-select')
-    await expect(templateSelect.locator('option')).toHaveCount(11, { timeout: 10000 })
+    await expect(templateSelect.locator('option')).toHaveCount(12, { timeout: 10000 })
 
     // Verificar que la carpeta Plantillas está visible en el árbol
     const plantillasRow = page.locator('.tree-row', { hasText: 'Plantillas' })
@@ -61,17 +61,17 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
 
   test('3. Crear artículo desde plantilla con modal y alternar Modo Lector / Editor (spec: templates & content-editing)', async ({ page }) => {
     const templateSelect = page.locator('.sidebar select.template-select')
-    await expect(templateSelect.locator('option')).toHaveCount(11, { timeout: 10000 })
+    await expect(templateSelect.locator('option')).toHaveCount(12, { timeout: 10000 })
 
     // Seleccionar plantilla Patología
     await templateSelect.selectOption('Patología / Enfermedad')
     const titleInput = page.locator('.dialog-input')
     await expect(titleInput).toBeVisible()
-    await titleInput.fill('Insuficiencia Cardíaca')
+    await titleInput.fill('Insuficiencia Cardíaca Crónica')
     await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
 
     // Verificar que el título reemplazó {título}
-    await expect(page.locator('.article-title')).toHaveText('Insuficiencia Cardíaca')
+    await expect(page.locator('.article-title')).toHaveText('Insuficiencia Cardíaca Crónica')
 
     // Alternar a modo Lector
     const btnLector = page.locator('button.btn-mode', { hasText: '👁 Lector' })
@@ -84,8 +84,8 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
     await expect(readerView).toContainText('Definición')
     await expect(readerView).toContainText('Tratamiento')
 
-    // Debe renderizar el visor de algoritmos/mermaid
-    await expect(page.locator('.mermaid-viewer-card')).toBeVisible()
+    // Debe renderizar la tabla médica en modo lector
+    await expect(readerView.locator('.reader-table')).toBeVisible()
 
     // Alternar de vuelta a modo Editor
     const btnEditor = page.locator('button.btn-mode', { hasText: '✏ Editor' })
@@ -149,7 +149,7 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
 
   test('7. Renderizado correcto y editable en Modo Editor desde plantilla (spec: templates & content-editing)', async ({ page }) => {
     const templateSelect = page.locator('.sidebar select.template-select')
-    await expect(templateSelect.locator('option')).toHaveCount(11, { timeout: 10000 })
+    await expect(templateSelect.locator('option')).toHaveCount(12, { timeout: 10000 })
 
     // Crear artículo a partir de plantilla de fármaco
     await templateSelect.selectOption('Fármaco / Ficha farmacológica')
@@ -189,7 +189,7 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
 
   test('8. Renderizado fiel e interactivo en Modo Lector desde plantilla (spec: templates & content-editing)', async ({ page }) => {
     const templateSelect = page.locator('.sidebar select.template-select')
-    await expect(templateSelect.locator('option')).toHaveCount(11, { timeout: 10000 })
+    await expect(templateSelect.locator('option')).toHaveCount(12, { timeout: 10000 })
 
     // Crear artículo a partir de plantilla de urgencia
     await templateSelect.selectOption('Urgencia / Emergencia')
@@ -426,5 +426,146 @@ DOSIS: Paracetamol 1g cada 8h condicional a fiebre.
     await expect(readerView.locator('.callout-warning')).toBeVisible()
     await expect(readerView.locator('.reader-table')).toBeVisible()
     await expect(readerView).toContainText('Criterios de Durack y Street')
+  })
+
+  test('15. Explorador de contenidos de carpeta y diferenciación visual de árbol (spec: knowledge-tree)', async ({ page }) => {
+    // 1. Crear carpeta Neumología
+    await page.getByRole('button', { name: '+ Carpeta' }).click()
+    const folderInput = page.locator('.dialog-input')
+    await folderInput.fill('Neumología')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 2. Seleccionar carpeta Neumología en el árbol
+    const pneumoRow = page.locator('.tree-row.tree-folder-row', { hasText: 'Neumología' })
+    await expect(pneumoRow).toBeVisible()
+    await pneumoRow.click()
+
+    // 3. Verificar que se renderiza el FolderExplorerView
+    const folderExplorer = page.locator('.folder-explorer-container')
+    await expect(folderExplorer).toBeVisible()
+    await expect(folderExplorer.locator('.folder-hero-title')).toHaveText('Neumología')
+    await expect(folderExplorer.locator('.folder-empty-state')).toBeVisible()
+
+    // 4. Crear artículo desde el botón del explorador
+    await folderExplorer.locator('.folder-empty-actions button', { hasText: 'Crear Primer Artículo' }).click()
+    const articleInput = page.locator('.dialog-input')
+    await articleInput.fill('Neumonía Adquirida')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 5. Volver a la carpeta Neumología desde breadcrumbs
+    const crumbNeumo = page.locator('.breadcrumbs .crumb-folder', { hasText: 'Neumología' })
+    await expect(crumbNeumo).toBeVisible()
+    await crumbNeumo.click()
+
+    // 6. Ahora debe mostrar la sección de artículos
+    await expect(folderExplorer.locator('.articles-grid')).toBeVisible()
+    await expect(folderExplorer.locator('.article-card-item-title')).toHaveText('Neumonía Adquirida')
+
+    // 7. Crear subcarpeta desde la barra de acciones de la carpeta
+    await folderExplorer.locator('.btn-folder-action', { hasText: 'Nueva Subcarpeta' }).click()
+    const subfolderInput = page.locator('.dialog-input')
+    await subfolderInput.fill('Vías Aéreas')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 8. Verificar que la subcarpeta aparece en la cuadrícula de subcarpetas
+    await expect(folderExplorer.locator('.subfolders-grid')).toBeVisible()
+    const subCard = folderExplorer.locator('.subfolder-card', { hasText: 'Vías Aéreas' })
+    await expect(subCard).toBeVisible()
+
+    // 9. Hacer clic en la tarjeta de subcarpeta para navegar hacia ella
+    await subCard.click()
+    await expect(folderExplorer.locator('.folder-hero-title')).toHaveText('Vías Aéreas')
+    await expect(page.locator('.breadcrumbs')).toContainText('Neumología')
+    await expect(page.locator('.breadcrumbs')).toContainText('Vías Aéreas')
+  })
+
+  test('16. Drag and Drop de artículos y subcarpetas en Desktop (spec: knowledge-tree)', async ({ page }) => {
+    // 1. Crear carpeta Cardiología
+    await page.getByRole('button', { name: '+ Carpeta' }).click()
+    await page.locator('.dialog-input').fill('Cardiología')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 2. Crear artículo Insuficiencia Cardíaca en la raíz
+    await page.getByRole('button', { name: '+ Artículo' }).click()
+    await page.locator('.dialog-input').fill('Insuficiencia Cardíaca')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 3. Arrastrar Insuficiencia Cardíaca hacia la carpeta Cardiología en el árbol
+    const articleRow = page.locator('.tree-row.tree-article-row', { hasText: 'Insuficiencia Cardíaca' })
+    const folderRow = page.locator('.tree-row.tree-folder-row', { hasText: 'Cardiología' })
+    await expect(articleRow).toBeVisible()
+    await expect(folderRow).toBeVisible()
+
+    await articleRow.dispatchEvent('dragstart')
+    await folderRow.dispatchEvent('dragover')
+    await folderRow.dispatchEvent('drop')
+    await articleRow.dispatchEvent('dragend')
+
+    // 4. Navegar a Cardiología haciendo click en su título en el árbol
+    await folderRow.locator('.tree-title').click()
+    const folderExplorer = page.locator('.folder-explorer-container')
+    await expect(folderExplorer).toBeVisible()
+    await expect(folderExplorer.locator('.folder-hero-title')).toHaveText('Cardiología')
+    await expect(folderExplorer.locator('.article-card-item', { hasText: 'Insuficiencia Cardíaca' })).toBeVisible()
+
+    // 5. Crear subcarpeta Arritmias
+    await folderExplorer.locator('.btn-folder-action', { hasText: 'Nueva Subcarpeta' }).click()
+    await page.locator('.dialog-input').fill('Arritmias')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 6. Arrastrar la tarjeta del artículo Insuficiencia Cardíaca a la tarjeta de la subcarpeta Arritmias
+    const articleCard = folderExplorer.locator('.article-card-item', { hasText: 'Insuficiencia Cardíaca' })
+    const subfolderCard = folderExplorer.locator('.subfolder-card', { hasText: 'Arritmias' })
+    await expect(articleCard).toBeVisible()
+    await expect(subfolderCard).toBeVisible()
+
+    await articleCard.dispatchEvent('dragstart')
+    await subfolderCard.dispatchEvent('dragover')
+    await subfolderCard.dispatchEvent('drop')
+    await articleCard.dispatchEvent('dragend')
+
+    // 7. Navegar a Arritmias y verificar que ahora contiene Insuficiencia Cardíaca
+    await subfolderCard.click()
+    await expect(folderExplorer.locator('.folder-hero-title')).toHaveText('Arritmias')
+    await expect(folderExplorer.locator('.article-card-item-title')).toHaveText('Insuficiencia Cardíaca')
+  })
+
+  test('17. Drag and Drop táctil en Mobile Touch (spec: knowledge-tree)', async ({ page }) => {
+    // 1. Simular viewport móvil
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    // 2. Abrir drawer móvil de Temas para acceder a los botones de creación
+    const btnTemas = page.getByRole('button', { name: 'Abrir menú de temas' })
+    if (await btnTemas.isVisible()) {
+      await btnTemas.click()
+    }
+
+    // 3. Crear carpeta Gastroenterología
+    await page.getByRole('button', { name: '+ Carpeta' }).click()
+    await page.locator('.dialog-input').fill('Gastroenterología')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 4. Crear artículo Hemorragia Digestiva
+    await page.getByRole('button', { name: '+ Artículo' }).click()
+    await page.locator('.dialog-input').fill('Hemorragia Digestiva')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 5. En móvil la creación de artículo auto-cierra el drawer. Reabrirlo para interactuar con el árbol.
+    const sidebar = page.locator('.sidebar')
+    if (!(await sidebar.evaluate((el) => el.classList.contains('mobile-open')))) {
+      await btnTemas.click()
+    }
+
+    const artRow = page.locator('.tree-row.tree-article-row', { hasText: 'Hemorragia Digestiva' })
+    const gastroRow = page.locator('.tree-row.tree-folder-row', { hasText: 'Gastroenterología' })
+    await expect(artRow).toBeVisible()
+    await expect(gastroRow).toBeVisible()
+
+    // 6. Arrastrar en móvil
+    await artRow.dragTo(gastroRow)
+
+    // 7. Verificar que se muestra notificación toast de movimiento exitoso
+    await expect(page.locator('.toast-container')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('.toast-message')).toContainText('Gastroenterología')
   })
 })

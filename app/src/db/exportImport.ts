@@ -35,6 +35,7 @@ export async function buildExportZip(): Promise<JSZip> {
   const nodes = await db.nodes.toArray()
   const articles = await db.articles.toArray()
   const assets = await db.assets.toArray()
+  const flashcards = await db.flashcards.toArray()
   const live = nodes.filter((n) => n.deleted_at === null)
   const articlesByNode = new Map(articles.map((a) => [a.node_id, a]))
 
@@ -57,6 +58,9 @@ export async function buildExportZip(): Promise<JSZip> {
       2,
     ),
   )
+  if (flashcards.length > 0) {
+    zip.file('_flashcards.json', JSON.stringify(flashcards, null, 2))
+  }
 
   // assets → archivos; mapa para reescribir asset:// en el markdown
   const assetFileName = new Map<string, string>()
@@ -280,6 +284,20 @@ export async function importFromZip(
     await db.articles.bulkPut(result.articles)
     await db.assets.bulkPut(result.assets)
   })
+
+  // 6) Flashcards opcionales.
+  const flashcardsFile = zip.file('_flashcards.json')
+  if (flashcardsFile) {
+    try {
+      const importedCards = JSON.parse(await flashcardsFile.async('string'))
+      if (Array.isArray(importedCards) && importedCards.length > 0) {
+        await db.flashcards.bulkPut(importedCards)
+      }
+    } catch (e) {
+      console.warn('No se pudieron restaurar algunas flashcards del zip:', e)
+    }
+  }
+
   await deduplicateSystemNodes()
   return report
 }

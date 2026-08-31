@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   useAllNodes,
   useArticle,
@@ -13,10 +13,16 @@ import { usePWAUpdate } from './hooks/usePWAUpdate'
 import { usePwaInstall } from './hooks/usePwaInstall'
 import { TreeView } from './components/tree/TreeView'
 import { Breadcrumbs } from './components/tree/Breadcrumbs'
+import { FolderExplorerView } from './components/tree/FolderExplorerView'
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/editor/MarkdownEditor'
 import { ArticleReader } from './components/reader/ArticleReader'
 import { QuickCapture } from './components/capture/QuickCapture'
 import { SmartImportModal } from './components/editor/SmartImportModal'
+import { StudyModal } from './components/flashcards/StudyModal'
+import { ArticleFlashcardsModal } from './components/flashcards/ArticleFlashcardsModal'
+import { AiSettingsModal } from './components/settings/AiSettingsModal'
+import { getDueFlashcards, getAllFlashcards } from './db/flashcards'
+import type { FlashcardRow } from './db/db'
 import { PortabilityBar } from './components/portability/PortabilityBar'
 import { SyncIndicator } from './components/portability/SyncIndicator'
 import { GoogleDriveModal } from './components/portability/GoogleDriveModal'
@@ -105,6 +111,41 @@ function App() {
   const [deleteState, setDeleteState] = useState<DeleteState>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  // Estados de Flashcards y Repaso Activo SM-2
+  const [isStudyModalOpen, setIsStudyModalOpen] = useState(false)
+  const [studyDeck, setStudyDeck] = useState<FlashcardRow[]>([])
+  const [isArticleFlashcardsOpen, setIsArticleFlashcardsOpen] = useState(false)
+  const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false)
+  const [dueFlashcardsCount, setDueFlashcardsCount] = useState(0)
+  const [totalFlashcardsCount, setTotalFlashcardsCount] = useState(0)
+
+  const refreshFlashcardCounts = useCallback(async () => {
+    try {
+      const due = await getDueFlashcards()
+      const all = await getAllFlashcards()
+      setDueFlashcardsCount(due.length)
+      setTotalFlashcardsCount(all.length)
+    } catch {
+      // Ignorar en ciclo inicial
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshFlashcardCounts()
+  }, [refreshFlashcardCounts, selectedId])
+
+  const handleStartGeneralStudy = async () => {
+    const due = await getDueFlashcards()
+    const all = await getAllFlashcards()
+    const targetCards = due.length > 0 ? due : all
+    if (targetCards.length === 0) {
+      setToastMessage('No tienes flashcards en el mazo. Puedes crearlas o generarlas en cualquier artículo.')
+      return
+    }
+    setStudyDeck(targetCards)
+    setIsStudyModalOpen(true)
+  }
 
   // Hook de Actualización PWA y Sondeo Activo
   const { needRefresh, updateApp, closeToast } = usePWAUpdate()
@@ -545,140 +586,133 @@ function App() {
           />
 
           {selected ? (
-            <div className="article-container">
-              <div className="article-header-row">
-                <div className="article-title-wrapper">
-                  <h1 className="article-title">{selected.title}</h1>
-                  {selected.kind === 'article' && (
-                    <button
-                      type="button"
-                      className={`btn-fav-star ${isFavorite(selected.id) ? 'active' : ''}`}
-                      onClick={() => toggleFavorite(selected.id)}
-                      title={
-                        isFavorite(selected.id)
-                          ? 'Quitar de favoritos / anclados'
-                          : 'Anclar a favoritos'
-                      }
-                      aria-label="Favorito"
-                    >
-                      {isFavorite(selected.id) ? '⭐' : '☆'}
-                    </button>
-                  )}
-                </div>
-
-                {selected.kind === 'article' && (
-                  <div className="article-header-actions-group">
-                    <button
-                      type="button"
-                      className="btn-smart-import-trigger"
-                      onClick={() => setIsSmartImportOpen(true)}
-                      title="Importar contenido desde ChatGPT, IA o Word (.docx)"
-                    >
-                      🪄 Importar
-                    </button>
-
-                    <div className="view-mode-toggle">
+            <div className={selected.kind === 'folder' ? 'folder-main-view-wrapper' : 'article-container'}>
+              {selected.kind === 'folder' ? (
+                <FolderExplorerView
+                  folderNode={selected}
+                  nodes={nodes}
+                  onSelectNode={(id) => {
+                    setSelectedId(id)
+                    setSidebarOpen(false)
+                  }}
+                  onCreateArticle={(folderId) => handleOpenCreatePrompt('article', folderId)}
+                  onCreateSubfolder={(folderId) => handleOpenCreatePrompt('folder', folderId)}
+                  onSmartImport={() => setIsSmartImportOpen(true)}
+                  onToggleFavorite={toggleFavorite}
+                  favoriteIds={favoriteIds}
+                  onMoveNodeDirect={handleMoveNodeDirect}
+                />
+              ) : (
+                <>
+                  <div className="article-header-row">
+                    <div className="article-title-wrapper">
+                      <h1 className="article-title">{selected.title}</h1>
                       <button
                         type="button"
-                        className={`btn-mode ${!isEditMode ? 'active' : ''}`}
-                        onClick={() => setIsEditMode(false)}
+                        className={`btn-fav-star ${isFavorite(selected.id) ? 'active' : ''}`}
+                        onClick={() => toggleFavorite(selected.id)}
+                        title={
+                          isFavorite(selected.id)
+                            ? 'Quitar de favoritos / anclados'
+                            : 'Anclar a favoritos'
+                        }
+                        aria-label="Favorito"
                       >
-                        👁 Lector
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn-mode ${isEditMode ? 'active' : ''}`}
-                        onClick={() => setIsEditMode(true)}
-                      >
-                        ✏ Editor
+                        {isFavorite(selected.id) ? '⭐' : '☆'}
                       </button>
                     </div>
-                  </div>
-                )}
-              </div>
 
-              {selected.kind === 'folder' && (
-                <div className="folder-view-card">
-                  <p className="folder-lead">
-                    📁 Carpeta / Especialidad: <strong>{selected.title}</strong>
-                  </p>
-                  <div className="folder-actions-row">
-                    <button
-                      type="button"
-                      className="btn-dialog-primary"
-                      onClick={() => handleOpenCreatePrompt('article', selected.id)}
-                    >
-                      ➕ Nuevo artículo aquí
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-dialog-secondary"
-                      onClick={() => handleOpenCreatePrompt('folder', selected.id)}
-                    >
-                      📁 Nueva subcarpeta
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-dialog-secondary"
-                      onClick={() => setIsSmartImportOpen(true)}
-                    >
-                      🪄 Importar texto/Word aquí
-                    </button>
-                  </div>
-                </div>
-              )}
+                    <div className="article-header-actions-group">
+                      <button
+                        type="button"
+                        className="btn-article-flashcards"
+                        onClick={() => setIsArticleFlashcardsOpen(true)}
+                        title="Ver y generar flashcards de este tema"
+                      >
+                        🧠 Flashcards
+                      </button>
 
-              {selected.kind === 'article' && isArticleReady && (
-                <>
-                  <div className="article-meta">
-                    <TagInput
-                      articleId={selected.id}
-                      tags={article?.node_id === selected.id ? (article?.tags ?? []) : []}
-                    />
+                      <button
+                        type="button"
+                        className="btn-smart-import-trigger"
+                        onClick={() => setIsSmartImportOpen(true)}
+                        title="Importar contenido desde ChatGPT, IA o Word (.docx)"
+                      >
+                        🪄 Importar
+                      </button>
+
+                      <div className="view-mode-toggle">
+                        <button
+                          type="button"
+                          className={`btn-mode ${!isEditMode ? 'active' : ''}`}
+                          onClick={() => setIsEditMode(false)}
+                        >
+                          👁 Lector
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn-mode ${isEditMode ? 'active' : ''}`}
+                          onClick={() => setIsEditMode(true)}
+                        >
+                          ✏ Editor
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
-                  {isEditMode ? (
+                  {isArticleReady && (
                     <>
-                      <div className="article-toolbar">
-                        <WikiLinkPicker
-                          onPick={(text) => {
-                            editorRef.current?.insertAtCursor(text)
-                            editorRef.current?.focus()
-                          }}
+                      <div className="article-meta">
+                        <TagInput
+                          articleId={selected.id}
+                          tags={article?.node_id === selected.id ? (article?.tags ?? []) : []}
                         />
                       </div>
-                      <MarkdownEditor
-                        key={`${selected.id}-${editorRevision}`}
-                        nodeId={selected.id}
-                        defaultValue={currentBody}
-                        onChange={(nodeId, md) => saveArticle(nodeId, md)}
-                        onWikiLinkClick={selectArticle}
-                        editorRef={editorRef}
-                      />
-                    </>
-                  ) : (
-                    <ArticleReader
-                      markdown={currentBody}
-                      onWikiLinkClick={selectArticle}
-                    />
-                  )}
 
-                  {backlinks.length > 0 && (
-                    <aside className="backlinks">
-                      <h3>Artículos que enlazan aquí</h3>
-                      <ul>
-                        {backlinks.map((b) => (
-                          <li key={b.id}>
-                            <button
-                              type="button"
-                              onClick={() => selectArticle(b.id)}
-                            >
-                              📄 {b.title}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </aside>
+                      {isEditMode ? (
+                        <>
+                          <div className="article-toolbar">
+                            <WikiLinkPicker
+                              onPick={(text) => {
+                                editorRef.current?.insertAtCursor(text)
+                                editorRef.current?.focus()
+                              }}
+                            />
+                          </div>
+                          <MarkdownEditor
+                            key={`${selected.id}-${editorRevision}`}
+                            nodeId={selected.id}
+                            defaultValue={currentBody}
+                            onChange={(nodeId, md) => saveArticle(nodeId, md)}
+                            onWikiLinkClick={selectArticle}
+                            editorRef={editorRef}
+                          />
+                        </>
+                      ) : (
+                        <ArticleReader
+                          markdown={currentBody}
+                          onWikiLinkClick={selectArticle}
+                        />
+                      )}
+
+                      {backlinks.length > 0 && (
+                        <aside className="backlinks">
+                          <h3>Artículos que enlazan aquí</h3>
+                          <ul>
+                            {backlinks.map((b) => (
+                              <li key={b.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => selectArticle(b.id)}
+                                >
+                                  📄 {b.title}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </aside>
+                      )}
+                    </>
                   )}
                 </>
               )}
@@ -696,6 +730,10 @@ function App() {
               }
               onInstallPwa={triggerInstallPwa}
               canInstallPwa={canInstallPwa}
+              dueFlashcardsCount={dueFlashcardsCount}
+              totalFlashcardsCount={totalFlashcardsCount}
+              onOpenStudy={handleStartGeneralStudy}
+              onOpenAiSettings={() => setIsAiSettingsOpen(true)}
             />
           )}
         </main>
@@ -853,6 +891,43 @@ function App() {
 
       {/* Guía Visual de Instalación en iOS Safari */}
       <IosInstallModal isOpen={showIosGuide} onClose={closeIosGuide} />
+
+      {/* Modal de Estudio Activo SM-2 (Flip Card 3D) */}
+      <StudyModal
+        isOpen={isStudyModalOpen}
+        onClose={() => {
+          setIsStudyModalOpen(false)
+          refreshFlashcardCounts()
+        }}
+        cards={studyDeck}
+        onOpenArticle={(nodeId) => selectArticle(nodeId)}
+        onSessionComplete={() => refreshFlashcardCounts()}
+      />
+
+      {/* Modal de Flashcards del Artículo */}
+      {selected?.kind === 'article' && (
+        <ArticleFlashcardsModal
+          isOpen={isArticleFlashcardsOpen}
+          onClose={() => {
+            setIsArticleFlashcardsOpen(false)
+            refreshFlashcardCounts()
+          }}
+          nodeId={selected.id}
+          articleTitle={selected.title}
+          bodyMd={currentBody}
+          onStartStudy={(cards) => {
+            setStudyDeck(cards)
+            setIsStudyModalOpen(true)
+          }}
+          onOpenAiSettings={() => setIsAiSettingsOpen(true)}
+        />
+      )}
+
+      {/* Modal de Configuración de IA */}
+      <AiSettingsModal
+        isOpen={isAiSettingsOpen}
+        onClose={() => setIsAiSettingsOpen(false)}
+      />
     </div>
   )
 }
