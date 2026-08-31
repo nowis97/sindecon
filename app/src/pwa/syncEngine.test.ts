@@ -41,6 +41,8 @@ vi.mock('./googleDrive', async () => {
     getAppDataFileByName: vi.fn(),
     downloadAppDataFile: vi.fn(),
     uploadAppDataFile: vi.fn(),
+    fetchAiConfigFromDrive: vi.fn(),
+    uploadAiConfigToDrive: vi.fn(),
   }
 })
 
@@ -105,5 +107,58 @@ describe('syncEngine (Google Drive Local-First Sync)', () => {
 
     const res = await performGoogleDriveSync('mock-token')
     expect(res.action).toBe('up-to-date')
+  })
+
+  it('descarga ai-config.json si en local no hay clave pero en Google Drive sí', async () => {
+    const remoteAiConfig = {
+      provider: 'gemini' as const,
+      apiKey: 'AIzaSy-remote-test-key',
+      modelName: 'gemini-3.7-flash',
+      updated_at: 1715000000000,
+    }
+
+    vi.mocked(gdrive.fetchAiConfigFromDrive).mockResolvedValue(remoteAiConfig)
+
+    const { syncAiConfigWithDrive } = await import('./syncEngine')
+    const result = await syncAiConfigWithDrive('mock-token')
+
+    expect(result.synced).toBe(true)
+    expect(result.action).toBe('downloaded')
+
+    const { getAiConfig } = await import('../db/flashcards')
+    const local = await getAiConfig()
+    expect(local.apiKey).toBe('AIzaSy-remote-test-key')
+    expect(local.modelName).toBe('gemini-3.7-flash')
+  })
+
+  it('sube ai-config.json a Google Drive si en local hay clave y en Drive no existe', async () => {
+    const { saveAiConfig } = await import('../db/flashcards')
+    const localConfig = {
+      provider: 'groq' as const,
+      apiKey: 'gsk_local_test_key',
+      modelName: 'llama-3.3-70b-versatile',
+      updated_at: 1716000000000,
+    }
+    await saveAiConfig(localConfig)
+
+    vi.mocked(gdrive.fetchAiConfigFromDrive).mockResolvedValue(null)
+    vi.mocked(gdrive.uploadAiConfigToDrive).mockResolvedValue({
+      id: 'new-ai-config-id',
+      name: 'ai-config.json',
+      mimeType: 'application/json',
+    })
+
+    const { syncAiConfigWithDrive } = await import('./syncEngine')
+    const result = await syncAiConfigWithDrive('mock-token')
+
+    expect(result.synced).toBe(true)
+    expect(result.action).toBe('uploaded')
+    expect(gdrive.uploadAiConfigToDrive).toHaveBeenCalledWith(
+      'mock-token',
+      expect.objectContaining({
+        apiKey: 'gsk_local_test_key',
+        provider: 'groq',
+      }),
+    )
   })
 })

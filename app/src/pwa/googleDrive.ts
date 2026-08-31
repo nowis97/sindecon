@@ -1,7 +1,11 @@
 /**
  * Cliente de Google Drive API v3 para el espacio privado `appDataFolder`.
- * Permite almacenar y sincronizar `sync-manifest.json` y `cuaderno-backup.zip`.
+ * Permite almacenar y sincronizar `sync-manifest.json`, `cuaderno-backup.zip` y `ai-config.json`.
  */
+
+import type { AiConfig } from '../db/db'
+
+export const AI_CONFIG_FILE_NAME = 'ai-config.json'
 
 export interface GoogleDriveFile {
   id: string
@@ -271,4 +275,41 @@ export async function fetchGoogleUserEmail(token: string): Promise<string | null
     // Ignorar si falla
   }
   return null
+}
+
+/**
+ * Obtiene la configuración de IA guardada en `appDataFolder` de Google Drive.
+ */
+export async function fetchAiConfigFromDrive(token: string): Promise<AiConfig | null> {
+  const file = await getAppDataFileByName(token, AI_CONFIG_FILE_NAME)
+  if (!file) return null
+  try {
+    const blob = await downloadAppDataFile(token, file.id)
+    const text = await blob.text()
+    const parsed = JSON.parse(text) as AiConfig
+    if (parsed && typeof parsed === 'object' && parsed.provider) {
+      return parsed
+    }
+  } catch (err) {
+    console.warn('Error leyendo ai-config.json de Google Drive:', err)
+  }
+  return null
+}
+
+/**
+ * Sube o actualiza la configuración de IA en `appDataFolder` de Google Drive.
+ */
+export async function uploadAiConfigToDrive(
+  token: string,
+  config: AiConfig,
+): Promise<GoogleDriveFile> {
+  const existing = await getAppDataFileByName(token, AI_CONFIG_FILE_NAME)
+  const jsonString = JSON.stringify(config, null, 2)
+  return await uploadAppDataFile(
+    token,
+    AI_CONFIG_FILE_NAME,
+    'application/json',
+    jsonString,
+    existing?.id,
+  )
 }

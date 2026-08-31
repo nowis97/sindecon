@@ -452,7 +452,8 @@ DOSIS: Paracetamol 1g cada 8h condicional a fiebre.
     await articleInput.fill('Neumonía Adquirida')
     await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
 
-    // 5. Volver a la carpeta Neumología desde breadcrumbs
+    // 5. Esperar a que el nuevo artículo esté cargado y volver a la carpeta Neumología desde breadcrumbs
+    await expect(page.locator('.article-title')).toHaveText('Neumonía Adquirida')
     const crumbNeumo = page.locator('.breadcrumbs .crumb-folder', { hasText: 'Neumología' })
     await expect(crumbNeumo).toBeVisible()
     await crumbNeumo.click()
@@ -567,5 +568,64 @@ DOSIS: Paracetamol 1g cada 8h condicional a fiebre.
     // 7. Verificar que se muestra notificación toast de movimiento exitoso
     await expect(page.locator('.toast-container')).toBeVisible({ timeout: 5000 })
     await expect(page.locator('.toast-message')).toContainText('Gastroenterología')
+  })
+
+  test('18. Modal de exportación a PDF con selección de 1 o 2 columnas (spec: data-portability)', async ({ page }) => {
+    // 1. Crear un artículo de prueba
+    await page.getByRole('button', { name: '+ Artículo' }).click()
+    const input = page.locator('.dialog-input')
+    await expect(input).toBeVisible()
+    await input.fill('Cetoacidosis Diabética')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 2. Comprobar botón PDF en cabecera de artículo
+    const btnPdfHeader = page.locator('.btn-article-export-pdf')
+    await expect(btnPdfHeader).toBeVisible()
+    await btnPdfHeader.click()
+
+    // 3. Verificar apertura del modal ExportPdfModal
+    const modal = page.locator('.export-pdf-modal')
+    await expect(modal).toBeVisible()
+    await expect(modal.locator('.preview-title')).toHaveText('Cetoacidosis Diabética')
+
+    // 4. Seleccionar maquetación de 1 Columna y verificar estado activo
+    const card1Col = modal.locator('.pdf-layout-card').first()
+    const card2Col = modal.locator('.pdf-layout-card').nth(1)
+
+    await expect(card2Col).toHaveClass(/active/)
+    await card1Col.click()
+    await expect(card1Col).toHaveClass(/active/)
+    await expect(card2Col).not.toHaveClass(/active/)
+
+    // 5. Mockear window.print para verificar que el flujo dispara la impresión
+    await page.evaluate(() => {
+      // @ts-ignore
+      window.__printed = false
+      window.print = () => {
+        // @ts-ignore
+        window.__printed = true
+      }
+    })
+
+    // 6. Confirmar exportación
+    await modal.locator('.btn-print-confirm').click()
+    await expect(modal).not.toBeVisible()
+
+    // Verificar que window.print fue llamado
+    await page.waitForFunction(() => (window as any).__printed === true)
+    const wasPrinted = await page.evaluate(() => (window as any).__printed)
+    expect(wasPrinted).toBe(true)
+
+    // 7. Cambiar a modo Lector y abrir desde el botón del Reader Toolbar
+    await page.locator('.btn-mode', { hasText: 'Lector' }).click()
+    const btnPdfReader = page.locator('.btn-reader-export-pdf')
+    await expect(btnPdfReader).toBeVisible()
+    await btnPdfReader.click()
+    await expect(modal).toBeVisible()
+
+    // La selección anterior de 1 columna persiste
+    await expect(modal.locator('.pdf-layout-card').first()).toHaveClass(/active/)
+    await modal.locator('.btn-secondary', { hasText: 'Cancelar' }).click()
+    await expect(modal).not.toBeVisible()
   })
 })

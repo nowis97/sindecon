@@ -99,8 +99,12 @@ export async function getAiConfig(): Promise<AiConfig> {
 }
 
 export async function saveAiConfig(config: AiConfig): Promise<void> {
+  const enriched: AiConfig = {
+    ...config,
+    updated_at: config.updated_at || Date.now(),
+  }
   await db.meta.put({
     key: AI_CONFIG_KEY,
-    value: config,
+    value: enriched,
   })
 }

@@ -1,4 +1,4 @@
-﻿import { test, expect } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 
 test.describe('Flashcards & Repetición Espaciada SM-2 - E2E Tests (OpenSpec)', () => {
   test.beforeEach(async ({ page }) => {
@@ -294,5 +294,106 @@ test.describe('Flashcards & Repetición Espaciada SM-2 - E2E Tests (OpenSpec)', 
     const actionStudy = dashboard.locator('.action-card.action-study-deck')
     await expect(actionStudy).toBeVisible()
     await expect(actionStudy).toContainText('Repaso Activo SM-2')
+  })
+
+  test('7. Persistencia de configuración de IA con timestamp y preparación para Google Drive (spec: data-portability)', async ({ page }) => {
+    await page.locator('.app-title').click()
+    const dashboard = page.locator('.dashboard-container')
+    await expect(dashboard).toBeVisible()
+
+    // Abrir modal de Ajustes de IA
+    const btnAiSettings = page.locator('.action-card.action-ai-settings')
+    await btnAiSettings.click()
+
+    const aiModal = page.locator('.ai-settings-modal')
+    await expect(aiModal).toBeVisible()
+
+    // Seleccionar Gemini y modelo gemini-3.7-flash
+    const selectProvider = aiModal.locator('select').first()
+    await selectProvider.selectOption('gemini')
+
+    const selectModel = aiModal.locator('select').nth(1)
+    await selectModel.selectOption('gemini-3.7-flash')
+
+    // Ingresar API key
+    const keyInput = aiModal.locator('input[type=password]')
+    await keyInput.fill('AIzaSy_E2E_Test_Key_999')
+
+    // Guardar
+    await aiModal.locator('button[type=submit]').click()
+    await expect(aiModal.locator('button[type=submit]')).toContainText('Guardado')
+    await expect(aiModal).not.toBeVisible()
+
+    // Verificar en IndexedDB que se guardó con updated_at
+    const savedConfig = await page.evaluate(async () => {
+      // @ts-ignore
+      const { db } = await import('/src/db/db.ts')
+      const row = await db.meta.get('ai_config')
+      return row?.value
+    })
+
+    expect(savedConfig).toBeTruthy()
+    expect(savedConfig.provider).toBe('gemini')
+    expect(savedConfig.modelName).toBe('gemini-3.7-flash')
+    expect(savedConfig.apiKey).toBe('AIzaSy_E2E_Test_Key_999')
+    expect(savedConfig.updated_at).toBeGreaterThan(0)
+  })
+
+  test('8. Renderizado fiel de formato Markdown en preguntas y respuestas de flashcards (spec: flashcards)', async ({ page }) => {
+    // 1. Crear un artículo de prueba
+    await page.getByRole('button', { name: '+ Artículo' }).click()
+    const articleInput = page.locator('.dialog-input')
+    await articleInput.fill('Fármacos en Urgencias')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 2. Abrir modal de flashcards
+    await page.locator('.btn-article-flashcards').click()
+    const articleModal = page.locator('.article-flashcards-modal')
+    await expect(articleModal).toBeVisible()
+
+    // 3. Crear tarjeta manual con Markdown rico
+    const btnManual = articleModal.locator('button.btn-secondary-action', {
+      hasText: '➕ Tarjeta Manual',
+    })
+    await btnManual.click()
+
+    const manualForm = articleModal.locator('.manual-card-form')
+    await expect(manualForm).toBeVisible()
+
+    const frontInput = manualForm.locator('textarea').nth(0)
+    const backInput = manualForm.locator('textarea').nth(1)
+
+    await frontInput.fill('¿Cuál es la **dosis inicial** de `Adenosina` en TPSV?')
+    await backInput.fill('**Protocolo:**\n- **1ª dosis:** `6 mg` en bolo IV rápido.\n- **2ª dosis:** `12 mg` si no revierte en 1-2 min.\n\n> [!NOTE] Administrar seguido de flush de 20ml de SF.')
+
+    await manualForm.getByRole('button', { name: 'Añadir al Mazo' }).click()
+    await expect(manualForm).not.toBeVisible()
+
+    // 4. Verificar que se renderizan elementos HTML enriquecidos en la lista (strong, code, ul, li)
+    const cardRow = articleModal.locator('.article-card-row').first()
+    await expect(cardRow.locator('.front-side strong.card-md-bold')).toContainText('dosis inicial')
+    await expect(cardRow.locator('.front-side code.card-code-inline')).toHaveText('Adenosina')
+    await expect(cardRow.locator('.back-side strong.card-md-bold').first()).toContainText('Protocolo:')
+    await expect(cardRow.locator('.back-side ul.card-md-ul li')).toHaveCount(2)
+    await expect(cardRow.locator('.back-side .card-md-callout')).toBeVisible()
+
+    // 5. Iniciar sesión de estudio y verificar Markdown en 3D Flip
+    await articleModal.locator('.btn-study-action').click()
+    const studyModal = page.locator('.study-modal-container')
+    await expect(studyModal).toBeVisible()
+
+    // Frente de la tarjeta
+    await expect(studyModal.locator('.flashcard-front strong.card-md-bold')).toContainText('dosis inicial')
+    await expect(studyModal.locator('.flashcard-front code.card-code-inline')).toHaveText('Adenosina')
+
+    // Voltear tarjeta
+    await studyModal.locator('.flashcard-3d-wrapper').click()
+    await expect(studyModal.locator('.flashcard-back strong.card-md-bold').first()).toContainText('Protocolo:')
+    await expect(studyModal.locator('.flashcard-back ul.card-md-ul li')).toHaveCount(2)
+    await expect(studyModal.locator('.flashcard-back .card-md-callout')).toBeVisible()
+
+    // Cerrar sesión
+    await studyModal.locator('.btn-close').click()
+    await expect(studyModal).not.toBeVisible()
   })
 })

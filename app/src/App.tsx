@@ -27,6 +27,7 @@ import { PortabilityBar } from './components/portability/PortabilityBar'
 import { SyncIndicator } from './components/portability/SyncIndicator'
 import { GoogleDriveModal } from './components/portability/GoogleDriveModal'
 import { IosInstallModal } from './components/portability/IosInstallModal'
+import { ExportPdfModal, type ExportPdfOptions } from './components/portability/ExportPdfModal'
 import { UpdateToast } from './components/pwa/UpdateToast'
 import { SearchBox } from './components/search/SearchBox'
 import { CommandPalette } from './components/search/CommandPalette'
@@ -41,7 +42,7 @@ import {
 } from './components/common/DialogModal'
 import { Toast } from './components/common/Toast'
 import { ensurePersistentStorage } from './pwa/persistence'
-import { childrenOf } from './domain/tree'
+import { childrenOf, pathTo } from './domain/tree'
 import { db } from './db/db'
 import {
   createNode,
@@ -119,6 +120,35 @@ function App() {
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false)
   const [dueFlashcardsCount, setDueFlashcardsCount] = useState(0)
   const [totalFlashcardsCount, setTotalFlashcardsCount] = useState(0)
+
+  // Estados y flujo de Exportación a PDF
+  const [isExportPdfOpen, setIsExportPdfOpen] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
+  const [printOptions, setPrintOptions] = useState<ExportPdfOptions>({
+    columns: '2',
+    includeHeader: true,
+    includeTags: true,
+  })
+
+  const handleConfirmExportPdf = (options: ExportPdfOptions) => {
+    setPrintOptions(options)
+    setIsExportPdfOpen(false)
+    setIsPrinting(true)
+
+    document.body.classList.remove('print-columns-1', 'print-columns-2')
+    document.body.classList.add(
+      'printing-active',
+      options.columns === '2' ? 'print-columns-2' : 'print-columns-1'
+    )
+
+    setTimeout(() => {
+      window.print()
+      setTimeout(() => {
+        setIsPrinting(false)
+        document.body.classList.remove('printing-active', 'print-columns-1', 'print-columns-2')
+      }, 500)
+    }, 150)
+  }
 
   const refreshFlashcardCounts = useCallback(async () => {
     try {
@@ -625,6 +655,15 @@ function App() {
                     <div className="article-header-actions-group">
                       <button
                         type="button"
+                        className="btn-article-export-pdf"
+                        onClick={() => setIsExportPdfOpen(true)}
+                        title="Exportar artículo a PDF o Imprimir"
+                      >
+                        🖨️ PDF
+                      </button>
+
+                      <button
+                        type="button"
                         className="btn-article-flashcards"
                         onClick={() => setIsArticleFlashcardsOpen(true)}
                         title="Ver y generar flashcards de este tema"
@@ -692,6 +731,7 @@ function App() {
                         <ArticleReader
                           markdown={currentBody}
                           onWikiLinkClick={selectArticle}
+                          onOpenExportPdf={() => setIsExportPdfOpen(true)}
                         />
                       )}
 
@@ -928,6 +968,65 @@ function App() {
         isOpen={isAiSettingsOpen}
         onClose={() => setIsAiSettingsOpen(false)}
       />
+
+      {/* Modal de Exportación a PDF / Impresión */}
+      {selected?.kind === 'article' && (
+        <ExportPdfModal
+          isOpen={isExportPdfOpen}
+          onClose={() => setIsExportPdfOpen(false)}
+          articleTitle={selected.title}
+          folderPath={pathTo(nodes, selected.id).slice(0, -1).map((n) => n.title).join(' / ')}
+          tags={article?.node_id === selected.id ? (article?.tags ?? []) : []}
+          onConfirmExport={handleConfirmExportPdf}
+        />
+      )}
+
+      {/* Documento Exclusivo para Impresión / Guardar como PDF */}
+      {isPrinting && selected?.kind === 'article' && (
+        <div
+          id="print-article-document"
+          className={`print-article-document print-layout-${printOptions.columns === '2' ? 'two-columns' : 'single'}`}
+          aria-hidden="true"
+        >
+          {printOptions.includeHeader && (
+            <div className="print-article-header">
+              <div className="print-header-top">
+                <span className="print-brand-tag">SINDECON • Cuaderno Médico</span>
+                <span className="print-date-tag">
+                  {new Date(selected.updated_at).toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </span>
+              </div>
+              <h1 className="print-article-title">{selected.title}</h1>
+              {pathTo(nodes, selected.id).length > 1 && (
+                <div className="print-breadcrumb-path">
+                  📁 {pathTo(nodes, selected.id).map((n) => n.title).join(' › ')}
+                </div>
+              )}
+            </div>
+          )}
+
+          {printOptions.includeTags && (article?.tags ?? []).length > 0 && (
+            <div className="print-tags-row">
+              {(article?.tags ?? []).map((t) => (
+                <span key={t} className="print-tag-pill">
+                  #{t}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="print-article-body">
+            <ArticleReader
+              markdown={currentBody}
+              onWikiLinkClick={() => {}}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

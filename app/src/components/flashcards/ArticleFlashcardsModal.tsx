@@ -7,6 +7,7 @@ import {
 } from '../../db/flashcards'
 import type { FlashcardRow } from '../../db/db'
 import { GenerateFlashcardsModal } from './GenerateFlashcardsModal'
+import { FlashcardMarkdown } from './FlashcardMarkdown'
 
 interface ArticleFlashcardsModalProps {
   isOpen: boolean
@@ -16,96 +17,6 @@ interface ArticleFlashcardsModalProps {
   bodyMd: string
   onStartStudy?: (cards: FlashcardRow[]) => void
   onOpenAiSettings?: () => void
-}
-
-/**
- * Renderiza texto con formato básico (negrita, cursiva, código inline y tablas markdown).
- */
-function renderFormattedInline(text: string): React.ReactNode {
-  if (!text) return null
-
-  // Si contiene una tabla Markdown, formatearla limpiamente
-  if (text.includes('|') && text.includes('\n')) {
-    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
-    const tableLines = lines.filter((l) => l.startsWith('|') && l.endsWith('|'))
-    if (tableLines.length >= 2) {
-      const headerLine = tableLines[0]
-      const headers = headerLine
-        .slice(1, -1)
-        .split('|')
-        .map((h) => h.trim())
-      const dataRows = tableLines.slice(2).map((row) =>
-        row
-          .slice(1, -1)
-          .split('|')
-          .map((c) => c.trim())
-      )
-
-      return (
-        <div className="card-inline-table-wrapper">
-          <table className="card-inline-table">
-            <thead>
-              <tr>
-                {headers.map((h, i) => (
-                  <th key={i}>{renderBasicText(h)}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {dataRows.map((r, rIdx) => (
-                <tr key={rIdx}>
-                  {r.map((cell, cIdx) => (
-                    <td key={cIdx}>{renderBasicText(cell)}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )
-    }
-  }
-
-  // Si contiene bloques de código o diagramas
-  if (text.startsWith('```') && text.endsWith('```')) {
-    const lines = text.split('\n')
-    const code = lines.slice(1, -1).join('\n')
-    return (
-      <pre className="card-code-block">
-        <code>{code}</code>
-      </pre>
-    )
-  }
-
-  return renderBasicText(text)
-}
-
-function renderBasicText(segment: string): React.ReactNode {
-  const tokens = segment.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g)
-  return (
-    <>
-      {tokens.map((tok, idx) => {
-        if (tok.startsWith('**') && tok.endsWith('**') && tok.length >= 4) {
-          return (
-            <strong key={idx} className="card-highlight-strong">
-              {tok.slice(2, -2)}
-            </strong>
-          )
-        }
-        if (tok.startsWith('*') && tok.endsWith('*') && tok.length >= 2) {
-          return <em key={idx}>{tok.slice(1, -1)}</em>
-        }
-        if (tok.startsWith('`') && tok.endsWith('`') && tok.length >= 2) {
-          return (
-            <code key={idx} className="card-code-inline">
-              {tok.slice(1, -1)}
-            </code>
-          )
-        }
-        return tok
-      })}
-    </>
-  )
 }
 
 export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
@@ -467,13 +378,13 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
                         <div className="card-side-block front-side">
                           <span className="card-side-label">PREGUNTA</span>
                           <div className="card-text-body">
-                            {renderFormattedInline(card.front)}
+                            <FlashcardMarkdown content={card.front} />
                           </div>
                         </div>
                         <div className="card-side-block back-side">
                           <span className="card-side-label">RESPUESTA CLÍNICA</span>
                           <div className="card-text-body">
-                            {renderFormattedInline(card.back)}
+                            <FlashcardMarkdown content={card.back} />
                           </div>
                         </div>
                       </div>

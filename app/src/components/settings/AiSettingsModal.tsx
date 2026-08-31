@@ -6,6 +6,7 @@ import {
   testAiConnection,
   type AiModelOption,
 } from '../../domain/ai/cloudAiClient'
+import { getStoredToken, isGoogleSyncEnabled, uploadAiConfigToDrive } from '../../pwa/googleDrive'
 
 interface AiSettingsModalProps {
   isOpen: boolean
@@ -80,7 +81,22 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    await saveAiConfig(config)
+    const enrichedConfig: AiConfig = {
+      ...config,
+      updated_at: Date.now(),
+    }
+    await saveAiConfig(enrichedConfig)
+
+    // Si Google Drive está conectado, subimos inmediatamente a appDataFolder
+    if (isGoogleSyncEnabled()) {
+      const token = getStoredToken()
+      if (token) {
+        uploadAiConfigToDrive(token, enrichedConfig).catch((err) => {
+          console.warn('Error subiendo AI config a Google Drive al guardar:', err)
+        })
+      }
+    }
+
     setSaved(true)
     setTimeout(() => {
       setSaved(false)

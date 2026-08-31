@@ -4036,62 +4036,399 @@ select.dialog-input {
   font-family: var(--font-mono);
 }
 
+/* ============================================/* ==========================================================================
+   Botones de Exportación a PDF (Cabecera y Barra de Lector)
+   ========================================================================== */
+.btn-article-export-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+
+.btn-article-export-pdf:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-subtle);
+}
+
+.btn-reader-export-pdf {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+
+.btn-reader-export-pdf:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
 /* ==========================================================================
-   Impresión en PDF / Ficha de Bolsillo en 2 Columnas
+   Export PDF Modal Styles
+   ========================================================================== */
+.export-pdf-modal {
+  max-width: 520px;
+  width: 92%;
+}
+
+.pdf-article-preview-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.pdf-article-preview-badge .preview-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.pdf-article-preview-badge .preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.pdf-article-preview-badge .preview-title {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pdf-article-preview-badge .preview-path {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.pdf-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.pdf-layout-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  background: var(--bg-card);
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+
+.pdf-layout-card:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-subtle);
+}
+
+.pdf-layout-card.active {
+  border-color: var(--accent-primary);
+  background: var(--accent-surface);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.pdf-layout-card .layout-badge-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.pdf-layout-card .layout-badge-pill.recommended {
+  background: var(--accent-primary);
+  color: #ffffff;
+}
+
+.pdf-layout-card .layout-card-icon {
+  font-size: 1.6rem;
+  margin-bottom: 6px;
+}
+
+.pdf-layout-card .layout-card-info strong {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.pdf-layout-card .layout-card-info span {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.pdf-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.pdf-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.pdf-checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent-primary);
+}
+
+.pdf-hint-box {
+  background: var(--accent-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-top: 14px;
+}
+
+.btn-print-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   Contenedor Exclusivo de Impresión (Pantalla vs Papel)
+   ========================================================================== */
+#print-article-document,
+.print-article-document {
+  display: none;
+}
+
+/* ==========================================================================
+   Motor de Impresión @media print de Alta Fidelidad
    ========================================================================== */
 @media print {
-  .reader-toolbar-row,
+  /* 1. Ocultar interfaz de la app */
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 10pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .app-layout,
   .sidebar,
   .mobile-bottom-bar,
+  .content,
   .article-header-row,
   .article-meta,
   .breadcrumbs,
   .portability-bar,
   .command-palette-backdrop,
-  .btn-fav-star,
-  .btn-smart-import-trigger,
-  .view-mode-toggle {
+  .modal-overlay,
+  .toast-container,
+  .pwa-update-toast,
+  .btn-mode,
+  .view-mode-toggle,
+  .reader-toolbar-row,
+  .backlinks,
+  .tag-input-container {
     display: none !important;
   }
 
-  body, .app-layout, .content, .article-container {
-    background: #ffffff !important;
-    color: #1e1e1e !important;
-    padding: 0 !important;
+  /* 2. Mostrar contenedor de impresión */
+  #print-article-document,
+  .print-article-document {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
     margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 3. Encabezado Médico del Documento */
+  .print-article-header {
+    margin-bottom: 12pt;
+    padding-bottom: 8pt;
+    border-bottom: 2pt solid #008080 !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  .print-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 8pt;
+    color: #64748b !important;
+    margin-bottom: 4pt;
+    font-weight: 600;
+  }
+
+  .print-brand-tag {
+    color: #008080 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .print-article-title {
+    font-size: 17pt !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin: 4pt 0 !important;
+    line-height: 1.25 !important;
+  }
+
+  .print-breadcrumb-path {
+    font-size: 8.5pt !important;
+    color: #475569 !important;
+  }
+
+  .print-tags-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4pt;
+    margin-bottom: 10pt;
+  }
+
+  .print-tag-pill {
+    font-size: 7.5pt !important;
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 2pt 6pt !important;
+    border-radius: 4pt !important;
+    font-weight: 600 !important;
+  }
+
+  /* 4. Maquetación según selección: 1 Columna vs 2 Columnas */
+  .print-layout-single .article-reader-view {
+    column-count: 1 !important;
+    columns: 1 !important;
+    font-size: 10pt !important;
+    line-height: 1.5 !important;
+  }
+
+  .print-layout-two-columns .article-reader-view,
+  body.print-columns-2 #print-article-document .article-reader-view {
+    column-count: 2 !important;
+    columns: 2 !important;
+    column-gap: 16pt !important;
+    column-rule: 1px solid #e2e8f0 !important;
+    font-size: 9pt !important;
+    line-height: 1.38 !important;
   }
 
   .article-reader-view {
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
-    columns: 2 !important;
-    column-gap: 1.5rem !important;
-    column-rule: 1px solid #cbd5e1 !important;
-    font-size: 9.5pt !important;
-    line-height: 1.4 !important;
+    background: transparent !important;
   }
 
+  /* 5. Headings en Impresión */
   .reader-heading.h1 {
     column-span: all !important;
-    text-align: left !important;
     color: #008080 !important;
-    font-size: 13pt !important;
+    font-size: 12pt !important;
     border-bottom: 1.5px solid #008080 !important;
-    padding-bottom: 3pt !important;
-    margin-bottom: 8pt !important;
-    display: block !important;
-    width: fit-content !important;
-    text-transform: none !important;
+    padding-bottom: 2pt !important;
+    margin: 10pt 0 4pt !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
   }
 
   .reader-heading.h2 {
     color: #008080 !important;
-    font-size: 11pt !important;
-    margin-top: 10pt !important;
-    margin-bottom: 4pt !important;
-    display: block !important;
-    width: fit-content !important;
+    font-size: 10.5pt !important;
+    margin: 8pt 0 3pt !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  .reader-heading.h3 {
+    font-size: 9.5pt !important;
+    margin: 6pt 0 2pt !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* 6. Bloques protegidos contra cortes de página accidentales */
+  table,
+  .reader-table-wrapper,
+  .reader-callout,
+  .mermaid-container,
+  .reader-image-figure,
+  blockquote,
+  pre {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin: 6pt 0 !important;
+  }
+
+  .reader-callout {
+    border-width: 1px 1px 1px 4px !important;
+    padding: 6pt 8pt !important;
+    font-size: 8.5pt !important;
+    background: #f8fafc !important;
+  }
+
+  .reader-table {
+    font-size: 8.5pt !important;
+  }
+
+  .reader-table th,
+  .reader-table td {
+    padding: 3pt 6pt !important;
+  }
+
+  @page {
+    margin: 12mm 14mm;
+    size: auto;
   }
 }
 
@@ -5715,13 +6052,171 @@ select.dialog-input {
 }
 
 .flashcard-body-text {
-  font-size: 1.15rem;
-  font-weight: 600;
-  line-height: 1.5;
+  font-size: 1.08rem;
+  font-weight: 500;
+  line-height: 1.55;
   color: var(--text-primary);
   margin: 16px 0;
-  white-space: pre-wrap;
   word-break: break-word;
+  overflow-y: auto;
+  max-height: 380px;
+  padding-right: 4px;
+}
+
+/* Flashcard Markdown Rendering Styles */
+.flashcard-markdown-root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.flashcard-markdown-root .card-md-paragraph {
+  margin: 0;
+  line-height: 1.5;
+  color: inherit;
+}
+
+.flashcard-markdown-root .card-md-heading {
+  margin: 4px 0 2px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.flashcard-markdown-root .card-md-heading.h1 { font-size: 1.25rem; }
+.flashcard-markdown-root .card-md-heading.h2 { font-size: 1.15rem; }
+.flashcard-markdown-root .card-md-heading.h3 { font-size: 1.05rem; }
+.flashcard-markdown-root .card-md-heading.h4,
+.flashcard-markdown-root .card-md-heading.h5 { font-size: 0.95rem; }
+
+.flashcard-markdown-root .card-md-bold {
+  font-weight: 700;
+  color: inherit;
+}
+
+.flashcard-markdown-root .card-md-italic {
+  font-style: italic;
+}
+
+.flashcard-markdown-root .card-md-highlight {
+  background: rgba(250, 204, 21, 0.25);
+  color: inherit;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.flashcard-markdown-root .card-md-list {
+  margin: 4px 0 4px 20px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flashcard-markdown-root .card-list-item {
+  line-height: 1.45;
+}
+
+.flashcard-markdown-root .card-list-nested {
+  margin: 4px 0 2px 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.flashcard-markdown-root .card-code-inline {
+  background: var(--bg-panel);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85em;
+  color: var(--accent-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.flashcard-markdown-root .card-code-block {
+  background: var(--bg-panel);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  overflow-x: auto;
+  margin: 4px 0;
+  border: 1px solid var(--border-subtle);
+}
+
+.flashcard-markdown-root .card-table-wrapper {
+  overflow-x: auto;
+  margin: 6px 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.flashcard-markdown-root .card-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.flashcard-markdown-root .card-table th,
+.flashcard-markdown-root .card-table td {
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+}
+
+.flashcard-markdown-root .card-table th {
+  background: var(--bg-panel);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.flashcard-markdown-root .card-md-blockquote {
+  border-left: 3px solid var(--accent-primary);
+  margin: 4px 0;
+  padding: 6px 12px;
+  background: var(--bg-panel);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-style: italic;
+}
+
+.flashcard-markdown-root .card-md-callout {
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin: 4px 0;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-panel);
+}
+
+.flashcard-markdown-root .card-md-callout .callout-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+.flashcard-markdown-root .card-md-callout .callout-body {
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.flashcard-markdown-root .card-md-callout.callout-warning {
+  border-left: 3px solid #ef4444;
+}
+
+.flashcard-markdown-root .card-md-callout.callout-tip {
+  border-left: 3px solid #f59e0b;
+}
+
+.flashcard-markdown-root .card-md-callout.callout-dosage {
+  border-left: 3px solid #8b5cf6;
+}
+
+.flashcard-markdown-root .card-md-hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 6px 0;
 }
 
 .flashcard-flip-prompt {

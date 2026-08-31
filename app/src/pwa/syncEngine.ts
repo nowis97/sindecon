@@ -1,10 +1,13 @@
 import { db } from '../db/db'
+import { getAiConfig, saveAiConfig } from '../db/flashcards'
 import { exportToZip, importFromZip } from '../db/exportImport'
 import type { MergeReport } from '../domain/merge'
 import {
   getAppDataFileByName,
   downloadAppDataFile,
   uploadAppDataFile,
+  fetchAiConfigFromDrive,
+  uploadAiConfigToDrive,
   type SyncManifest,
 } from './googleDrive'
 
@@ -51,6 +54,51 @@ export async function getLocalMaxTimestamp(): Promise<number> {
 }
 
 /**
+ * Sincroniza la configuración de IA con Google Drive usando estrategia Last-Write-Wins (LWW).
+ */
+export async function syncAiConfigWithDrive(token: string): Promise<{ synced: boolean; action?: 'uploaded' | 'downloaded' | 'none' }> {
+  try {
+    const localConfig = await getAiConfig()
+    const remoteConfig = await fetchAiConfigFromDrive(token)
+
+    const hasLocalKey = Boolean(localConfig.apiKey && localConfig.apiKey.trim())
+    const hasRemoteKey = Boolean(remoteConfig?.apiKey && remoteConfig.apiKey.trim())
+
+    // Caso 1: Hay clave remota y en local no hay clave configurada
+    if (hasRemoteKey && !hasLocalKey && remoteConfig) {
+      await saveAiConfig(remoteConfig)
+      return { synced: true, action: 'downloaded' }
+    }
+
+    // Caso 2: Hay clave local y en remoto no hay
+    if (hasLocalKey && !hasRemoteKey) {
+      await uploadAiConfigToDrive(token, localConfig)
+      return { synced: true, action: 'uploaded' }
+    }
+
+    // Caso 3: Ambos tienen configuración -> comparar updated_at (LWW)
+    if (remoteConfig && (hasLocalKey || hasRemoteKey)) {
+      const localTime = localConfig.updated_at || 0
+      const remoteTime = remoteConfig.updated_at || 0
+
+      if (remoteTime > localTime) {
+        await saveAiConfig(remoteConfig)
+        return { synced: true, action: 'downloaded' }
+      }
+      if (localTime > remoteTime) {
+        await uploadAiConfigToDrive(token, localConfig)
+        return { synced: true, action: 'uploaded' }
+      }
+    }
+
+    return { synced: false, action: 'none' }
+  } catch (err) {
+    console.warn('Error en syncAiConfigWithDrive:', err)
+    return { synced: false, action: 'none' }
+  }
+}
+
+/**
  * Ejecuta el ciclo de sincronización bidireccional contra Google Drive AppData.
  */
 export async function performGoogleDriveSync(token: string): Promise<SyncEngineResult> {
@@ -61,6 +109,9 @@ export async function performGoogleDriveSync(token: string): Promise<SyncEngineR
       message: 'Sin conexión a internet (Offline-First)',
     }
   }
+
+  // Sincronizar configuración de IA en segundo plano
+  void syncAiConfigWithDrive(token)
 
   const deviceId = getDeviceId()
   const lastSync = getLastSyncTime()

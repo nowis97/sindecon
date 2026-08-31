@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import type { FlashcardRow } from '../../db/db'
 import { calculateNextSm2, getRatingIntervalLabels, type Sm2Rating } from '../../domain/sm2'
 import { updateFlashcard } from '../../db/flashcards'
+import { FlashcardMarkdown } from './FlashcardMarkdown'
 
 interface StudyModalProps {
   isOpen: boolean
@@ -213,7 +214,9 @@ export const StudyModal: React.FC<StudyModalProps> = ({
                     {currentCard.reps === 0 ? '✨ Nueva' : `Racha: ${currentCard.reps}`}
                   </span>
                 </div>
-                <div className="flashcard-body-text">{currentCard.front}</div>
+                <div className="flashcard-body-text">
+                  <FlashcardMarkdown content={currentCard.front} />
+                </div>
                 <div className="flashcard-flip-prompt">
                   <span>🔄 Toca para voltear y ver respuesta</span>
                 </div>
@@ -224,7 +227,9 @@ export const StudyModal: React.FC<StudyModalProps> = ({
                 <div className="flashcard-tag-row">
                   <span className="card-answer-badge">RESPUESTA CLÍNICA</span>
                 </div>
-                <div className="flashcard-body-text">{currentCard.back}</div>
+                <div className="flashcard-body-text">
+                  <FlashcardMarkdown content={currentCard.back} />
+                </div>
               </div>
             </div>
 
