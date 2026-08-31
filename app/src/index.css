@@ -5525,6 +5525,14 @@ select.dialog-input {
   border-color: rgba(94, 234, 212, 0.3);
 }
 
+.topic-modal-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
 .generator-word-estimate-banner {
   display: flex;
   align-items: center;
@@ -5625,20 +5633,23 @@ select.dialog-input {
 
 .generator-trigger-action-row {
   display: flex;
-  margin: 12px 0 16px 0;
+  margin: 10px 0 14px 0;
   width: 100%;
 }
 
 .btn-trigger-generate {
   width: 100%;
-  padding: 12px 18px;
+  padding: 11px 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 700;
   border-radius: var(--radius-md);
+  border: 1px solid var(--accent-primary);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #4338ca 100%);
+  color: #ffffff !important;
   box-shadow: 0 4px 12px var(--accent-glow);
   cursor: pointer;
   transition: all var(--dur-fast) var(--ease-smooth);
@@ -5646,7 +5657,13 @@ select.dialog-input {
 
 .btn-trigger-generate:hover:not(:disabled) {
   transform: translateY(-1px);
-  filter: brightness(1.05);
+  filter: brightness(1.1);
+  box-shadow: 0 6px 16px var(--accent-glow);
+}
+
+.btn-trigger-generate:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .generator-ready-placeholder {
@@ -6968,6 +6985,176 @@ select.dialog-input {
   background: var(--accent-surface);
   color: var(--accent-primary);
   border-color: var(--accent-primary);
+}
+
+/* ==========================================================================
+   Mobile Responsive Styles for Topic Flashcards & Generator Modals
+   ========================================================================== */
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: 8px !important;
+  }
+
+  .modal-content.article-flashcards-modal,
+  .modal-content.generate-flashcards-modal {
+    padding: 14px 12px !important;
+    max-height: 94vh !important;
+    border-radius: var(--radius-lg) !important;
+    width: 100% !important;
+  }
+
+  .topic-modal-header {
+    margin-bottom: 8px;
+    padding-right: 4px;
+  }
+
+  .topic-modal-stats-bar {
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+
+  .topic-stat-chip {
+    font-size: 0.7rem;
+    padding: 2px 7px;
+  }
+
+  .article-flashcards-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin: 6px 0 10px 0;
+  }
+
+  .toolbar-left-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .btn-toolbar-generator,
+  .btn-toolbar-manual {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+    padding: 8px 6px;
+    font-size: 0.76rem;
+    white-space: normal;
+    min-height: 38px;
+  }
+
+  .btn-study-action-hero {
+    width: 100%;
+    justify-content: center;
+    margin: 0;
+    padding: 10px;
+    font-size: 0.86rem;
+  }
+
+  .manual-card-form {
+    padding: 12px;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .manual-card-form-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .preview-tab-switcher {
+    width: 100%;
+    display: flex;
+  }
+
+  .btn-preview-tab {
+    flex: 1;
+    text-align: center;
+    font-size: 0.75rem;
+    padding: 5px 4px;
+  }
+
+  .preview-card-header {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .preview-topic-info {
+    max-width: 100%;
+    font-size: 0.75rem;
+  }
+
+  .preview-card-face {
+    padding: 12px 14px;
+    min-height: 190px;
+  }
+
+  .flashcard-live-preview-container,
+  .preview-card-flipper {
+    min-height: 190px;
+  }
+
+  .generator-modes-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .generator-modes-bar .btn-mode-tab {
+    font-size: 0.74rem;
+    padding: 8px 4px;
+    text-align: center;
+    justify-content: center;
+    white-space: normal;
+  }
+
+  .generator-word-estimate-banner {
+    font-size: 0.76rem;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+  }
+
+  .ai-target-stepper-panel {
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    gap: 8px;
+  }
+
+  .stepper-title {
+    font-size: 0.78rem;
+  }
+
+  .stepper-subtext {
+    font-size: 0.68rem;
+  }
+
+  .btn-trigger-generate {
+    font-size: 0.84rem;
+    padding: 10px 12px;
+  }
+
+  .article-card-row {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .card-row-top-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .card-side-block {
+    padding: 8px 10px;
+  }
+
+  .card-text-body {
+    font-size: 0.84rem;
+  }
+
+  .card-md-table {
+    font-size: 0.76rem;
+  }
 }
 
 /* ==========================================================================

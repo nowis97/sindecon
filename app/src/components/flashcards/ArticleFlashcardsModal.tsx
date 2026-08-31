@@ -117,7 +117,7 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Encabezado del Modal */}
-          <div className="modal-header">
+          <div className="modal-header topic-modal-header">
             <div className="header-title-group">
               <div className="topic-modal-title-line">
                 <span className="topic-modal-icon">🧠</span>
@@ -127,27 +127,30 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
                 {articleTitle}
               </span>
             </div>
-            <div className="modal-header-stats-group">
-              {wordEstimate.wordCount >= 30 && (
-                <span
-                  className="topic-stat-chip words-estimate"
-                  title={`Artículo de ${wordEstimate.wordCount} palabras (${wordEstimate.densityDescription}). Estimación: 1 flashcard clínica por cada ~60 palabras.`}
-                >
-                  📝 ~{wordEstimate.estimatedCards} estimadas ({wordEstimate.wordCount} palabras)
-                </span>
-              )}
-              <span className="topic-stat-chip total" title="Total de tarjetas en este tema">
-                📦 {stats.total} en mazo
+
+            <button className="btn-close" onClick={onClose} aria-label="Cerrar modal">
+              ✕
+            </button>
+          </div>
+
+          {/* Fila de Estadísticas y Estimación de Palabras */}
+          <div className="topic-modal-stats-bar">
+            {wordEstimate.wordCount >= 30 && (
+              <span
+                className="topic-stat-chip words-estimate"
+                title={`Artículo de ${wordEstimate.wordCount} palabras (${wordEstimate.densityDescription}). Estimación: 1 flashcard clínica por cada ~60 palabras.`}
+              >
+                📝 ~{wordEstimate.estimatedCards} estimadas ({wordEstimate.wordCount} palabras)
               </span>
-              {stats.dueCount > 0 && (
-                <span className="topic-stat-chip due" title="Tarjetas listas para repasar hoy">
-                  ⚡ {stats.dueCount} por repasar
-                </span>
-              )}
-              <button className="btn-close" onClick={onClose} aria-label="Cerrar modal">
-                ✕
-              </button>
-            </div>
+            )}
+            <span className="topic-stat-chip total" title="Total de tarjetas en este tema">
+              📦 {stats.total} en mazo
+            </span>
+            {stats.dueCount > 0 && (
+              <span className="topic-stat-chip due" title="Tarjetas listas para repasar hoy">
+                ⚡ {stats.dueCount} por repasar
+              </span>
+            )}
           </div>
 
           {/* Barra de Acciones del Mazo */}
@@ -166,8 +169,8 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
                 className={`btn-toolbar-manual btn-secondary-action ${isCreatingManual ? 'active' : ''}`}
                 onClick={() => setIsCreatingManual(!isCreatingManual)}
               >
-                <span className="btn-icon">{isCreatingManual ? '✕' : '➕'}</span>
-                <span>{isCreatingManual ? 'Cancelar' : '➕ Tarjeta Manual'}</span>
+                <span className="btn-icon">{isCreatingManual ? '✕' : '➕'}</span>{' '}
+                <span>{isCreatingManual ? 'Cancelar' : 'Tarjeta Manual'}</span>
               </button>
             </div>
 

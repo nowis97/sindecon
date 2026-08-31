@@ -70,7 +70,7 @@ test.describe('Flashcards & Repetición Espaciada SM-2 - E2E Tests (OpenSpec)', 
 
     // Abrir formulario de tarjeta manual
     const btnManual = articleModal.locator('button.btn-secondary-action', {
-      hasText: '➕ Tarjeta Manual',
+      hasText: 'Tarjeta Manual',
     })
     await btnManual.click()
 
@@ -225,13 +225,13 @@ test.describe('Flashcards & Repetición Espaciada SM-2 - E2E Tests (OpenSpec)', 
     const articleModal = page.locator('.article-flashcards-modal')
 
     // Añadir tarjeta 1
-    await articleModal.locator('button.btn-secondary-action', { hasText: '➕ Tarjeta Manual' }).click()
+    await articleModal.locator('button.btn-secondary-action', { hasText: 'Tarjeta Manual' }).click()
     await articleModal.locator('.manual-card-form textarea').nth(0).fill('¿Cuál es el síntoma cardinal de la disección aórtica?')
     await articleModal.locator('.manual-card-form textarea').nth(1).fill('Dolor torácico o interescapular desgarrador de inicio súbito.')
     await articleModal.locator('.manual-card-form').getByRole('button', { name: 'Añadir al Mazo' }).click()
 
     // Añadir tarjeta 2
-    await articleModal.locator('button.btn-secondary-action', { hasText: '➕ Tarjeta Manual' }).click()
+    await articleModal.locator('button.btn-secondary-action', { hasText: 'Tarjeta Manual' }).click()
     await articleModal.locator('.manual-card-form textarea').nth(0).fill('¿Qué fármaco se debe iniciar primero para control hemodinámico?')
     await articleModal.locator('.manual-card-form textarea').nth(1).fill('Betabloqueantes IV (ej. Esmolol o Labetalol) antes que vasodilatadores.')
     await articleModal.locator('.manual-card-form').getByRole('button', { name: 'Añadir al Mazo' }).click()
@@ -357,7 +357,7 @@ test.describe('Flashcards & Repetición Espaciada SM-2 - E2E Tests (OpenSpec)', 
 
     // 3. Crear tarjeta manual con Markdown rico
     const btnManual = articleModal.locator('button.btn-secondary-action', {
-      hasText: '➕ Tarjeta Manual',
+      hasText: 'Tarjeta Manual',
     })
     await btnManual.click()
 
@@ -415,7 +415,7 @@ test.describe('Flashcards & Repetición Espaciada SM-2 - E2E Tests (OpenSpec)', 
 
     // 3. Abrir formulario de creación manual
     const btnManual = articleModal.locator('button.btn-secondary-action', {
-      hasText: '➕ Tarjeta Manual',
+      hasText: 'Tarjeta Manual',
     })
     await btnManual.click()
 
