@@ -4248,7 +4248,7 @@ select.dialog-input {
    Motor de Impresión @media print de Alta Fidelidad
    ========================================================================== */
 @media print {
-  /* 1. Ocultar interfaz de la app */
+  /* 1. Resetear html y body */
   html, body {
     background: #ffffff !important;
     color: #0f172a !important;
@@ -4256,13 +4256,34 @@ select.dialog-input {
     margin: 0 !important;
     padding: 0 !important;
     font-size: 10pt !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  .app-layout,
+  /* Mantener el contenedor raíz visible pero sin scroll ni bordes */
+  #root,
+  .layout,
+  .app-layout {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+  }
+
+  /* 2. Ocultar específicamente toda la interfaz interactiva de la app */
+  .mobile-topbar,
   .sidebar,
+  .sidebar-backdrop,
   .mobile-bottom-bar,
+  .dashboard-container,
+  .article-container,
   .content,
   .article-header-row,
   .article-meta,
@@ -4280,17 +4301,19 @@ select.dialog-input {
     display: none !important;
   }
 
-  /* 2. Mostrar contenedor de impresión */
+  /* 3. Mostrar y expandir el contenedor de impresión */
   #print-article-document,
   .print-article-document {
     display: block !important;
+    visibility: visible !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    background: #ffffff !important;
   }
 
-  /* 3. Encabezado Médico del Documento */
+  /* 4. Encabezado Médico del Documento */
   .print-article-header {
     margin-bottom: 12pt;
     padding-bottom: 8pt;
@@ -4313,6 +4336,7 @@ select.dialog-input {
     color: #008080 !important;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    font-weight: 700;
   }
 
   .print-article-title {
@@ -4345,7 +4369,8 @@ select.dialog-input {
     font-weight: 600 !important;
   }
 
-  /* 4. Maquetación según selección: 1 Columna vs 2 Columnas */
+  /* 5. Maquetación según selección: 1 Columna vs 2 Columnas */
+  .print-layout-single .print-reader-view,
   .print-layout-single .article-reader-view {
     column-count: 1 !important;
     columns: 1 !important;
@@ -4353,7 +4378,9 @@ select.dialog-input {
     line-height: 1.5 !important;
   }
 
+  .print-layout-two-columns .print-reader-view,
   .print-layout-two-columns .article-reader-view,
+  body.print-columns-2 #print-article-document .print-reader-view,
   body.print-columns-2 #print-article-document .article-reader-view {
     column-count: 2 !important;
     columns: 2 !important;
@@ -4363,6 +4390,7 @@ select.dialog-input {
     line-height: 1.38 !important;
   }
 
+  .print-reader-view,
   .article-reader-view {
     border: none !important;
     box-shadow: none !important;
@@ -4370,7 +4398,7 @@ select.dialog-input {
     background: transparent !important;
   }
 
-  /* 5. Headings en Impresión */
+  /* 6. Headings en Impresión */
   .reader-heading.h1 {
     column-span: all !important;
     color: #008080 !important;
@@ -4397,7 +4425,7 @@ select.dialog-input {
     page-break-after: avoid !important;
   }
 
-  /* 6. Bloques protegidos contra cortes de página accidentales */
+  /* 7. Bloques protegidos contra cortes de página accidentales */
   table,
   .reader-table-wrapper,
   .reader-callout,

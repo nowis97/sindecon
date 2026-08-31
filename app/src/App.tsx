@@ -982,7 +982,7 @@ function App() {
       )}
 
       {/* Documento Exclusivo para Impresión / Guardar como PDF */}
-      {isPrinting && selected?.kind === 'article' && (
+      {selected?.kind === 'article' && (
         <div
           id="print-article-document"
           className={`print-article-document print-layout-${printOptions.columns === '2' ? 'two-columns' : 'single'}`}
@@ -1023,6 +1023,7 @@ function App() {
             <ArticleReader
               markdown={currentBody}
               onWikiLinkClick={() => {}}
+              isPrintView={true}
             />
           </div>
         </div>

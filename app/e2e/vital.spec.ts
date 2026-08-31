@@ -627,5 +627,15 @@ DOSIS: Paracetamol 1g cada 8h condicional a fiebre.
     await expect(modal.locator('.pdf-layout-card').first()).toHaveClass(/active/)
     await modal.locator('.btn-secondary', { hasText: 'Cancelar' }).click()
     await expect(modal).not.toBeVisible()
+
+    // 8. Emular @media print y verificar que la información clínica es 100% visible en el documento de impresión
+    await page.emulateMedia({ media: 'print' })
+    const printDoc = page.locator('#print-article-document')
+    await expect(printDoc).toBeVisible()
+    await expect(printDoc.locator('.print-article-title')).toHaveText('Cetoacidosis Diabética')
+    await expect(printDoc.locator('.print-reader-view')).toBeVisible()
+
+    // Restaurar media
+    await page.emulateMedia({ media: null })
   })
 })

@@ -7,6 +7,7 @@ interface ArticleReaderProps {
   markdown: string
   onWikiLinkClick: (uuid: string) => void
   onOpenExportPdf?: () => void
+  isPrintView?: boolean
 }
 
 export type CalloutKind = 'warning' | 'tip' | 'dosage' | 'important' | 'note'
@@ -40,10 +41,10 @@ function parseCalloutType(typeStr: string): { kind: CalloutKind; defaultTitle: s
   if (['DOSIS', 'FARMACO', 'MEDICACION', 'DRUG'].includes(upper)) {
     return { kind: 'dosage', defaultTitle: 'Dosis y Farmacología', icon: '💊' }
   }
-  if (['IMPORTANT', 'DIAGNOSTICO', 'CRITERIOS'].includes(upper)) {
-    return { kind: 'important', defaultTitle: 'Criterios Diagnósticos', icon: '📋' }
+  if (['IMPORTANT', 'IMPORTANTE', 'OJO'].includes(upper)) {
+    return { kind: 'important', defaultTitle: 'Importante', icon: '📋' }
   }
-  return { kind: 'note', defaultTitle: 'Nota', icon: 'ℹ️' }
+  return { kind: 'note', defaultTitle: 'Nota Clínica', icon: 'ℹ️' }
 }
 
 function parseTableAlignment(cell: string): 'left' | 'center' | 'right' {
@@ -78,172 +79,169 @@ function parseListTree(rawLines: Array<{ indent: number; text: string; ordered: 
 }
 
 function parseMarkdownBlocks(md: string): Block[] {
-  const lines = md.split(/\r?\n/)
+  if (!md) return []
+  const rawLines = md.split(/\r?\n/)
   const blocks: Block[] = []
   let i = 0
 
-  while (i < lines.length) {
-    const line = lines[i]
+  while (i < rawLines.length) {
+    const line = rawLines[i]
+    const trimmed = line.trim()
 
-    // Code fence
-    if (line.trim().startsWith('```')) {
-      const lang = line.trim().slice(3).trim()
+    if (!trimmed) {
+      i++
+      continue
+    }
+
+    // 1. Bloques de código (Fenced Code Block) y diagramas Mermaid
+    if (trimmed.startsWith('```')) {
+      const lang = trimmed.slice(3).trim()
       const codeLines: string[] = []
       i++
-      while (i < lines.length && !lines[i].trim().startsWith('```')) {
-        codeLines.push(lines[i])
+      while (i < rawLines.length && !rawLines[i].trim().startsWith('```')) {
+        codeLines.push(rawLines[i])
         i++
       }
-      i++ // Skip closing ```
-      const code = codeLines.join('\n')
-      if (lang.toLowerCase() === 'mermaid') {
-        blocks.push({ type: 'mermaid', code })
+      i++ // Skip closing fence
+      const fullCode = codeLines.join('\n')
+
+      if (lang === 'mermaid') {
+        blocks.push({ type: 'mermaid', code: fullCode })
       } else {
-        blocks.push({ type: 'code', lang, code })
+        blocks.push({ type: 'code', lang, code: fullCode })
       }
       continue
     }
 
-    // Standalone Image: ![alt](url)
-    const imgMatch = line.trim().match(/^!\[(.*?)\]\((.*?)\)$/)
-    if (imgMatch) {
-      blocks.push({ type: 'image', alt: imgMatch[1], src: imgMatch[2] })
-      i++
-      continue
-    }
-
-    // Horizontal Rule: ---, ***, ___
-    if (line.trim().match(/^([-*_])\s*\1\s*\1+$/)) {
+    // 2. Regla horizontal
+    if (/^(?:---|\*\*\*|___)$/.test(trimmed)) {
       blocks.push({ type: 'hr' })
       i++
       continue
     }
 
-    // Headers: # H1, ## H2, etc.
-    const headerMatch = line.match(/^(#{1,6})\s+(.*)$/)
+    // 3. Encabezados (# H1 - ###### H6)
+    const headerMatch = trimmed.match(/^(#{1,6})\s+(.*)$/)
     if (headerMatch) {
       blocks.push({
         type: 'header',
         level: headerMatch[1].length,
-        text: headerMatch[2].trim(),
+        text: headerMatch[2],
       })
       i++
       continue
     }
 
-    // Blockquote / Callout (> [!TYPE] Title)
-    if (line.trim().startsWith('>')) {
-      const quoteLines: string[] = []
-      while (i < lines.length && lines[i].trim().startsWith('>')) {
-        quoteLines.push(lines[i].trim().replace(/^>\s?/, ''))
-        i++
-      }
-
-      if (quoteLines.length > 0) {
-        const firstLine = quoteLines[0]
-        const calloutMatch = firstLine.match(/^\[!([A-Za-z0-9_-]+)\](?:\s+(.*))?$/)
-
-        if (calloutMatch) {
-          const typeStr = calloutMatch[1]
-          const customTitle = calloutMatch[2]?.trim()
-          const { kind, defaultTitle } = parseCalloutType(typeStr)
-          const bodyText = quoteLines.slice(1).join('\n').trim()
-
-          blocks.push({
-            type: 'callout',
-            kind,
-            title: customTitle || defaultTitle,
-            text: bodyText,
-          })
-          continue
-        } else {
-          blocks.push({
-            type: 'blockquote',
-            text: quoteLines.join('\n'),
-          })
-          continue
-        }
-      }
+    // 4. Imágenes standalone ![alt](src)
+    const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/)
+    if (imgMatch) {
+      blocks.push({
+        type: 'image',
+        alt: imgMatch[1],
+        src: imgMatch[2],
+      })
+      i++
+      continue
     }
 
-    // Tables: | col1 | col2 |
-    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+    // 5. Callouts y Blockquotes (> [!TYPE] Title)
+    if (trimmed.startsWith('>')) {
+      const quoteLines: string[] = []
+      while (i < rawLines.length && rawLines[i].trim().startsWith('>')) {
+        quoteLines.push(rawLines[i].trim().replace(/^>\s?/, ''))
+        i++
+      }
+      const fullQuote = quoteLines.join('\n')
+      const calloutMatch = fullQuote.match(/^\[!([A-Z_-]+)\](?:\s+(.*))?(\n[\s\S]*)?$/i)
+
+      if (calloutMatch) {
+        const typeInfo = parseCalloutType(calloutMatch[1])
+        const customTitle = calloutMatch[2]
+        const bodyText = (calloutMatch[3] || '').trim()
+
+        blocks.push({
+          type: 'callout',
+          kind: typeInfo.kind,
+          title: customTitle || typeInfo.defaultTitle,
+          text: bodyText,
+        })
+      } else {
+        blocks.push({
+          type: 'blockquote',
+          text: fullQuote,
+        })
+      }
+      continue
+    }
+
+    // 6. Tablas GFM
+    if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 2) {
       const tableLines: string[] = []
       while (
-        i < lines.length &&
-        lines[i].trim().startsWith('|') &&
-        lines[i].trim().endsWith('|')
+        i < rawLines.length &&
+        rawLines[i].trim().startsWith('|') &&
+        rawLines[i].trim().endsWith('|')
       ) {
-        tableLines.push(lines[i].trim())
+        tableLines.push(rawLines[i].trim())
         i++
       }
 
       if (tableLines.length >= 2) {
-        const parseRow = (rowStr: string) =>
-          rowStr
-            .slice(1, -1)
-            .split('|')
-            .map((c) => c.trim())
+        const headerCells = tableLines[0].slice(1, -1).split('|').map((c) => c.trim())
+        const sepCells = tableLines[1].slice(1, -1).split('|').map((c) => c.trim())
 
-        const headers = parseRow(tableLines[0])
-        let alignments: Array<'left' | 'center' | 'right'> = headers.map(() => 'left')
-        const rows: string[][] = []
-
-        for (let rIdx = 1; rIdx < tableLines.length; rIdx++) {
-          const cells = parseRow(tableLines[rIdx])
-          if (isSeparatorRow(cells)) {
-            alignments = cells.map(parseTableAlignment)
-          } else {
-            rows.push(cells)
-          }
+        if (isSeparatorRow(sepCells)) {
+          const alignments = sepCells.map(parseTableAlignment)
+          const rows = tableLines.slice(2).map((rowLine) =>
+            rowLine.slice(1, -1).split('|').map((c) => c.trim())
+          )
+          blocks.push({
+            type: 'table',
+            headers: headerCells,
+            rows,
+            alignments,
+          })
+          continue
         }
-
-        blocks.push({ type: 'table', headers, rows, alignments })
-        continue
       }
     }
 
-    // Lists: - item or 1. item (with hierarchy and indentation)
-    if (line.match(/^\s*([-*+]|\d+\.)\s+/)) {
+    // 7. Listas (Ordenadas y Desordenadas con soporte de anidación)
+    const listMatch = line.match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/)
+    if (listMatch) {
       const rawListLines: Array<{ indent: number; text: string; ordered: boolean }> = []
-      while (i < lines.length && lines[i].match(/^\s*([-*+]|\d+\.)\s+/)) {
-        const match = lines[i].match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/)
-        if (match) {
-          const indent = match[1].replace(/\t/g, '  ').length
-          const isOrdered = /^\d+\./.test(match[2])
-          const text = match[3].trim()
-          rawListLines.push({ indent, text, ordered: isOrdered })
-        }
+      const isInitialOrdered = /^\d+\./.test(listMatch[2])
+
+      while (i < rawLines.length) {
+        const currLine = rawLines[i]
+        const currMatch = currLine.match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/)
+        if (!currMatch) break
+
+        const indent = currMatch[1].length
+        const isOrdered = /^\d+\./.test(currMatch[2])
+        rawListLines.push({
+          indent,
+          text: currMatch[3],
+          ordered: isOrdered,
+        })
         i++
       }
-      const tree = parseListTree(rawListLines)
-      blocks.push({ type: 'list', items: tree, ordered: rawListLines[0]?.ordered ?? false })
+
+      const items = parseListTree(rawListLines)
+      blocks.push({
+        type: 'list',
+        items,
+        ordered: isInitialOrdered,
+      })
       continue
     }
 
-    // Empty lines
-    if (!line.trim()) {
-      i++
-      continue
-    }
-
-    // Paragraph
-    const paragraphLines: string[] = []
-    while (
-      i < lines.length &&
-      lines[i].trim() &&
-      !lines[i].trim().startsWith('```') &&
-      !lines[i].trim().startsWith('#') &&
-      !lines[i].trim().startsWith('>') &&
-      !lines[i].trim().startsWith('|') &&
-      !lines[i].match(/^\s*([-*+]|\d+\.)\s+/) &&
-      !lines[i].trim().match(/^([-*_])\s*\1\s*\1+$/) &&
-      !lines[i].trim().match(/^!\[(.*?)\]\((.*?)\)$/)
-    ) {
-      paragraphLines.push(lines[i])
-      i++
-    }
-    blocks.push({ type: 'paragraph', text: paragraphLines.join(' ') })
+    // 8. Párrafo estándar
+    blocks.push({
+      type: 'paragraph',
+      text: trimmed,
+    })
+    i++
   }
 
   return blocks
@@ -251,49 +249,49 @@ function parseMarkdownBlocks(md: string): Block[] {
 
 function renderFormattedInline(
   text: string,
-  onWikiLinkClick: (uuid: string) => void,
-): React.ReactNode[] {
-  // Manejo de wiki-links [[uuid|alias]] o [[uuid]]
+  onWikiLinkClick: (uuid: string) => void
+): React.ReactNode {
   const parts: React.ReactNode[] = []
-  const wikiRegex = new RegExp(WIKI_LINK_REGEX.source, 'g')
-  let lastIdx = 0
-  let match: RegExpExecArray | null
+  let lastIndex = 0
 
-  while ((match = wikiRegex.exec(text)) !== null) {
-    const start = match.index
-    const end = start + match[0].length
-    if (start > lastIdx) {
-      parts.push(renderBasicFormatting(text.slice(lastIdx, start), `${lastIdx}`))
+  // 1. Reemplazar enlaces internos wiki [[uuid|Título]] o [[uuid]]
+  const matches = [...text.matchAll(new RegExp(WIKI_LINK_REGEX, 'g'))]
+
+  for (const match of matches) {
+    const matchIndex = match.index ?? 0
+    if (matchIndex > lastIndex) {
+      parts.push(renderBasicFormatting(text.slice(lastIndex, matchIndex)))
     }
 
     const uuid = match[1]
-    const title = match[2] || uuid
+    const label = match[2] || uuid
     parts.push(
-      <button
-        key={`wiki-${start}`}
-        type="button"
+      <a
+        key={matchIndex}
         className="wiki-link"
-        onClick={() => onWikiLinkClick(uuid)}
-        title={`Ir a: ${title}`}
+        href={`#${uuid}`}
+        onClick={(e) => {
+          e.preventDefault()
+          onWikiLinkClick(uuid)
+        }}
       >
-        📄 {title}
-      </button>,
+        {label}
+      </a>
     )
-    lastIdx = end
+    lastIndex = matchIndex + match[0].length
   }
 
-  if (lastIdx < text.length) {
-    parts.push(renderBasicFormatting(text.slice(lastIdx), `${lastIdx}`))
+  if (lastIndex < text.length) {
+    parts.push(renderBasicFormatting(text.slice(lastIndex)))
   }
 
-  return parts
+  return <>{parts}</>
 }
 
-function renderBasicFormatting(segment: string, keyPrefix: string): React.ReactNode {
-  // Formato simple para negrita ** y cursiva * y código `
+function renderBasicFormatting(segment: string): React.ReactNode {
   const tokens = segment.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g)
   return (
-    <React.Fragment key={keyPrefix}>
+    <>
       {tokens.map((tok, idx) => {
         if (tok.startsWith('**') && tok.endsWith('**') && tok.length >= 4) {
           return <strong key={idx}>{tok.slice(2, -2)}</strong>
@@ -302,20 +300,24 @@ function renderBasicFormatting(segment: string, keyPrefix: string): React.ReactN
           return <em key={idx}>{tok.slice(1, -1)}</em>
         }
         if (tok.startsWith('`') && tok.endsWith('`') && tok.length >= 2) {
-          return <code key={idx} className="reader-code-inline">{tok.slice(1, -1)}</code>
+          return (
+            <code key={idx} className="reader-code-inline">
+              {tok.slice(1, -1)}
+            </code>
+          )
         }
         return tok
       })}
-    </React.Fragment>
+    </>
   )
 }
 
 function renderListItems(
   items: NestedListItem[],
-  onWikiLinkClick: (uuid: string) => void,
+  onWikiLinkClick: (uuid: string) => void
 ): React.ReactNode {
   return items.map((item, idx) => (
-    <li key={idx}>
+    <li key={idx} className="reader-list-item">
       <span>{renderFormattedInline(item.text, onWikiLinkClick)}</span>
       {item.children.length > 0 && (
         <ul className="reader-list-nested">
@@ -326,7 +328,12 @@ function renderListItems(
   ))
 }
 
-export function ArticleReader({ markdown, onWikiLinkClick, onOpenExportPdf }: ArticleReaderProps) {
+export function ArticleReader({
+  markdown,
+  onWikiLinkClick,
+  onOpenExportPdf,
+  isPrintView = false,
+}: ArticleReaderProps) {
   const [isTwoColumns, setIsTwoColumns] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('sindecon_reader_columns')
@@ -364,33 +371,43 @@ export function ArticleReader({ markdown, onWikiLinkClick, onOpenExportPdf }: Ar
   }
 
   return (
-    <div className="article-reader-container">
-      <div className="reader-toolbar-row">
-        <button
-          type="button"
-          className={`btn-reader-layout-toggle ${isTwoColumns ? 'active' : ''}`}
-          onClick={toggleColumns}
-          title={isTwoColumns ? 'Cambiar a vista de 1 columna' : 'Cambiar a diseño de 2 columnas (Ficha médica)'}
-        >
-          {isTwoColumns ? '📖 Vista 2 Columnas (Word)' : '📄 Vista 1 Columna'}
-        </button>
-
-        {onOpenExportPdf && (
+    <div className={isPrintView ? 'print-reader-container' : 'article-reader-container'}>
+      {!isPrintView && (
+        <div className="reader-toolbar-row">
           <button
             type="button"
-            className="btn-reader-export-pdf"
-            onClick={onOpenExportPdf}
-            title="Exportar este artículo a PDF o Imprimir"
+            className={`btn-reader-layout-toggle ${isTwoColumns ? 'active' : ''}`}
+            onClick={toggleColumns}
+            title={isTwoColumns ? 'Cambiar a vista de 1 columna' : 'Cambiar a diseño de 2 columnas (Ficha médica)'}
           >
-            🖨️ Exportar PDF
+            {isTwoColumns ? '📖 Vista 2 Columnas (Word)' : '📄 Vista 1 Columna'}
           </button>
-        )}
-      </div>
+
+          {onOpenExportPdf && (
+            <button
+              type="button"
+              className="btn-reader-export-pdf"
+              onClick={onOpenExportPdf}
+              title="Exportar este artículo a PDF o Imprimir"
+            >
+              🖨️ Exportar PDF
+            </button>
+          )}
+        </div>
+      )}
 
       {!markdown.trim() ? (
-        <p className="muted empty-reader">Este artículo está vacío. Toca "Editar" para redactar contenido.</p>
+        <div className={isPrintView ? 'print-reader-view empty' : 'article-reader-view empty'}>
+          <p className="muted empty-reader">Este artículo está vacío. Toca "Editar" para redactar contenido.</p>
+        </div>
       ) : (
-        <div className={`article-reader-view ${isTwoColumns ? 'layout-two-columns' : 'layout-single-column'}`}>
+        <div
+          className={
+            isPrintView
+              ? 'print-reader-view'
+              : `article-reader-view ${isTwoColumns ? 'layout-two-columns' : 'layout-single-column'}`
+          }
+        >
           {blocks.map((block, idx) => {
             switch (block.type) {
               case 'header': {
