@@ -191,8 +191,14 @@ export async function generateFlashcardsWithWebLlm(
     })
 
     const prompt = getSectionSpecializedPrompt(articleTitle, chunk, Math.max(1, targetThisChunk))
+    const maxTokens = Math.min(800, Math.max(350, targetThisChunk * 130))
 
     try {
+      // Limpiar KV Cache y memoria WebGPU entre chunks para evitar overflow en móviles
+      try {
+        await engine.resetChat()
+      } catch {}
+
       let completion: any
       try {
         completion = await engine.chat.completions.create({
@@ -201,24 +207,31 @@ export async function generateFlashcardsWithWebLlm(
             { role: 'user', content: prompt }
           ],
           temperature: 0.2,
-          max_tokens: 1000,
+          max_tokens: maxTokens,
         })
       } catch (err: any) {
-        // Si el motor reporta que el modelo no estaba cargado, forzar reload e intentar 1 vez más
+        const errText = (err?.message || err?.toString() || '').toLowerCase()
+        // Si el motor reporta modelo no cargado, objeto TVM disposed o dispositivo perdido
         if (
-          err?.message?.includes('Model not loaded') ||
-          err?.name === 'ModelNotLoadedError' ||
-          err?.toString()?.includes('ModelNotLoadedError')
+          errText.includes('model not loaded') ||
+          errText.includes('disposed') ||
+          errText.includes('device was lost') ||
+          err?.name === 'ModelNotLoadedError'
         ) {
-          console.warn('[WebLLM] Modelo no cargado en el worker, forzando engine.reload()...')
-          await engine.reload(modelId)
+          console.warn('[WebLLM] Error de estado/memoria en motor (disposed/lost), reinicializando...', err)
+          await unloadLocalModel()
+          engine = await getOrInitLocalEngine(modelId, onProgress)
+          try {
+            await engine.resetChat()
+          } catch {}
+
           completion = await engine.chat.completions.create({
             model: modelId,
             messages: [
               { role: 'user', content: prompt }
             ],
             temperature: 0.2,
-            max_tokens: 1000,
+            max_tokens: maxTokens,
           })
         } else {
           throw err
