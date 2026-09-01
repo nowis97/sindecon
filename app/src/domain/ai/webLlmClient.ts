@@ -238,11 +238,6 @@ export async function generateFlashcardsWithWebLlm(
     const maxTokens = Math.min(1000, Math.max(350, targetThisChunk * 140))
 
     try {
-      // Limpiar KV Cache y memoria WebGPU entre chunks para evitar overflow en móviles
-      try {
-        await engine.resetChat()
-      } catch {}
-
       const completion = await engine.chat.completions.create({
         model: modelId,
         messages: [
