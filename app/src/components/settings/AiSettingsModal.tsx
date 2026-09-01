@@ -382,8 +382,9 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
                   className="btn-local-action btn-danger-action"
                   onClick={async () => {
                     await clearLocalModelCache(DEFAULT_LOCAL_MODEL)
+                    await clearLocalModelCache('Qwen2.5-1.5B-Instruct-q4f16_1-MLC')
                     setLocalModelCached(false)
-                    setLocalActionMsg('Caché local del modelo eliminada (~1.1 GB liberados).')
+                    setLocalActionMsg('Caché de modelos locales eliminada (~350 MB liberados).')
                     setTimeout(() => setLocalActionMsg(null), 3500)
                   }}
                 >

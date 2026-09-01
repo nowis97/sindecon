@@ -313,7 +313,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
             {localProgress && localProgress.stage === 'downloading' ? (
               <div className="local-download-progress-box">
                 <div className="download-header-line">
-                  <span>📥 Descargando Qwen 2.5 (~1.1 GB)...</span>
+                  <span>📥 Descargando Qwen 2.5 (0.5B • ~350 MB)...</span>
                   <strong>{Math.round(localProgress.progress * 100)}%</strong>
                 </div>
                 <div className="download-progress-track">
