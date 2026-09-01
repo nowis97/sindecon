@@ -129,34 +129,6 @@ function App() {
     includeTags: true,
   })
 
-  const handleConfirmExportPdf = (options: ExportPdfOptions) => {
-    setPrintOptions(options)
-    setIsExportPdfOpen(false)
-
-    // Si estamos en modo editor, asegurar que el último texto tipeado se guarde
-    if (editorRef.current && selected?.id && isEditMode) {
-      try {
-        const liveMd = editorRef.current.getMarkdown()
-        if (liveMd !== undefined) {
-          saveArticle(selected.id, liveMd)
-        }
-      } catch {}
-    }
-
-    document.body.classList.remove('print-columns-1', 'print-columns-2')
-    document.body.classList.add(
-      'printing-active',
-      options.columns === '2' ? 'print-columns-2' : 'print-columns-1'
-    )
-
-    setTimeout(() => {
-      window.print()
-      setTimeout(() => {
-        document.body.classList.remove('printing-active', 'print-columns-1', 'print-columns-2')
-      }, 500)
-    }, 150)
-  }
-
   const refreshFlashcardCounts = useCallback(async () => {
     try {
       const due = await getDueFlashcards()
@@ -228,6 +200,55 @@ function App() {
   const selected = nodes.find((n) => n.id === selectedId) ?? null
   const article = useArticle(selected?.kind === 'article' ? selected.id : null)
   const backlinks = useBacklinks(selected?.kind === 'article' ? selected.id : null)
+
+  // Actualizar título de la pestaña con el artículo activo
+  useEffect(() => {
+    if (selected && selected.kind === 'article' && selected.title) {
+      document.title = `${selected.title} — SINDECON`
+    } else {
+      document.title = 'SINDECON — Cuaderno Médico'
+    }
+  }, [selected])
+
+  const handleConfirmExportPdf = (options: ExportPdfOptions) => {
+    setPrintOptions(options)
+    setIsExportPdfOpen(false)
+
+    // Si estamos en modo editor, asegurar que el último texto tipeado se guarde
+    if (editorRef.current && selected?.id && isEditMode) {
+      try {
+        const liveMd = editorRef.current.getMarkdown()
+        if (liveMd !== undefined) {
+          saveArticle(selected.id, liveMd)
+        }
+      } catch {}
+    }
+
+    const previousTitle = document.title
+    const cleanArticleTitle = (selected?.title || 'Artículo').replace(/[\\/:*?"<>|]/g, '-').trim()
+    // Asignar el nombre exacto del artículo para que el navegador sugiera este nombre al guardar el PDF
+    document.title = cleanArticleTitle
+
+    document.body.classList.remove('print-columns-1', 'print-columns-2')
+    document.body.classList.add(
+      'printing-active',
+      options.columns === '2' ? 'print-columns-2' : 'print-columns-1'
+    )
+
+    const cleanupPrint = () => {
+      document.body.classList.remove('printing-active', 'print-columns-1', 'print-columns-2')
+      document.title = previousTitle
+      window.removeEventListener('afterprint', cleanupPrint)
+    }
+
+    window.addEventListener('afterprint', cleanupPrint)
+
+    setTimeout(() => {
+      document.title = cleanArticleTitle
+      window.print()
+      setTimeout(cleanupPrint, 800)
+    }, 150)
+  }
 
   // Búsqueda de carpeta Inbox y cálculo de conteo de pendientes
   const inboxFolder = nodes.find(

@@ -597,13 +597,17 @@ DOSIS: Paracetamol 1g cada 8h condicional a fiebre.
     await expect(card1Col).toHaveClass(/active/)
     await expect(card2Col).not.toHaveClass(/active/)
 
-    // 5. Mockear window.print para verificar que el flujo dispara la impresión
+    // 5. Mockear window.print para verificar que el flujo dispara la impresión con el nombre del artículo
     await page.evaluate(() => {
       // @ts-ignore
       window.__printed = false
+      // @ts-ignore
+      window.__printDocTitle = ''
       window.print = () => {
         // @ts-ignore
         window.__printed = true
+        // @ts-ignore
+        window.__printDocTitle = document.title
       }
     })
 
@@ -611,10 +615,12 @@ DOSIS: Paracetamol 1g cada 8h condicional a fiebre.
     await modal.locator('.btn-print-confirm').click()
     await expect(modal).not.toBeVisible()
 
-    // Verificar que window.print fue llamado
+    // Verificar que window.print fue llamado y el título del documento correspondía al artículo
     await page.waitForFunction(() => (window as any).__printed === true)
     const wasPrinted = await page.evaluate(() => (window as any).__printed)
+    const printDocTitle = await page.evaluate(() => (window as any).__printDocTitle)
     expect(wasPrinted).toBe(true)
+    expect(printDocTitle).toBe('Cetoacidosis Diabética')
 
     // 7. Cambiar a modo Lector y abrir desde el botón del Reader Toolbar
     await page.locator('.btn-mode', { hasText: 'Lector' }).click()
