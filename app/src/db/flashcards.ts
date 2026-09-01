@@ -88,6 +88,7 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
   provider: 'gemini',
   apiKey: '',
   modelName: 'gemini-3.5-flash',
+  localModelId: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
 }
 
 export async function getAiConfig(): Promise<AiConfig> {

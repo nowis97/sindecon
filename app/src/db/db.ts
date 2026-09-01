@@ -59,6 +59,7 @@ export interface AiConfig {
   provider: 'gemini' | 'groq' | 'openai' | 'none'
   apiKey?: string
   modelName?: string
+  localModelId?: string
   updated_at?: number
 }
 

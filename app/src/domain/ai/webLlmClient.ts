@@ -11,6 +11,52 @@ import type { ExtractedCard } from '../cardExtractor'
 
 export const DEFAULT_LOCAL_MODEL = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC'
 
+export interface LocalAiModelOption {
+  id: string
+  name: string
+  badge: string
+  size: string
+  vram: string
+  description: string
+  isRecommended?: boolean
+}
+
+export const AVAILABLE_LOCAL_MODELS: LocalAiModelOption[] = [
+  {
+    id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
+    name: 'Qwen 2.5 0.5B (Cuantizado)',
+    badge: 'Móviles y PC • Ultra Rápido',
+    size: '~350 MB',
+    vram: '< 1 GB VRAM',
+    description: 'Recomendado para teléfonos móviles (Android / iPhone) y portátiles ligeras. Descarga en segundos y responde al instante.',
+    isRecommended: true,
+  },
+  {
+    id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+    name: 'Qwen 2.5 1.5B (Cuantizado)',
+    badge: 'Desktop / Laptops • Mayor Razonamiento',
+    size: '~1.1 GB',
+    vram: '~1.6 GB VRAM',
+    description: 'Ideal para PC de escritorio, Mac con Apple Silicon y Laptops con tarjeta gráfica. Mayor profundidad clínica y fisiopatológica.',
+  },
+  {
+    id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC',
+    name: 'Qwen 2.5 3B (Cuantizado)',
+    badge: 'PC Potente • Alta Precisión',
+    size: '~2.0 GB',
+    vram: '~2.5 GB VRAM',
+    description: 'Excelente para estaciones de trabajo y PCs con 3GB+ de VRAM. Explicaciones detalladas con precisión médica superior.',
+  },
+  {
+    id: 'Qwen2.5-7B-Instruct-q4f16_1-MLC',
+    name: 'Qwen 2.5 7B (Cuantizado)',
+    badge: 'Workstations / Gaming PC • Máxima Capacidad',
+    size: '~5.1 GB',
+    vram: '~5.9 GB VRAM',
+    description: 'Para PCs con GPU dedicada de 6GB+ VRAM (NVIDIA RTX / AMD Radeon / Apple M Pro/Max). Máxima inteligencia y rigor clínico.',
+  },
+]
+
 let activeEngine: MLCEngineInterface | null = null
 let activeWorker: Worker | null = null
 let loadedModelId: string | null = null

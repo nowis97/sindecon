@@ -9,6 +9,8 @@ import {
   generateFlashcardsWithWebLlm,
   checkWebGPUSupport,
   type LocalGenerationProgress,
+  DEFAULT_LOCAL_MODEL,
+  AVAILABLE_LOCAL_MODELS,
 } from '../../domain/ai/webLlmClient'
 import { getAiConfig, upsertFlashcards, type AiConfig } from '../../db/flashcards'
 import { FlashcardLivePreview } from './FlashcardLivePreview'
@@ -88,12 +90,14 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
         setProgressMsg('Analizando estructura clínica del artículo...')
         extracted = extractCardsFromMarkdown(articleTitle, bodyMd)
       } else if (selectedMode === 'local_ai') {
-        setProgressMsg('Iniciando motor local WebLLM (Qwen 2.5)...')
+        const localModel = aiConfig?.localModelId || DEFAULT_LOCAL_MODEL
+        const modelMeta = AVAILABLE_LOCAL_MODELS.find(m => m.id === localModel)
+        setProgressMsg(`Iniciando motor local WebLLM (${modelMeta?.name || 'Qwen 2.5'})...`)
         extracted = await generateFlashcardsWithWebLlm(
           articleTitle,
           bodyMd,
           activeCount,
-          undefined,
+          localModel,
           (prog) => {
             setLocalProgress(prog)
             setProgressMsg(prog.text)
@@ -313,7 +317,9 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
             {localProgress && localProgress.stage === 'downloading' ? (
               <div className="local-download-progress-box">
                 <div className="download-header-line">
-                  <span>📥 Descargando Qwen 2.5 (0.5B • ~350 MB)...</span>
+                  <span>
+                    📥 Descargando {AVAILABLE_LOCAL_MODELS.find(m => m.id === (aiConfig?.localModelId || DEFAULT_LOCAL_MODEL))?.name || 'Qwen 2.5'} ({AVAILABLE_LOCAL_MODELS.find(m => m.id === (aiConfig?.localModelId || DEFAULT_LOCAL_MODEL))?.size || '~350 MB'})...
+                  </span>
                   <strong>{Math.round(localProgress.progress * 100)}%</strong>
                 </div>
                 <div className="download-progress-track">

@@ -12,6 +12,7 @@ import {
   unloadLocalModel,
   clearLocalModelCache,
   DEFAULT_LOCAL_MODEL,
+  AVAILABLE_LOCAL_MODELS,
 } from '../../domain/ai/webLlmClient'
 import { getStoredToken, isGoogleSyncEnabled, uploadAiConfigToDrive } from '../../pwa/googleDrive'
 
@@ -38,9 +39,11 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
         const models = PROVIDER_MODELS[loaded.provider] || []
         const isPredefined = models.some((m) => m.id === loaded.modelName)
         setIsCustomModel(!isPredefined && Boolean(loaded.modelName))
+        isLocalModelCached(loaded.localModelId || DEFAULT_LOCAL_MODEL).then((cached) =>
+          setLocalModelCached(cached)
+        )
       })
       checkWebGPUSupport().then((res) => setWebGpuSupported(res.supported))
-      isLocalModelCached().then((cached) => setLocalModelCached(cached))
       setTestResult(null)
       setSaved(false)
       setShowApiKey(false)
@@ -339,6 +342,29 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
               </div>
             </div>
 
+            <div className="form-group" style={{ marginTop: '12px', marginBottom: '14px' }}>
+              <label className="field-main-label">Modelo Local Seleccionado:</label>
+              <select
+                value={config.localModelId || DEFAULT_LOCAL_MODEL}
+                onChange={async (e) => {
+                  const newModelId = e.target.value
+                  setConfig({ ...config, localModelId: newModelId })
+                  const isCached = await isLocalModelCached(newModelId)
+                  setLocalModelCached(isCached)
+                }}
+                className="model-select-dropdown"
+              >
+                {AVAILABLE_LOCAL_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} — {m.size} ({m.badge})
+                  </option>
+                ))}
+              </select>
+              <div className="selected-model-info" style={{ marginTop: '6px' }}>
+                {AVAILABLE_LOCAL_MODELS.find((m) => m.id === (config.localModelId || DEFAULT_LOCAL_MODEL))?.description}
+              </div>
+            </div>
+
             <div className="local-ai-details-grid">
               <div className="local-detail-item">
                 <span className="detail-label">Hardware WebGPU:</span>
@@ -348,7 +374,15 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
               </div>
               <div className="local-detail-item">
                 <span className="detail-label">Modelo Local:</span>
-                <span className="detail-value">Qwen 2.5 (0.5B) Quantized (~350 MB • Móviles y PC)</span>
+                <span className="detail-value">
+                  {AVAILABLE_LOCAL_MODELS.find((m) => m.id === (config.localModelId || DEFAULT_LOCAL_MODEL))?.name || 'Qwen 2.5'}
+                </span>
+              </div>
+              <div className="local-detail-item">
+                <span className="detail-label">VRAM Requerida:</span>
+                <span className="detail-value">
+                  {AVAILABLE_LOCAL_MODELS.find((m) => m.id === (config.localModelId || DEFAULT_LOCAL_MODEL))?.vram || '< 1 GB'}
+                </span>
               </div>
               <div className="local-detail-item">
                 <span className="detail-label">Almacenamiento Local:</span>
@@ -381,10 +415,10 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
                   type="button"
                   className="btn-local-action btn-danger-action"
                   onClick={async () => {
-                    await clearLocalModelCache(DEFAULT_LOCAL_MODEL)
-                    await clearLocalModelCache('Qwen2.5-1.5B-Instruct-q4f16_1-MLC')
+                    const activeModel = config.localModelId || DEFAULT_LOCAL_MODEL
+                    await clearLocalModelCache(activeModel)
                     setLocalModelCached(false)
-                    setLocalActionMsg('Caché de modelos locales eliminada (~350 MB liberados).')
+                    setLocalActionMsg('Caché del modelo eliminada correctamente.')
                     setTimeout(() => setLocalActionMsg(null), 3500)
                   }}
                 >
