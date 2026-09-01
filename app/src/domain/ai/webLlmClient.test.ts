@@ -6,8 +6,8 @@ import {
 } from './webLlmClient'
 
 describe('webLlmClient', () => {
-  it('DEFAULT_LOCAL_MODEL está configurado a Qwen2.5 1.5B', () => {
-    expect(DEFAULT_LOCAL_MODEL).toBe('Qwen2.5-1.5B-Instruct-q4f16_1-MLC')
+  it('DEFAULT_LOCAL_MODEL está configurado a Qwen2.5 0.5B', () => {
+    expect(DEFAULT_LOCAL_MODEL).toBe('Qwen2.5-0.5B-Instruct-q4f16_1-MLC')
   })
 
   it('extrae arrays JSON correctamente de texto con y sin bloques de código', () => {

@@ -9,7 +9,7 @@ import {
 import { chunkClinicalMarkdown, getSectionSpecializedPrompt } from './clinicalChunker'
 import type { ExtractedCard } from '../cardExtractor'
 
-export const DEFAULT_LOCAL_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'
+export const DEFAULT_LOCAL_MODEL = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC'
 
 let activeEngine: MLCEngineInterface | null = null
 let activeWorker: Worker | null = null
@@ -166,7 +166,7 @@ export async function generateFlashcardsWithWebLlm(
   }
 
   // 3. Inicializar / Cargar motor
-  let engine = await getOrInitLocalEngine(modelId, onProgress)
+  const engine = await getOrInitLocalEngine(modelId, onProgress)
 
   // 4. Distribuir targetCount equitativamente a lo largo de todo el artículo
   const extractedCards: ExtractedCard[] = []
@@ -197,44 +197,14 @@ export async function generateFlashcardsWithWebLlm(
         await engine.resetChat()
       } catch {}
 
-      let completion: any
-      try {
-        completion = await engine.chat.completions.create({
-          model: modelId,
-          messages: [
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0.2,
-          max_tokens: maxTokens,
-        })
-      } catch (err: any) {
-        const errText = (err?.message || err?.toString() || '').toLowerCase()
-        // Si el motor reporta modelo no cargado, objeto TVM disposed o dispositivo perdido
-        if (
-          errText.includes('model not loaded') ||
-          errText.includes('disposed') ||
-          errText.includes('device was lost') ||
-          err?.name === 'ModelNotLoadedError'
-        ) {
-          console.warn('[WebLLM] Error de estado/memoria en motor (disposed/lost), reinicializando...', err)
-          await unloadLocalModel()
-          engine = await getOrInitLocalEngine(modelId, onProgress)
-          try {
-            await engine.resetChat()
-          } catch {}
-
-          completion = await engine.chat.completions.create({
-            model: modelId,
-            messages: [
-              { role: 'user', content: prompt }
-            ],
-            temperature: 0.2,
-            max_tokens: maxTokens,
-          })
-        } else {
-          throw err
-        }
-      }
+      const completion = await engine.chat.completions.create({
+        model: modelId,
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: maxTokens,
+      })
 
       const rawResponse = completion.choices[0]?.message?.content || ''
       const cleanedJson = extractJsonArrayString(rawResponse)

@@ -348,7 +348,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
               </div>
               <div className="local-detail-item">
                 <span className="detail-label">Modelo Local:</span>
-                <span className="detail-value">Qwen 2.5 (1.5B) Quantized (~1.1 GB)</span>
+                <span className="detail-value">Qwen 2.5 (0.5B) Quantized (~350 MB • Móviles y PC)</span>
               </div>
               <div className="local-detail-item">
                 <span className="detail-label">Almacenamiento Local:</span>
