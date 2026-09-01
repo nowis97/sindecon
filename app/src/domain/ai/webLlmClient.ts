@@ -1,5 +1,6 @@
 import {
   CreateWebWorkerMLCEngine,
+  CreateMLCEngine,
   hasModelInCache,
   deleteModelAllInfoInCache,
   type MLCEngineInterface,
@@ -67,7 +68,7 @@ export async function isLocalModelCached(modelId = DEFAULT_LOCAL_MODEL): Promise
 }
 
 /**
- * Inicializa o recupera la instancia del motor WebLLM en su Web Worker dedicado.
+ * Inicializa o recupera la instancia del motor WebLLM (con soporte para Web Worker dedicado y fallback a Main Thread).
  */
 export async function getOrInitLocalEngine(
   modelId = DEFAULT_LOCAL_MODEL,
@@ -91,30 +92,49 @@ export async function getOrInitLocalEngine(
     activeWorker = null
   }
 
-  // Instanciar el Web Worker dedicado
-  activeWorker = new Worker(new URL('../../workers/webllm.worker.ts', import.meta.url), {
-    type: 'module',
-  })
-
   onProgress?.({
     stage: 'downloading',
     text: 'Cargando modelo local Qwen 2.5...',
     progress: 0,
   })
 
-  const engine = await CreateWebWorkerMLCEngine(activeWorker, modelId, {
-    initProgressCallback: (report: InitProgressReport) => {
-      onProgress?.({
-        stage: report.progress < 1 ? 'downloading' : 'loading',
-        text: report.text,
-        progress: report.progress,
-      })
-    },
-  })
+  const progressCallback = (report: InitProgressReport) => {
+    onProgress?.({
+      stage: report.progress < 1 ? 'downloading' : 'loading',
+      text: report.text,
+      progress: report.progress,
+    })
+  }
 
-  activeEngine = engine
-  loadedModelId = modelId
-  return engine
+  try {
+    // Intento 1: Web Worker dedicado (no bloquea el renderizado de la UI)
+    activeWorker = new Worker(new URL('../../workers/webllm.worker.ts', import.meta.url), {
+      type: 'module',
+    })
+
+    const engine = await CreateWebWorkerMLCEngine(activeWorker, modelId, {
+      initProgressCallback: progressCallback,
+    })
+
+    activeEngine = engine
+    loadedModelId = modelId
+    return engine
+  } catch (workerErr: any) {
+    console.warn('[WebLLM] Web Worker falló o no soporta WebGPU, usando motor en Main Thread:', workerErr)
+    if (activeWorker) {
+      activeWorker.terminate()
+      activeWorker = null
+    }
+
+    // Fallback: Main Thread MLCEngine
+    const engine = await CreateMLCEngine(modelId, {
+      initProgressCallback: progressCallback,
+    })
+
+    activeEngine = engine
+    loadedModelId = modelId
+    return engine
+  }
 }
 
 /**
@@ -146,11 +166,12 @@ export async function generateFlashcardsWithWebLlm(
   }
 
   // 3. Inicializar / Cargar motor
-  const engine = await getOrInitLocalEngine(modelId, onProgress)
+  let engine = await getOrInitLocalEngine(modelId, onProgress)
 
   // 4. Distribuir targetCount entre los chunks
   const cardsPerChunk = Math.max(1, Math.ceil(targetCount / chunks.length))
   const extractedCards: ExtractedCard[] = []
+  let lastError: Error | null = null
 
   // 5. Inferencia sección por sección
   for (let i = 0; i < chunks.length; i++) {
@@ -172,13 +193,37 @@ export async function generateFlashcardsWithWebLlm(
     const prompt = getSectionSpecializedPrompt(articleTitle, chunk, Math.max(1, targetThisChunk))
 
     try {
-      const completion = await engine.chat.completions.create({
-        messages: [
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.2,
-        max_tokens: 1000,
-      })
+      let completion: any
+      try {
+        completion = await engine.chat.completions.create({
+          model: modelId,
+          messages: [
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.2,
+          max_tokens: 1000,
+        })
+      } catch (err: any) {
+        // Si el motor reporta que el modelo no estaba cargado, forzar reload e intentar 1 vez más
+        if (
+          err?.message?.includes('Model not loaded') ||
+          err?.name === 'ModelNotLoadedError' ||
+          err?.toString()?.includes('ModelNotLoadedError')
+        ) {
+          console.warn('[WebLLM] Modelo no cargado en el worker, forzando engine.reload()...')
+          await engine.reload(modelId)
+          completion = await engine.chat.completions.create({
+            model: modelId,
+            messages: [
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.2,
+            max_tokens: 1000,
+          })
+        } else {
+          throw err
+        }
+      }
 
       const rawResponse = completion.choices[0]?.message?.content || ''
       const cleanedJson = extractJsonArrayString(rawResponse)
@@ -200,8 +245,15 @@ export async function generateFlashcardsWithWebLlm(
         }
       }
     } catch (e: any) {
+      lastError = e
       console.warn(`[WebLLM] Error procesando chunk "${chunk.title}":`, e)
     }
+  }
+
+  if (extractedCards.length === 0 && lastError) {
+    throw new Error(
+      `Error al procesar con IA local (Qwen 2.5): ${lastError.message || lastError.toString()}`
+    )
   }
 
   onProgress?.({
