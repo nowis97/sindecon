@@ -46,8 +46,7 @@ export function countWords(text: string): number {
 export function chunkClinicalMarkdown(
   articleTitle: string,
   markdown: string,
-  maxWordsPerChunk = 450,
-  maxChunks = 6
+  maxWordsPerChunk = 450
 ): ClinicalChunk[] {
   if (!markdown || !markdown.trim()) {
     return []
@@ -93,7 +92,7 @@ export function chunkClinicalMarkdown(
     }
   }
 
-  // 3. Procesar cada sección clínica detectada
+  // 3. Procesar cada sección clínica detectada (100% del artículo en su orden natural)
   const chunks: ClinicalChunk[] = []
 
   for (const sec of rawSections) {
@@ -114,41 +113,7 @@ export function chunkClinicalMarkdown(
     }
   }
 
-  const rawChunks = chunks.filter(c => c.content.length > 0)
-  if (rawChunks.length <= maxChunks) {
-    return rawChunks
-  }
-
-  // Priorizar las secciones más determinantes en la toma de decisiones clínicas
-  return selectTopClinicalChunks(rawChunks, maxChunks)
-}
-
-/**
- * Selecciona los chunks más relevantes clínicamente cuando un artículo es muy extenso,
- * preservando el orden secuencial del documento.
- */
-function selectTopClinicalChunks(chunks: ClinicalChunk[], maxChunks: number): ClinicalChunk[] {
-  const priorityMap: Record<ClinicalChunk['sectionType'], number> = {
-    alert: 4,
-    treatment: 3,
-    diagnosis: 2,
-    general: 1,
-  }
-
-  // Mapear con su índice original para restaurar el orden de lectura
-  const indexed = chunks.map((chunk, index) => ({
-    chunk,
-    index,
-    score: (priorityMap[chunk.sectionType] || 1) * 1000 + Math.min(500, chunk.wordCount),
-  }))
-
-  // Ordenar por relevancia clínica y seleccionar los mejores
-  indexed.sort((a, b) => b.score - a.score)
-  const selected = indexed.slice(0, maxChunks)
-
-  // Restaurar el orden original en el documento
-  selected.sort((a, b) => a.index - b.index)
-  return selected.map(s => s.chunk)
+  return chunks.filter(c => c.content.length > 0)
 }
 
 /**

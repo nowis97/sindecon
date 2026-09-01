@@ -168,19 +168,17 @@ export async function generateFlashcardsWithWebLlm(
   // 3. Inicializar / Cargar motor
   let engine = await getOrInitLocalEngine(modelId, onProgress)
 
-  // 4. Distribuir targetCount entre los chunks
-  const cardsPerChunk = Math.max(1, Math.ceil(targetCount / chunks.length))
+  // 4. Distribuir targetCount equitativamente a lo largo de todo el artículo
   const extractedCards: ExtractedCard[] = []
   let lastError: Error | null = null
 
-  // 5. Inferencia sección por sección
+  // 5. Inferencia secuencial sección por sección cubriendo todo el artículo
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i]
     const currentChunkNumber = i + 1
-    const targetThisChunk = Math.min(cardsPerChunk, targetCount - extractedCards.length)
-    if (targetThisChunk <= 0 && extractedCards.length >= targetCount) {
-      break
-    }
+    const remainingChunks = chunks.length - i
+    const remainingCards = Math.max(1, targetCount - extractedCards.length)
+    const targetThisChunk = Math.max(1, Math.ceil(remainingCards / remainingChunks))
 
     onProgress?.({
       stage: 'inferring',
@@ -190,8 +188,8 @@ export async function generateFlashcardsWithWebLlm(
       totalChunks: chunks.length,
     })
 
-    const prompt = getSectionSpecializedPrompt(articleTitle, chunk, Math.max(1, targetThisChunk))
-    const maxTokens = Math.min(800, Math.max(350, targetThisChunk * 130))
+    const prompt = getSectionSpecializedPrompt(articleTitle, chunk, targetThisChunk)
+    const maxTokens = Math.min(1000, Math.max(350, targetThisChunk * 140))
 
     try {
       // Limpiar KV Cache y memoria WebGPU entre chunks para evitar overflow en móviles
