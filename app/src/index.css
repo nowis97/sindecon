@@ -5379,14 +5379,42 @@ select.dialog-input {
   background: var(--accent-amber-bg);
   border: 1px solid var(--accent-amber-border);
   color: var(--accent-amber-text);
-  padding: 10px 14px;
+  padding: 12px 14px;
   border-radius: var(--radius-md);
   margin-bottom: 14px;
   font-size: 0.85rem;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 10px;
+}
+
+.generation-error-box > span {
+  line-height: 1.45;
+}
+
+.generation-error-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-quick-fallback {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-quick-fallback:hover {
+  background: var(--accent-primary);
+  color: #ffffff;
+  border-color: var(--accent-primary);
 }
 
 .btn-link-settings {

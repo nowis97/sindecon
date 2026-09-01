@@ -262,6 +262,20 @@ export async function generateFlashcardsWithWebLlm(
   }
 
   if (extractedCards.length === 0 && lastError) {
+    const errStr = (lastError.message || lastError.toString() || '').toLowerCase()
+    if (
+      errStr.includes('disposed') ||
+      errStr.includes('device was lost') ||
+      errStr.includes('devicelost') ||
+      errStr.includes('unmapped') ||
+      errStr.includes('vulkan') ||
+      errStr.includes('vk_error')
+    ) {
+      throw new Error(
+        'El controlador WebGPU de tu dispositivo móvil (GPU Qualcomm/Adreno en Chrome) sufrió una pérdida de contexto (VK_ERROR_DEVICE_LOST). ' +
+        'Este es un fallo conocido del controlador Vulkan de Chrome en Android. Te sugerimos usar IA Cloud (Gemini / Groq - 100% gratuito) o el Extractor Rápido Offline en este móvil, o usar la IA Local en tu ordenador.'
+      )
+    }
     throw new Error(
       `Error al procesar con IA local (Qwen 2.5): ${lastError.message || lastError.toString()}`
     )

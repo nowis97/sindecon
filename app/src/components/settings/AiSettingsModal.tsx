@@ -365,6 +365,10 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
               </div>
             </div>
 
+            <div className="local-ai-note-box" style={{ background: 'var(--surface-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.4' }}>
+              💡 <strong>Consejo de Compatibilidad:</strong> En PCs y Macs con WebGPU, la IA local se ejecuta a máxima velocidad. En teléfonos Android con chips Snapdragon, si experimentas cierres por el controlador Vulkan de Chrome (<code>VK_ERROR_DEVICE_LOST</code>), te recomendamos usar <strong>IA Cloud (Gemini 100% gratuito)</strong> en el móvil.
+            </div>
+
             <div className="local-ai-details-grid">
               <div className="local-detail-item">
                 <span className="detail-label">Hardware WebGPU:</span>

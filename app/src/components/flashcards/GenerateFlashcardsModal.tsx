@@ -342,18 +342,44 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
         {errorMsg && (
           <div className="generation-error-box">
             <span>⚠️ {errorMsg}</span>
-            {onOpenAiSettings && mode === 'cloud_ai' && (
-              <button
-                type="button"
-                className="btn-link-settings"
-                onClick={() => {
-                  onClose()
-                  onOpenAiSettings()
-                }}
-              >
-                Configurar IA ⚙️
-              </button>
-            )}
+            <div className="generation-error-actions">
+              {mode === 'local_ai' && (
+                <>
+                  <button
+                    type="button"
+                    className="btn-quick-fallback"
+                    onClick={() => {
+                      setErrorMsg(null)
+                      handleGenerate('cloud_ai')
+                    }}
+                  >
+                    ✨ Cambiar a IA Cloud (Gemini / Groq)
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-quick-fallback"
+                    onClick={() => {
+                      setErrorMsg(null)
+                      handleGenerate('structural')
+                    }}
+                  >
+                    ⚡ Cambiar a Extractor Rápido (Offline)
+                  </button>
+                </>
+              )}
+              {onOpenAiSettings && (
+                <button
+                  type="button"
+                  className="btn-link-settings"
+                  onClick={() => {
+                    onClose()
+                    onOpenAiSettings()
+                  }}
+                >
+                  Configurar IA ⚙️
+                </button>
+              )}
+            </div>
           </div>
         )}
 
