@@ -214,6 +214,7 @@ REGLAS ESTRICTAS:
     "back": "Respuesta en Markdown..."
   }
 ]
+5. IMPORTANTE: En el campo "back", si incluyes saltos de línea usa \\n para mantener el JSON 100% válido sin caracteres de control crudos.
 
 CONTENIDO DE LA SECCIÓN:
 ${chunk.content}

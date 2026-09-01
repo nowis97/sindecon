@@ -3,6 +3,9 @@ import {
   checkWebGPUSupport,
   extractJsonArrayString,
   DEFAULT_LOCAL_MODEL,
+  robustParseJsonCards,
+  sanitizeUnescapedControlCharsInJson,
+  extractCardsByRegex,
 } from './webLlmClient'
 
 describe('webLlmClient', () => {
@@ -19,6 +22,41 @@ describe('webLlmClient', () => {
 
     const cleanJson = '[{"front": "P", "back": "R"}]'
     expect(extractJsonArrayString(cleanJson)).toBe('[{"front": "P", "back": "R"}]')
+  })
+
+  it('parsea exitosamente JSON con caracteres de control crudos y saltos de línea literales (Bad control character fix)', () => {
+    const rawWithRawNewlines = `[
+  {
+    "front": "¿Cuál es la definición de urticaria?",
+    "back": "La urticaria es una afección dermatológica caracterizada por:
+- Habones eritematosos y pruriginosos
+- Angioedema en 40% de casos"
+  }
+]`
+
+    const cards = robustParseJsonCards(rawWithRawNewlines)
+    expect(cards.length).toBe(1)
+    expect(cards[0].front).toBe('¿Cuál es la definición de urticaria?')
+    expect(cards[0].back).toContain('- Habones eritematosos y pruriginosos')
+    expect(cards[0].sourceType).toBe('local_ai')
+  })
+
+  it('sanitiza caracteres de control no escapados dentro de cadenas JSON', () => {
+    const brokenJson = '{"front": "Pregunta", "back": "Línea 1\nLínea 2\tTabulado"}'
+    const sanitized = sanitizeUnescapedControlCharsInJson(brokenJson)
+    expect(sanitized).toBe('{"front": "Pregunta", "back": "Línea 1\\nLínea 2\\tTabulado"}')
+    expect(() => JSON.parse(sanitized)).not.toThrow()
+  })
+
+  it('extrae tarjetas con regex cuando el JSON está truncado o tiene sintaxis rota', () => {
+    const truncatedJson = `[
+      {"front": "¿Tratamiento de primera línea en urticaria aguda?", "back": "Antihistamínicos H1 de 2da generación (ej. Cetirizina 10 mg/día)."},
+      {"front": "¿Cuándo indicar epinefrina?", "back": "Ante sospecha de anafilaxia o compromiso de vía aérea`
+
+    const cards = extractCardsByRegex(truncatedJson)
+    expect(cards.length).toBe(1)
+    expect(cards[0].front).toBe('¿Tratamiento de primera línea en urticaria aguda?')
+    expect(cards[0].back).toContain('Antihistamínicos H1')
   })
 
   it('detecta ausencia de WebGPU cuando navigator.gpu no existe', async () => {

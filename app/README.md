@@ -9,7 +9,7 @@
 [![Vite](https://img.shields.io/badge/Vite-8.2-646cff.svg)](https://vitejs.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6.svg)](https://www.typescriptlang.org/)
 [![Database](https://img.shields.io/badge/Dexie.js-IndexedDB-orange.svg)](https://dexie.org/)
-[![Tests](https://img.shields.io/badge/Vitest-104%20passed-success.svg)](https://vitest.dev/)
+[![Tests](https://img.shields.io/badge/Vitest-107%20passed-success.svg)](https://vitest.dev/)
 [![E2E](https://img.shields.io/badge/Playwright-29%20passed-success.svg)](https://playwright.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 

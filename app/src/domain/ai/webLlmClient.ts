@@ -207,22 +207,11 @@ export async function generateFlashcardsWithWebLlm(
       })
 
       const rawResponse = completion.choices[0]?.message?.content || ''
-      const cleanedJson = extractJsonArrayString(rawResponse)
-      const parsed = JSON.parse(cleanedJson)
+      const cards = robustParseJsonCards(rawResponse)
 
-      if (Array.isArray(parsed)) {
-        for (const item of parsed) {
-          if (item && typeof item.front === 'string' && typeof item.back === 'string') {
-            const front = item.front.trim()
-            const back = item.back.trim()
-            if (front && back && !extractedCards.some(c => c.front.toLowerCase() === front.toLowerCase())) {
-              extractedCards.push({
-                front,
-                back,
-                sourceType: 'local_ai',
-              })
-            }
-          }
+      for (const card of cards) {
+        if (!extractedCards.some(c => c.front.toLowerCase() === card.front.toLowerCase())) {
+          extractedCards.push(card)
         }
       }
     } catch (e: any) {
@@ -246,6 +235,143 @@ export async function generateFlashcardsWithWebLlm(
   })
 
   return extractedCards.slice(0, Math.max(targetCount, extractedCards.length))
+}
+
+/**
+ * Parsea y extrae flashcards de forma tolerante a fallos, manejando caracteres de control
+ * no escapados en strings (como saltos de línea crudos) y con fallback por regex.
+ */
+export function robustParseJsonCards(rawText: string): ExtractedCard[] {
+  if (!rawText || !rawText.trim()) return []
+
+  const cleanedJson = extractJsonArrayString(rawText)
+
+  // 1. Intento estándar con JSON.parse directo
+  try {
+    const parsed = JSON.parse(cleanedJson)
+    const cards = parseItemsToCards(parsed)
+    if (cards.length > 0) return cards
+  } catch {}
+
+  // 2. Intento con sanitización de caracteres de control no escapados (\n, \r, \t sin escapar)
+  try {
+    const sanitized = sanitizeUnescapedControlCharsInJson(cleanedJson)
+    const parsed = JSON.parse(sanitized)
+    const cards = parseItemsToCards(parsed)
+    if (cards.length > 0) return cards
+  } catch {}
+
+  // 3. Fallback resiliente: extracción por expresiones regulares
+  return extractCardsByRegex(rawText)
+}
+
+/**
+ * Convierte un array u objeto parseado en ExtractedCard[] válido.
+ */
+function parseItemsToCards(parsed: any): ExtractedCard[] {
+  const items = Array.isArray(parsed)
+    ? parsed
+    : parsed?.flashcards || parsed?.cards || parsed?.items || []
+
+  const result: ExtractedCard[] = []
+  if (Array.isArray(items)) {
+    for (const item of items) {
+      if (item && typeof item === 'object') {
+        const front = String(item.front || item.question || '').trim()
+        const back = String(item.back || item.answer || '').trim()
+        if (front.length >= 5 && back.length >= 3) {
+          result.push({
+            front,
+            back,
+            sourceType: 'local_ai',
+          })
+        }
+      }
+    }
+  }
+  return result
+}
+
+/**
+ * Reemplaza caracteres de control no escapados (\n, \r, \t, etc.) dentro de cadenas entrecomilladas de JSON
+ * para prevenir errores "Bad control character in string literal in JSON".
+ */
+export function sanitizeUnescapedControlCharsInJson(jsonStr: string): string {
+  let result = ''
+  let inString = false
+  let isEscaped = false
+
+  for (let i = 0; i < jsonStr.length; i++) {
+    const char = jsonStr[i]
+
+    if (isEscaped) {
+      result += char
+      isEscaped = false
+      continue
+    }
+
+    if (char === '\\') {
+      result += char
+      isEscaped = true
+      continue
+    }
+
+    if (char === '"') {
+      inString = !inString
+      result += char
+      continue
+    }
+
+    if (inString) {
+      if (char === '\n') {
+        result += '\\n'
+      } else if (char === '\r') {
+        result += '\\r'
+      } else if (char === '\t') {
+        result += '\\t'
+      } else if (char.charCodeAt(0) < 32) {
+        result += ' '
+      } else {
+        result += char
+      }
+    } else {
+      result += char
+    }
+  }
+
+  return result
+}
+
+/**
+ * Extracción de rescate basada en expresiones regulares para respuestas JSON truncadas o con sintaxis rota.
+ */
+export function extractCardsByRegex(rawText: string): ExtractedCard[] {
+  const cards: ExtractedCard[] = []
+  const cardRegex = /\{\s*"(?:front|question)"\s*:\s*"([\s\S]*?)"\s*,\s*"(?:back|answer)"\s*:\s*"([\s\S]*?)"\s*\}/g
+  let match: RegExpExecArray | null
+
+  while ((match = cardRegex.exec(rawText)) !== null) {
+    const front = (match[1] || '')
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\')
+      .trim()
+    const back = (match[2] || '')
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\')
+      .trim()
+
+    if (front.length >= 5 && back.length >= 3 && !cards.some(c => c.front.toLowerCase() === front.toLowerCase())) {
+      cards.push({
+        front,
+        back,
+        sourceType: 'local_ai',
+      })
+    }
+  }
+
+  return cards
 }
 
 /**
