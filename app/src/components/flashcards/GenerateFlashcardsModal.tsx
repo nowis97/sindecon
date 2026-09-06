@@ -350,7 +350,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
                     className="btn-quick-fallback"
                     onClick={() => {
                       setErrorMsg(null)
-                      handleGenerate('cloud_ai')
+                      runExtraction('cloud_ai')
                     }}
                   >
                     ✨ Cambiar a IA Cloud (Gemini / Groq)
@@ -360,7 +360,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
                     className="btn-quick-fallback"
                     onClick={() => {
                       setErrorMsg(null)
-                      handleGenerate('structural')
+                      runExtraction('structural')
                     }}
                   >
                     ⚡ Cambiar a Extractor Rápido (Offline)

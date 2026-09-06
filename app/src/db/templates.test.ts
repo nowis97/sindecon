@@ -26,6 +26,7 @@ describe('plantillas (spec templates)', () => {
         { title: 'B', kind: 'list' },
         { title: 'C', kind: 'table', tableHeaders: ['X', 'Y'] },
         { title: 'D', kind: 'algorithm' },
+        { title: 'E', defaultContent: ['line 1', 'line 2'] },
       ],
     })
     expect(body).toContain('# {título}')
@@ -33,6 +34,8 @@ describe('plantillas (spec templates)', () => {
     expect(body).toContain('## B')
     expect(body).toContain('## C')
     expect(body).toContain('## D')
+    expect(body).toContain('## E')
+    expect(body).toContain('line 1\nline 2')
     expect(body).toContain('```mermaid')
     expect(body).toContain('| X | Y |')
   })
@@ -41,17 +44,27 @@ describe('plantillas (spec templates)', () => {
     expect(fillTitlePlaceholder('# {título}\nTexto', 'FA')).toBe('# FA\nTexto')
   })
 
-  it('seedTemplatesIfNeeded siembra 11 plantillas en primer arranque (v2)', async () => {
+  it('seedTemplatesIfNeeded siembra 12 plantillas en primer arranque (v2.1)', async () => {
     const seeded = await seedTemplatesIfNeeded()
     expect(seeded).toBe(true)
     const tpls = await listTemplates()
-    expect(tpls.length).toBe(11)
+    expect(tpls.length).toBe(12)
     expect(tpls[0].node.title).toBe('Patología / Enfermedad')
     expect(tpls[1].node.title).toBe('Síndrome clínico / Diagnóstico sindromático')
-    expect(tpls[10].node.title).toBe('Patología oncológica / Cáncer')
+    expect(tpls[10].node.title).toBe('Fármaco / Posología y administración clínica')
+    expect(tpls[11].node.title).toBe('Patología oncológica / Cáncer')
     expect(tpls[0].body).toContain('## Definición')
-    expect(tpls[10].body).toContain('## Estadificación / TNM')
-    expect(tpls[10].body).toContain('## Tratamiento según estadio')
+    expect(tpls[10].body).toContain('## Posología')
+    expect(tpls[10].body).toContain('| Contexto | Dosis | Frecuencia | Vía | Máximo diario | Acotaciones |')
+    expect(tpls[10].body).toContain('## Preparación y ajuste')
+    expect(tpls[10].body).toContain('Ajuste en IRA')
+    expect(tpls[10].body).toContain('Ajuste en DHC')
+    expect(tpls[10].body).toContain('NO mezclar con')
+    expect(tpls[10].body).toContain('Marcas comerciales en Chile')
+    expect(tpls[10].body).toContain('Contraindicaciones')
+    expect(tpls[10].body).toContain('Fuentes')
+    expect(tpls[11].body).toContain('## Estadificación / TNM')
+    expect(tpls[11].body).toContain('## Tratamiento según estadio')
     expect(tpls[0].body).toContain('{título}')
   })
 
@@ -65,7 +78,43 @@ describe('plantillas (spec templates)', () => {
     expect(seededAgain).toBe(false)
     const tpls2 = await listTemplates()
     expect(tpls2[0].body).toBe('EDITADO')
-    expect(tpls2.length).toBe(11)
+    expect(tpls2.length).toBe(12)
+  })
+
+  it('plantilla Fármaco / Posología y administración clínica reproduce el formato clínico manuscrito', async () => {
+    await seedTemplatesIfNeeded()
+    const tpls = await listTemplates()
+    const tpl = tpls.find(
+      (t) => t.node.title === 'Fármaco / Posología y administración clínica',
+    )!
+    expect(tpl).toBeDefined()
+    const body = fillTitlePlaceholder(tpl.body, 'Ceftriaxona')
+    expect(body).toContain('# Ceftriaxona')
+    expect(body).not.toContain('## Qué es, grupo farmacológico y datos generales')
+    expect(body).toContain('## Indicaciones')
+    expect(body).toContain('1. \n2. \n3. \n4. \n5. \n6. \n7. \n8. \n9. ')
+    expect(body).toContain(
+      '> **Nota:** Qué es, grupo farmacológico y datos generales sobre el fármaco.',
+    )
+    expect(body).toContain('## Posología')
+    expect(body).toContain(
+      '| Contexto | Dosis | Frecuencia | Vía | Máximo diario | Acotaciones |',
+    )
+    expect(body).toContain('|   |   |   |   |   |   |')
+    expect(body).toContain('## Preparación y ajuste')
+    expect(body).toContain('- **Dilución:** En qué solución y en cuánto volumen.')
+    expect(body).toContain(
+      '- **Tiempo de administración:** En cuánto tiempo pasar (velocidad de infusión).',
+    )
+    expect(body).toContain('- **Ajuste en IRA:**')
+    expect(body).toContain('- **Ajuste en DHC:**')
+    expect(body).toContain('- **NO mezclar con:**')
+    expect(body).toContain('## RAM relevantes')
+    expect(body).toContain('## Marcas comerciales en Chile')
+    expect(body).toContain('## Contraindicaciones')
+    expect(body).toContain('## Fuentes')
+    expect(body).not.toContain('### Guías clínicas y consensos')
+    expect(body).toContain('## Fuentes\n\n1. \n2. \n3. \n4. \n5. ')
   })
 
   it('createNode de artículo NO crea fila de cuerpo (la fila es lazy para evitar la carrera con saveArticle)', async () => {

@@ -2,13 +2,14 @@ import { db } from './db'
 import type { NodeRow } from './db'
 import { createNode } from './nodes'
 
-// Sembrados según plantillas_sindecon/ (11 plantillas maestras v2 en formato Word).
+// Sembrados según plantillas_sindecon/ (12 plantillas maestras: 11 v2 + Fármaco práctica clínica).
 // Inyecta tablas, algoritmos Mermaid y listas de perlas clínicas según corresponda.
 
 interface Section {
   title: string
   kind?: 'text' | 'table' | 'algorithm' | 'list'
   tableHeaders?: string[]
+  defaultContent?: string[]
 }
 
 interface Template {
@@ -200,6 +201,98 @@ export const TEMPLATES: Template[] = [
     ],
   },
   {
+    title: 'Fármaco / Posología y administración clínica',
+    sections: [
+      {
+        title: 'Indicaciones',
+        defaultContent: [
+          '1. ',
+          '2. ',
+          '3. ',
+          '4. ',
+          '5. ',
+          '6. ',
+          '7. ',
+          '8. ',
+          '9. ',
+          '',
+          '> **Nota:** Qué es, grupo farmacológico y datos generales sobre el fármaco.',
+        ],
+      },
+      {
+        title: 'Posología',
+        kind: 'table',
+        tableHeaders: [
+          'Contexto',
+          'Dosis',
+          'Frecuencia',
+          'Vía',
+          'Máximo diario',
+          'Acotaciones',
+        ],
+      },
+      {
+        title: 'Preparación y ajuste',
+        defaultContent: [
+          '- **Dilución:** En qué solución y en cuánto volumen.',
+          '- **Tiempo de administración:** En cuánto tiempo pasar (velocidad de infusión).',
+          '- **Ajuste en IRA:**',
+          '- **Ajuste en DHC:**',
+          '- **NO mezclar con:**',
+        ],
+      },
+      {
+        title: 'RAM relevantes',
+        defaultContent: [
+          '1. ',
+          '2. ',
+          '3. ',
+          '4. ',
+          '5. ',
+          '6. ',
+          '7. ',
+          '8. ',
+          '9. ',
+        ],
+      },
+      {
+        title: 'Marcas comerciales en Chile',
+        defaultContent: [
+          '1. ',
+          '2. ',
+          '3. ',
+          '4. ',
+          '5. ',
+        ],
+      },
+      {
+        title: 'Contraindicaciones',
+        defaultContent: [
+          '1. ',
+          '2. ',
+          '3. ',
+          '4. ',
+          '5. ',
+          '6. ',
+          '7. ',
+          '8. ',
+          '9. ',
+          '10. ',
+        ],
+      },
+      {
+        title: 'Fuentes',
+        defaultContent: [
+          '1. ',
+          '2. ',
+          '3. ',
+          '4. ',
+          '5. ',
+        ],
+      },
+    ],
+  },
+  {
     title: 'Patología oncológica / Cáncer',
     sections: [
       { title: 'Definición' },
@@ -237,7 +330,9 @@ export function buildTemplateBody(template: Template): string {
   const lines: string[] = ['# {título}', '']
   for (const s of template.sections) {
     lines.push(`## ${s.title}`, '')
-    if (s.kind === 'algorithm') {
+    if (s.defaultContent && s.defaultContent.length > 0) {
+      lines.push(...s.defaultContent, '')
+    } else if (s.kind === 'algorithm') {
       lines.push(
         '```mermaid',
         'flowchart TD',
@@ -249,6 +344,7 @@ export function buildTemplateBody(template: Template): string {
       lines.push(
         '| ' + s.tableHeaders.join(' | ') + ' |',
         '| ' + s.tableHeaders.map(() => '---').join(' | ') + ' |',
+        '| ' + s.tableHeaders.map(() => ' ').join(' | ') + ' |',
         '',
       )
     } else if (s.kind === 'list') {
@@ -278,10 +374,10 @@ export function getTemplateId(title: string): string {
   return `sys-tpl-${slug}`
 }
 
-const SEED_KEY = 'seeded_templates_v2'
+const SEED_KEY = 'seeded_templates_v2_5'
 
 /**
- * Siembra la carpeta "Plantillas" con los 11 formatos oficiales de forma determinista e idempotente.
+ * Siembra la carpeta "Plantillas" con los 12 formatos oficiales de forma determinista e idempotente.
  * No pisa ediciones del usuario.
  */
 export async function seedTemplatesIfNeeded(): Promise<boolean> {
@@ -341,6 +437,19 @@ export async function seedTemplatesIfNeeded(): Promise<boolean> {
           tags: [],
         })
         await db.nodes.update(nodo.id, { created_at: now, updated_at: now })
+        anySeeded = true
+      }
+    } else if (tplId === 'sys-tpl-farmaco-posologia-y-administracion-clinica') {
+      // Si la plantilla ya existía pero con formato previo, actualizar su cuerpo
+      const art = await db.articles.get(tplId)
+      if (
+        art &&
+        (!art.body_md.includes('|   |   |   |   |   |   |') ||
+          !art.body_md.includes('> **Nota:** Qué es, grupo farmacológico y datos generales') ||
+          art.body_md.includes('## Qué es, grupo farmacológico y datos generales') ||
+          art.body_md.includes('### Guías clínicas y consensos'))
+      ) {
+        await db.articles.update(tplId, { body_md: buildTemplateBody(t) })
         anySeeded = true
       }
     }
