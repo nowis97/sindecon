@@ -1,10 +1,11 @@
 import { db, type AssetRow } from './db'
+import { newId } from './nodes'
 
 /** Persistencia de imágenes en IndexedDB (design D4). El id es uuid; el blob vive aquí. */
 export async function createAssetFromFile(
   file: File,
 ): Promise<{ id: string; mime: string }> {
-  const id = crypto.randomUUID()
+  const id = newId()
   const row: AssetRow = {
     id,
     node_id: '',

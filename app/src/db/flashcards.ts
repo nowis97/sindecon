@@ -1,4 +1,5 @@
 import { db, type FlashcardRow, type AiConfig, type FlashcardSourceType } from './db'
+import { newId } from './nodes'
 
 export type { FlashcardRow, AiConfig, FlashcardSourceType }
 
@@ -40,7 +41,7 @@ export async function createFlashcard(params: {
 }): Promise<FlashcardRow> {
   const now = Date.now()
   const newCard: FlashcardRow = {
-    id: crypto.randomUUID(),
+    id: newId(),
     node_id: params.nodeId,
     front: params.front.trim(),
     back: params.back.trim(),

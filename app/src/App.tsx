@@ -108,6 +108,7 @@ function App() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false)
   const [isSmartImportOpen, setIsSmartImportOpen] = useState(false)
+  const [smartImportFolderId, setSmartImportFolderId] = useState<string | null>(null)
   const [promptState, setPromptState] = useState<PromptState>(null)
   const [deleteState, setDeleteState] = useState<DeleteState>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -320,41 +321,55 @@ function App() {
     })
   }
 
+  const handleOpenSmartImport = (folderId?: string | null) => {
+    setSmartImportFolderId(folderId !== undefined ? folderId : null)
+    setIsSmartImportOpen(true)
+  }
+
   const handlePromptConfirm = async (value: string) => {
     if (!promptState || !value.trim()) return
 
-    if (promptState.type === 'create-node') {
-      const node = await createNode({
-        kind: promptState.kind,
-        title: value.trim(),
-        parent_id: promptState.parentId,
-      })
-      if (promptState.kind === 'article') {
+    try {
+      if (promptState.type === 'create-node') {
+        const node = await createNode({
+          kind: promptState.kind,
+          title: value.trim(),
+          parent_id: promptState.parentId,
+        })
+        if (promptState.kind === 'article') {
+          setSelectedId(node.id)
+          setSeedBody(null)
+          setIsEditMode(true)
+          setSidebarOpen(false)
+        } else {
+          // Al crear carpeta raíz: navegamos a ella.
+          // Al crear subcarpeta: nos mantenemos en la carpeta padre para ver la tarjeta en el explorador
+          if (!promptState.parentId) {
+            setSelectedId(node.id)
+          }
+          setSidebarOpen(false)
+          setToastMessage(`📁 Carpeta "${node.title}" creada con éxito`)
+        }
+      } else if (promptState.type === 'create-from-template') {
+        const tpl = templates.find((t) => t.node.title === promptState.templateTitle)
+        if (!tpl) return
+        const finalTitle = value.trim()
+        const body = fillTitlePlaceholder(tpl.body, finalTitle)
+        const node = await createNode({
+          kind: 'article',
+          title: finalTitle,
+          parent_id: promptState.parentId,
+        })
+        await saveArticle(node.id, body)
+        setSeedBody(body)
         setSelectedId(node.id)
-        setSeedBody(null)
         setIsEditMode(true)
         setSidebarOpen(false)
-      } else {
-        // Al crear carpeta: NO cambiamos la selección activa ni el modo edición
-        setToastMessage(`📁 Carpeta "${node.title}" creada con éxito`)
+      } else if (promptState.type === 'rename-node') {
+        await renameNode(promptState.nodeId, value.trim())
       }
-    } else if (promptState.type === 'create-from-template') {
-      const tpl = templates.find((t) => t.node.title === promptState.templateTitle)
-      if (!tpl) return
-      const finalTitle = value.trim()
-      const body = fillTitlePlaceholder(tpl.body, finalTitle)
-      const node = await createNode({
-        kind: 'article',
-        title: finalTitle,
-        parent_id: promptState.parentId,
-      })
-      await saveArticle(node.id, body)
-      setSeedBody(body)
-      setSelectedId(node.id)
-      setIsEditMode(true)
-      setSidebarOpen(false)
-    } else if (promptState.type === 'rename-node') {
-      await renameNode(promptState.nodeId, value.trim())
+    } catch (e) {
+      setErrorMessage((e as Error).message || 'Error al procesar la solicitud')
     }
   }
 
@@ -628,6 +643,7 @@ function App() {
             onCreateChild={(parentId, kind) =>
               handleOpenCreatePrompt(kind, parentId)
             }
+            onSmartImport={(folderId) => handleOpenSmartImport(folderId)}
             favoriteIds={favoriteIds}
             onToggleFavorite={toggleFavorite}
           />
@@ -655,7 +671,7 @@ function App() {
                   }}
                   onCreateArticle={(folderId) => handleOpenCreatePrompt('article', folderId)}
                   onCreateSubfolder={(folderId) => handleOpenCreatePrompt('folder', folderId)}
-                  onSmartImport={() => setIsSmartImportOpen(true)}
+                  onSmartImport={(folderId) => handleOpenSmartImport(folderId)}
                   onToggleFavorite={toggleFavorite}
                   favoriteIds={favoriteIds}
                   onMoveNodeDirect={handleMoveNodeDirect}
@@ -702,7 +718,7 @@ function App() {
                       <button
                         type="button"
                         className="btn-smart-import-trigger"
-                        onClick={() => setIsSmartImportOpen(true)}
+                        onClick={() => handleOpenSmartImport()}
                         title="Importar contenido desde ChatGPT, IA o Word (.docx)"
                       >
                         🪄 Importar
@@ -791,7 +807,7 @@ function App() {
               templates={templates}
               onSelectArticle={selectArticle}
               onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
-              onOpenSmartImport={() => setIsSmartImportOpen(true)}
+              onOpenSmartImport={() => handleOpenSmartImport(null)}
               onCreateNode={(kind) => handleOpenCreatePrompt(kind)}
               onCreateFromTemplate={(tplTitle) =>
                 handleOpenTemplatePrompt(tplTitle)
@@ -828,7 +844,7 @@ function App() {
         onSelectArticle={selectArticle}
         onOpenCreatePrompt={(kind) => handleOpenCreatePrompt(kind)}
         onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
-        onOpenSmartImport={() => setIsSmartImportOpen(true)}
+        onOpenSmartImport={() => handleOpenSmartImport()}
         onToggleTheme={toggleTheme}
         onGoHome={() => setSelectedId(null)}
         onGoInbox={() => inboxFolder && selectArticle(inboxFolder.id)}
@@ -837,12 +853,18 @@ function App() {
       {/* Modal de Asistente de Importación Inteligente (ChatGPT, Word, Rich Text) */}
       <SmartImportModal
         isOpen={isSmartImportOpen}
-        onClose={() => setIsSmartImportOpen(false)}
+        onClose={() => {
+          setIsSmartImportOpen(false)
+          setSmartImportFolderId(null)
+        }}
         currentArticle={
-          selected?.kind === 'article'
-            ? { id: selected.id, title: selected.title, body: currentBody }
-            : null
+          smartImportFolderId !== null
+            ? null
+            : selected?.kind === 'article'
+              ? { id: selected.id, title: selected.title, body: currentBody }
+              : null
         }
+        currentFolderId={smartImportFolderId ?? targetFolderId}
         nodes={nodes}
         onAppendToCurrentArticle={handleAppendToCurrentArticle}
         onReplaceCurrentArticle={handleReplaceCurrentArticle}

@@ -260,14 +260,18 @@ function renderFormattedInline(
   for (const match of matches) {
     const matchIndex = match.index ?? 0
     if (matchIndex > lastIndex) {
-      parts.push(renderBasicFormatting(text.slice(lastIndex, matchIndex)))
+      parts.push(
+        <span key={`txt-${lastIndex}`}>
+          {renderBasicFormatting(text.slice(lastIndex, matchIndex))}
+        </span>
+      )
     }
 
     const uuid = match[1]
     const label = match[2] || uuid
     parts.push(
       <a
-        key={matchIndex}
+        key={`wiki-${matchIndex}`}
         className="wiki-link"
         href={`#${uuid}`}
         onClick={(e) => {
@@ -282,7 +286,11 @@ function renderFormattedInline(
   }
 
   if (lastIndex < text.length) {
-    parts.push(renderBasicFormatting(text.slice(lastIndex)))
+    parts.push(
+      <span key={`txt-${lastIndex}`}>
+        {renderBasicFormatting(text.slice(lastIndex))}
+      </span>
+    )
   }
 
   return <>{parts}</>

@@ -13,6 +13,7 @@ import {
   AVAILABLE_LOCAL_MODELS,
 } from '../../domain/ai/webLlmClient'
 import { getAiConfig, upsertFlashcards, type AiConfig } from '../../db/flashcards'
+import { newId } from '../../db/nodes'
 import { FlashcardLivePreview } from './FlashcardLivePreview'
 import type { FlashcardRow } from '../../db/db'
 
@@ -142,7 +143,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
 
     const now = Date.now()
     const rows: FlashcardRow[] = selected.map((c) => ({
-      id: crypto.randomUUID(),
+      id: newId(),
       node_id: nodeId,
       front: c.front.trim(),
       back: c.back.trim(),

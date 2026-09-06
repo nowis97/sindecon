@@ -9,9 +9,9 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
   })
 
   test('1. Siembra de plantillas en primer arranque (spec: templates) y Dashboard', async ({ page }) => {
-    // Esperar a que las 10 plantillas maestras terminen de sembrarse en IndexedDB
+    // Esperar a que las plantillas maestras terminen de sembrarse en IndexedDB
     const templateSelect = page.locator('.sidebar select.template-select')
-    await expect(templateSelect.locator('option')).toHaveCount(12, { timeout: 10000 })
+    await expect(templateSelect.locator('option')).toHaveCount(13, { timeout: 10000 })
 
     // Verificar que la carpeta Plantillas está visible en el árbol
     const plantillasRow = page.locator('.tree-row', { hasText: 'Plantillas' })
@@ -21,6 +21,7 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
     const options = await templateSelect.locator('option').allInnerTexts()
     expect(options).toContain('Patología / Enfermedad')
     expect(options).toContain('Fármaco / Ficha farmacológica')
+    expect(options).toContain('Fármaco / Posología y administración clínica')
 
     // Verificar que el Dashboard de inicio se renderiza correctamente
     await expect(page.locator('.dashboard-container')).toBeVisible()
@@ -61,7 +62,7 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
 
   test('3. Crear artículo desde plantilla con modal y alternar Modo Lector / Editor (spec: templates & content-editing)', async ({ page }) => {
     const templateSelect = page.locator('.sidebar select.template-select')
-    await expect(templateSelect.locator('option')).toHaveCount(12, { timeout: 10000 })
+    await expect(templateSelect.locator('option')).toHaveCount(13, { timeout: 10000 })
 
     // Seleccionar plantilla Patología
     await templateSelect.selectOption('Patología / Enfermedad')
@@ -149,7 +150,7 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
 
   test('7. Renderizado correcto y editable en Modo Editor desde plantilla (spec: templates & content-editing)', async ({ page }) => {
     const templateSelect = page.locator('.sidebar select.template-select')
-    await expect(templateSelect.locator('option')).toHaveCount(12, { timeout: 10000 })
+    await expect(templateSelect.locator('option')).toHaveCount(13, { timeout: 10000 })
 
     // Crear artículo a partir de plantilla de fármaco
     await templateSelect.selectOption('Fármaco / Ficha farmacológica')
@@ -189,7 +190,7 @@ test.describe('Cuaderno Médico Personal - Vital E2E Tests (OpenSpec)', () => {
 
   test('8. Renderizado fiel e interactivo en Modo Lector desde plantilla (spec: templates & content-editing)', async ({ page }) => {
     const templateSelect = page.locator('.sidebar select.template-select')
-    await expect(templateSelect.locator('option')).toHaveCount(12, { timeout: 10000 })
+    await expect(templateSelect.locator('option')).toHaveCount(13, { timeout: 10000 })
 
     // Crear artículo a partir de plantilla de urgencia
     await templateSelect.selectOption('Urgencia / Emergencia')
@@ -643,5 +644,82 @@ DOSIS: Paracetamol 1g cada 8h condicional a fiebre.
 
     // Restaurar media
     await page.emulateMedia({ media: null })
+  })
+
+  test('19. Preselección automática de carpeta en Smart Import y creación fluida de carpetas/artículos (spec: knowledge-tree & content-editing)', async ({ page }) => {
+    // 1. Crear carpeta Endocrinología desde el sidebar
+    await page.getByRole('button', { name: '+ Carpeta' }).click()
+    const folderInput = page.locator('.dialog-input')
+    await expect(folderInput).toBeVisible()
+    await folderInput.fill('Endocrinología')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 2. Al crearse, navega directamente a la vista de explorador de la carpeta
+    const folderView = page.locator('.folder-explorer-container')
+    await expect(folderView).toBeVisible()
+    await expect(folderView.locator('.folder-hero-title-group h1')).toHaveText('Endocrinología')
+    await expect(folderView.locator('.folder-empty-state')).toBeVisible()
+
+    // 3. Crear una subcarpeta desde el explorador de carpeta
+    await page.getByRole('button', { name: '📁 Nueva Subcarpeta' }).click()
+    const subfolderInput = page.locator('.dialog-input')
+    await expect(subfolderInput).toBeVisible()
+    await subfolderInput.fill('Diabetes y Metabolismo')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // Verificar que la subcarpeta aparece de inmediato en el explorador
+    const subfolderCard = page.locator('.subfolder-card', { hasText: 'Diabetes y Metabolismo' })
+    await expect(subfolderCard).toBeVisible()
+
+    // 4. Probar Importación Inteligente desde FolderExplorerView con preselección
+    const btnImport = page.locator('button', { hasText: 'Importar de ChatGPT/Word' })
+    await expect(btnImport).toBeVisible()
+    await btnImport.click()
+
+    const importModal = page.locator('.smart-import-modal')
+    await expect(importModal).toBeVisible()
+
+    // Verificar que el destino es "Crear nuevo artículo" por defecto
+    await expect(importModal.locator('input[value="new-article"]')).toBeChecked()
+
+    // Verificar que la carpeta destino ESTÁ PRESELECCIONADA en "Endocrinología"
+    const folderSelect = importModal.locator('.new-article-meta-row select')
+    await expect(folderSelect).toBeVisible()
+    const selectedOption = await folderSelect.locator('option:checked').innerText()
+    expect(selectedOption).toContain('Endocrinología')
+
+    // Pegar contenido simulado y título
+    const titleInput = importModal.locator('.new-article-meta-row input[type="text"]')
+    await titleInput.fill('Protocolo Cetoacidosis')
+    const textarea = importModal.locator('.smart-import-textarea')
+    await textarea.fill('### Protocolo CAD\n\nADVERTENCIA: Reponer potasio antes de infusión de insulina.')
+
+    // Aplicar importación
+    await importModal.locator('.btn-dialog-primary', { hasText: 'Aplicar Importación' }).click()
+    await expect(importModal).not.toBeVisible()
+
+    // Debe abrirse en modo lector con el título y breadcrumbs dentro de Endocrinología
+    await expect(page.locator('.article-title')).toHaveText('Protocolo Cetoacidosis')
+    const breadcrumbs = page.locator('.breadcrumbs')
+    await expect(breadcrumbs).toContainText('Endocrinología')
+    await expect(breadcrumbs).toContainText('Protocolo Cetoacidosis')
+
+    // 5. Probar Importación Inteligente desde el menú contextual del árbol
+    const endoTreeRow = page.locator('.tree-row.tree-folder-row', { hasText: 'Endocrinología' })
+    await expect(endoTreeRow).toBeVisible()
+    await endoTreeRow.locator('.btn-tree-row-menu').click()
+
+    const contextImportBtn = page.locator('.context-menu-item', { hasText: 'Importar aquí' })
+    await expect(contextImportBtn).toBeVisible()
+    await contextImportBtn.click()
+
+    // Comprobar que el modal se abre con Endocrinología preseleccionada
+    await expect(importModal).toBeVisible()
+    const treeSelectedOption = await folderSelect.locator('option:checked').innerText()
+    expect(treeSelectedOption).toContain('Endocrinología')
+
+    // Cerrar modal
+    await importModal.locator('.btn-dialog-secondary', { hasText: 'Cancelar' }).click()
+    await expect(importModal).not.toBeVisible()
   })
 })

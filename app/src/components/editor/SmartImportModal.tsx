@@ -15,6 +15,7 @@ export interface SmartImportModalProps {
     title: string
     body: string
   } | null
+  currentFolderId?: string | null
   nodes: NodeRow[]
   onAppendToCurrentArticle: (articleId: string, additionalMarkdown: string) => Promise<void>
   onReplaceCurrentArticle: (articleId: string, newMarkdown: string) => Promise<void>
@@ -26,6 +27,7 @@ export function SmartImportModal({
   isOpen,
   onClose,
   currentArticle,
+  currentFolderId = null,
   nodes,
   onAppendToCurrentArticle,
   onReplaceCurrentArticle,
@@ -38,7 +40,9 @@ export function SmartImportModal({
   const [destination, setDestination] = useState<
     'append' | 'replace' | 'new-article' | 'inbox'
   >(currentArticle ? 'append' : 'new-article')
-  const [targetFolderId, setTargetFolderId] = useState<string | null>(null)
+  const [targetFolderId, setTargetFolderId] = useState<string | null>(
+    currentFolderId ?? null,
+  )
   const [customTitle, setCustomTitle] = useState('')
   const [previewMode, setPreviewMode] = useState<'rendered' | 'raw'>('rendered')
   const [isProcessing, setIsProcessing] = useState(false)
@@ -53,6 +57,7 @@ export function SmartImportModal({
       setInputText('')
       setErrorMessage(null)
       setDestination(currentArticle ? 'append' : 'new-article')
+      setTargetFolderId(currentFolderId ?? null)
       setCustomTitle('')
       setEnrichCallouts(true)
     }
@@ -68,7 +73,7 @@ export function SmartImportModal({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, currentArticle, onClose])
+  }, [isOpen, currentArticle, currentFolderId, onClose])
 
   // Markdown procesado en tiempo real
   const processedMarkdown = useMemo(() => {

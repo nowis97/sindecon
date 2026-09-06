@@ -17,6 +17,7 @@ interface TreeViewProps {
   onMoveNode?: (id: string) => void
   onDeleteNode?: (id: string) => void
   onCreateChild?: (parentId: string, kind: 'folder' | 'article') => void
+  onSmartImport?: (folderId: string) => void
   favoriteIds?: string[]
   onToggleFavorite?: (id: string) => void
 }
@@ -33,6 +34,7 @@ export function TreeView({
   onMoveNode,
   onDeleteNode,
   onCreateChild,
+  onSmartImport,
   favoriteIds = [],
   onToggleFavorite,
 }: TreeViewProps) {
@@ -504,6 +506,19 @@ export function TreeView({
                         >
                           📁 Nueva subcarpeta
                         </button>
+                        {onSmartImport && (
+                          <button
+                            type="button"
+                            className="context-menu-item"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setActiveMenuId(null)
+                              onSmartImport(node.id)
+                            }}
+                          >
+                            🪄 Importar aquí
+                          </button>
+                        )}
                         <hr className="context-menu-divider" />
                       </>
                     )}

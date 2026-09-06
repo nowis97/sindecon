@@ -8,7 +8,7 @@ export interface FolderExplorerViewProps {
   onSelectNode: (id: string) => void
   onCreateArticle: (folderId: string) => void
   onCreateSubfolder: (folderId: string) => void
-  onSmartImport: () => void
+  onSmartImport: (folderId: string) => void
   onToggleFavorite?: (id: string) => void
   favoriteIds?: string[]
   onMoveNodeDirect?: (nodeId: string, targetFolderId: string | null) => Promise<void>
@@ -82,7 +82,7 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
           <button
             type="button"
             className="btn-folder-action secondary"
-            onClick={onSmartImport}
+            onClick={() => onSmartImport(folderNode.id)}
           >
             <span>🪄</span>
             <span>Importar de ChatGPT/Word</span>
