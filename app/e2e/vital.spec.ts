@@ -722,4 +722,109 @@ DOSIS: Paracetamol 1g cada 8h condicional a fiebre.
     await importModal.locator('.btn-dialog-secondary', { hasText: 'Cancelar' }).click()
     await expect(importModal).not.toBeVisible()
   })
+
+  test('20. Bloques de columnas paralelas (:::columns) en editor y modo lector (spec: content-editing & data-portability)', async ({ page }) => {
+    // 1. Crear artículo para probar bloques multicolumna
+    await page.getByRole('button', { name: '+ Artículo' }).click()
+    const input = page.locator('.dialog-input')
+    await expect(input).toBeVisible()
+    await input.fill('Farmacología Comparada')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 2. Cambiar a modo Editor y comprobar botón de barra de herramientas
+    await page.locator('.btn-mode', { hasText: 'Editor' }).click()
+    const btnColumns = page.locator('.btn-insert-columns')
+    await expect(btnColumns).toBeVisible()
+    await expect(btnColumns).toHaveText('◫ Columnas')
+
+    // 3. Probar inserción mediante Smart Import de bloque de 2 columnas
+    const multiColContent = `# Comparativa Antibiótica
+
+:::columns
+### 💊 Amikacina
+- Dosis: 15 mg/kg/día
+- Vía: IV / IM
+- Monitoreo de niveles valle
+
+|||
+
+### 💊 Gentamicina
+- Dosis: 5 mg/kg/día
+- Vía: IV / IM
+- Sinergia en endocarditis
+:::
+
+> [!NOTE]
+> Nota al pie de la comparativa.
+`
+    const btnImport = page.locator('.btn-smart-import-trigger')
+    await expect(btnImport).toBeVisible()
+    await btnImport.click()
+
+    const importModal = page.locator('.smart-import-modal')
+    await expect(importModal).toBeVisible()
+    await importModal.locator('input[value="replace"]').check()
+    await importModal.locator('.smart-import-textarea').fill(multiColContent)
+    await importModal.locator('.btn-dialog-primary', { hasText: 'Aplicar Importación' }).click()
+    await expect(importModal).not.toBeVisible()
+
+    // 4. Cambiar a modo Lector y verificar renderizado de columnas
+    await page.locator('.btn-mode', { hasText: 'Lector' }).click()
+
+    const columnsGrid = page.locator('.article-reader-view .article-columns-grid')
+    await expect(columnsGrid).toBeVisible()
+    await expect(columnsGrid).toHaveClass(/cols-2/)
+
+    const colItems = columnsGrid.locator('.article-column-item')
+    await expect(colItems).toHaveCount(2)
+
+    // Columna 1
+    await expect(colItems.nth(0).locator('h3')).toHaveText('💊 Amikacina')
+    await expect(colItems.nth(0).locator('ul')).toContainText('Dosis: 15 mg/kg/día')
+
+    // Columna 2
+    await expect(colItems.nth(1).locator('h3')).toHaveText('💊 Gentamicina')
+    await expect(colItems.nth(1).locator('ul')).toContainText('Sinergia en endocarditis')
+
+    // 5. Probar bloque dinámico de 3 columnas
+    const threeColContent = `# Triaje Clínico
+
+:::columns
+### 🟢 Leve
+Ambulatorio
+
+|||
+
+### 🟡 Moderado
+Hospitalización
+
+|||
+
+### 🔴 Grave
+UCI
+:::
+`
+    await btnImport.click()
+    await expect(importModal).toBeVisible()
+    await importModal.locator('input[value="replace"]').check()
+    await importModal.locator('.smart-import-textarea').fill(threeColContent)
+    await importModal.locator('.btn-dialog-primary', { hasText: 'Aplicar Importación' }).click()
+    await expect(importModal).not.toBeVisible()
+
+    const threeColGrid = page.locator('.article-reader-view .article-columns-grid')
+    await expect(threeColGrid).toBeVisible()
+    await expect(threeColGrid).toHaveClass(/cols-3/)
+    const threeColItems = threeColGrid.locator('.article-column-item')
+    await expect(threeColItems).toHaveCount(3)
+    await expect(threeColItems.nth(0)).toContainText('Leve')
+    await expect(threeColItems.nth(1)).toContainText('Moderado')
+    await expect(threeColItems.nth(2)).toContainText('Grave')
+
+    // 6. Verificar visibilidad en exportación / impresión
+    await page.emulateMedia({ media: 'print' })
+    const printDoc = page.locator('#print-article-document')
+    await expect(printDoc).toBeVisible()
+    await expect(printDoc.locator('.article-columns-grid')).toBeVisible()
+    await page.emulateMedia({ media: null })
+  })
 })

@@ -18,7 +18,7 @@ export interface NestedListItem {
   children: NestedListItem[]
 }
 
-type Block =
+export type Block =
   | { type: 'header'; level: number; text: string }
   | { type: 'mermaid'; code: string }
   | { type: 'code'; lang: string; code: string }
@@ -28,6 +28,7 @@ type Block =
   | { type: 'list'; items: NestedListItem[]; ordered: boolean }
   | { type: 'callout'; kind: CalloutKind; title: string; text: string }
   | { type: 'blockquote'; text: string }
+  | { type: 'columns'; columns: Block[][] }
   | { type: 'paragraph'; text: string }
 
 function parseCalloutType(typeStr: string): { kind: CalloutKind; defaultTitle: string; icon: string } {
@@ -78,7 +79,7 @@ function parseListTree(rawLines: Array<{ indent: number; text: string; ordered: 
   return items
 }
 
-function parseMarkdownBlocks(md: string): Block[] {
+export function parseMarkdownBlocks(md: string): Block[] {
   if (!md) return []
   const rawLines = md.split(/\r?\n/)
   const blocks: Block[] = []
@@ -174,7 +175,47 @@ function parseMarkdownBlocks(md: string): Block[] {
       continue
     }
 
-    // 6. Tablas GFM
+    // 6. Bloques multicolumna (:::columns o :::col con separadores |||)
+    if (/^:::(?:columns?|cols?)/i.test(trimmed)) {
+      i++ // saltar línea de apertura
+      const columnRawSections: string[][] = [[]]
+      let currentColIndex = 0
+
+      while (i < rawLines.length) {
+        const currLine = rawLines[i]
+        const currTrimmed = currLine.trim()
+
+        if (currTrimmed === ':::') {
+          i++ // saltar línea de cierre
+          break
+        }
+
+        if (currTrimmed === '|||') {
+          currentColIndex++
+          columnRawSections[currentColIndex] = []
+          i++
+          continue
+        }
+
+        columnRawSections[currentColIndex].push(currLine)
+        i++
+      }
+
+      // Parsear recursivamente cada columna
+      const parsedColumns: Block[][] = columnRawSections
+        .map((lines) => parseMarkdownBlocks(lines.join('\n')))
+        .filter((colBlocks) => colBlocks.length > 0)
+
+      if (parsedColumns.length > 0) {
+        blocks.push({
+          type: 'columns',
+          columns: parsedColumns,
+        })
+      }
+      continue
+    }
+
+    // 7. Tablas GFM
     if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 2) {
       const tableLines: string[] = []
       while (
@@ -206,7 +247,7 @@ function parseMarkdownBlocks(md: string): Block[] {
       }
     }
 
-    // 7. Listas (Ordenadas y Desordenadas con soporte de anidación)
+    // 8. Listas (Ordenadas y Desordenadas con soporte de anidación)
     const listMatch = line.match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/)
     if (listMatch) {
       const rawListLines: Array<{ indent: number; text: string; ordered: boolean }> = []
@@ -236,7 +277,7 @@ function parseMarkdownBlocks(md: string): Block[] {
       continue
     }
 
-    // 8. Párrafo estándar
+    // 9. Párrafo estándar
     blocks.push({
       type: 'paragraph',
       text: trimmed,
@@ -336,6 +377,145 @@ function renderListItems(
   ))
 }
 
+function getCalloutIcon(kind: CalloutKind) {
+  switch (kind) {
+    case 'warning':
+      return '🚨'
+    case 'tip':
+      return '💡'
+    case 'dosage':
+      return '💊'
+    case 'important':
+      return '📋'
+    case 'note':
+      return 'ℹ️'
+  }
+}
+
+function renderBlock(
+  block: Block,
+  key: string | number,
+  onWikiLinkClick: (uuid: string) => void
+): React.ReactNode {
+  switch (block.type) {
+    case 'header': {
+      const Tag = `h${Math.min(block.level, 6)}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
+      return (
+        <Tag key={key} className={`reader-heading h${block.level}`}>
+          {renderFormattedInline(block.text, onWikiLinkClick)}
+        </Tag>
+      )
+    }
+    case 'hr':
+      return <hr key={key} className="reader-hr" />
+    case 'callout':
+      return (
+        <div key={key} className={`reader-callout callout-${block.kind}`}>
+          <div className="callout-header">
+            <span className="callout-icon">{getCalloutIcon(block.kind)}</span>
+            <strong className="callout-title">
+              {renderFormattedInline(block.title, onWikiLinkClick)}
+            </strong>
+          </div>
+          {block.text && (
+            <div className="callout-body">
+              {block.text.split('\n').map((p, pIdx) => (
+                <p key={pIdx} className="callout-paragraph">
+                  {renderFormattedInline(p, onWikiLinkClick)}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    case 'blockquote':
+      return (
+        <blockquote key={key} className="reader-blockquote">
+          {block.text.split('\n').map((p, pIdx) => (
+            <p key={pIdx}>{renderFormattedInline(p, onWikiLinkClick)}</p>
+          ))}
+        </blockquote>
+      )
+    case 'mermaid':
+      return <MermaidViewer key={key} code={block.code} />
+    case 'code':
+      return (
+        <pre key={key} className="reader-code-block">
+          <code>{block.code}</code>
+        </pre>
+      )
+    case 'table':
+      return (
+        <div key={key} className="reader-table-wrapper">
+          <table className="reader-table">
+            <thead>
+              <tr>
+                {block.headers.map((h, hIdx) => (
+                  <th
+                    key={hIdx}
+                    style={{ textAlign: block.alignments?.[hIdx] ?? 'left' }}
+                  >
+                    {renderFormattedInline(h, onWikiLinkClick)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, rIdx) => (
+                <tr key={rIdx}>
+                  {row.map((cell, cIdx) => (
+                    <td
+                      key={cIdx}
+                      style={{ textAlign: block.alignments?.[cIdx] ?? 'left' }}
+                    >
+                      {renderFormattedInline(cell, onWikiLinkClick)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    case 'image':
+      return <AssetImage key={key} src={block.src} alt={block.alt} />
+    case 'list': {
+      const ListTag = block.ordered ? 'ol' : 'ul'
+      return (
+        <ListTag key={key} className="reader-list">
+          {renderListItems(block.items, onWikiLinkClick)}
+        </ListTag>
+      )
+    }
+    case 'columns': {
+      const colCount = Math.min(Math.max(block.columns.length, 1), 4)
+      return (
+        <div
+          key={key}
+          className={`article-columns-grid cols-${colCount}`}
+          style={{ '--col-count': colCount } as React.CSSProperties}
+        >
+          {block.columns.map((colBlocks, colIdx) => (
+            <div key={colIdx} className="article-column-item">
+              {colBlocks.map((childBlock, childIdx) =>
+                renderBlock(childBlock, `${key}-${colIdx}-${childIdx}`, onWikiLinkClick)
+              )}
+            </div>
+          ))}
+        </div>
+      )
+    }
+    case 'paragraph':
+      return (
+        <p key={key} className="reader-paragraph">
+          {renderFormattedInline(block.text, onWikiLinkClick)}
+        </p>
+      )
+    default:
+      return null
+  }
+}
+
 export function ArticleReader({
   markdown,
   onWikiLinkClick,
@@ -362,21 +542,6 @@ export function ArticleReader({
   }
 
   const blocks = useMemo(() => parseMarkdownBlocks(markdown), [markdown])
-
-  const getCalloutIcon = (kind: CalloutKind) => {
-    switch (kind) {
-      case 'warning':
-        return '🚨'
-      case 'tip':
-        return '💡'
-      case 'dosage':
-        return '💊'
-      case 'important':
-        return '📋'
-      case 'note':
-        return 'ℹ️'
-    }
-  }
 
   return (
     <div className={isPrintView ? 'print-reader-container' : 'article-reader-container'}>
@@ -416,107 +581,7 @@ export function ArticleReader({
               : `article-reader-view ${isTwoColumns ? 'layout-two-columns' : 'layout-single-column'}`
           }
         >
-          {blocks.map((block, idx) => {
-            switch (block.type) {
-              case 'header': {
-                const Tag = `h${Math.min(block.level, 6)}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
-                return (
-                  <Tag key={idx} className={`reader-heading h${block.level}`}>
-                    {renderFormattedInline(block.text, onWikiLinkClick)}
-                  </Tag>
-                )
-              }
-              case 'hr':
-                return <hr key={idx} className="reader-hr" />
-              case 'callout':
-                return (
-                  <div key={idx} className={`reader-callout callout-${block.kind}`}>
-                    <div className="callout-header">
-                      <span className="callout-icon">{getCalloutIcon(block.kind)}</span>
-                      <strong className="callout-title">
-                        {renderFormattedInline(block.title, onWikiLinkClick)}
-                      </strong>
-                    </div>
-                    {block.text && (
-                      <div className="callout-body">
-                        {block.text.split('\n').map((p, pIdx) => (
-                          <p key={pIdx} className="callout-paragraph">
-                            {renderFormattedInline(p, onWikiLinkClick)}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              case 'blockquote':
-                return (
-                  <blockquote key={idx} className="reader-blockquote">
-                    {block.text.split('\n').map((p, pIdx) => (
-                      <p key={pIdx}>{renderFormattedInline(p, onWikiLinkClick)}</p>
-                    ))}
-                  </blockquote>
-                )
-              case 'mermaid':
-                return <MermaidViewer key={idx} code={block.code} />
-              case 'code':
-                return (
-                  <pre key={idx} className="reader-code-block">
-                    <code>{block.code}</code>
-                  </pre>
-                )
-              case 'table':
-                return (
-                  <div key={idx} className="reader-table-wrapper">
-                    <table className="reader-table">
-                      <thead>
-                        <tr>
-                          {block.headers.map((h, hIdx) => (
-                            <th
-                              key={hIdx}
-                              style={{ textAlign: block.alignments?.[hIdx] ?? 'left' }}
-                            >
-                              {renderFormattedInline(h, onWikiLinkClick)}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {block.rows.map((row, rIdx) => (
-                          <tr key={rIdx}>
-                            {row.map((cell, cIdx) => (
-                              <td
-                                key={cIdx}
-                                style={{ textAlign: block.alignments?.[cIdx] ?? 'left' }}
-                              >
-                                {renderFormattedInline(cell, onWikiLinkClick)}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )
-              case 'image':
-                return <AssetImage key={idx} src={block.src} alt={block.alt} />
-              case 'list': {
-                const ListTag = block.ordered ? 'ol' : 'ul'
-                return (
-                  <ListTag key={idx} className="reader-list">
-                    {renderListItems(block.items, onWikiLinkClick)}
-                  </ListTag>
-                )
-              }
-              case 'paragraph':
-                return (
-                  <p key={idx} className="reader-paragraph">
-                    {renderFormattedInline(block.text, onWikiLinkClick)}
-                  </p>
-                )
-              default:
-                return null
-            }
-          })}
+          {blocks.map((block, idx) => renderBlock(block, idx, onWikiLinkClick))}
         </div>
       )}
     </div>

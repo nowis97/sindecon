@@ -89,6 +89,7 @@ function App() {
   const { favoriteIds, isFavorite, toggleFavorite } = useFavorites()
   const {
     isConnected: isGoogleConnected,
+    isSessionExpired: isGoogleSessionExpired,
     syncState: googleSyncState,
     lastSyncedAt: googleLastSyncedAt,
     errorMessage: googleErrorMessage,
@@ -477,6 +478,7 @@ function App() {
         </div>
         <SyncIndicator
           isConnected={isGoogleConnected}
+          isSessionExpired={isGoogleSessionExpired}
           syncState={googleSyncState}
           lastSyncedAt={googleLastSyncedAt}
           onClick={() => setIsGoogleModalOpen(true)}
@@ -513,6 +515,7 @@ function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <SyncIndicator
                   isConnected={isGoogleConnected}
+                  isSessionExpired={isGoogleSessionExpired}
                   syncState={googleSyncState}
                   lastSyncedAt={googleLastSyncedAt}
                   onClick={() => setIsGoogleModalOpen(true)}
@@ -761,6 +764,18 @@ function App() {
                                 editorRef.current?.focus()
                               }}
                             />
+                            <button
+                              type="button"
+                              className="btn-toolbar-action btn-insert-columns"
+                              onClick={() => {
+                                const template = '\n\n:::columns\n### Columna 1\n- Contenido...\n\n|||\n\n### Columna 2\n- Contenido...\n:::\n\n'
+                                editorRef.current?.insertAtCursor(template)
+                                editorRef.current?.focus()
+                              }}
+                              title="Insertar bloque de 2 columnas paralelas (:::columns)"
+                            >
+                              ◫ Columnas
+                            </button>
                           </div>
                           <MarkdownEditor
                             key={`${selected.id}-${editorRevision}`}
@@ -877,6 +892,7 @@ function App() {
         isOpen={isGoogleModalOpen}
         onClose={() => setIsGoogleModalOpen(false)}
         isConnected={isGoogleConnected}
+        isSessionExpired={isGoogleSessionExpired}
         syncState={googleSyncState}
         lastSyncedAt={googleLastSyncedAt}
         userEmail={googleUserEmail}

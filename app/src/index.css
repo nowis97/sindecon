@@ -628,6 +628,11 @@ body {
   box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
 }
 
+.sync-status-dot.dot-paused {
+  background-color: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+}
+
 .sync-status-dot.dot-disconnected {
   background-color: #cbd5e1;
 }
@@ -659,9 +664,23 @@ body {
   color: var(--accent-text);
 }
 
+.sync-indicator-chip.sync-status-paused {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.sync-indicator-chip.sync-status-paused:hover {
+  background: rgba(245, 158, 11, 0.1);
+}
+
 .sync-indicator-chip.sync-status-error {
   border-color: rgba(239, 68, 68, 0.4);
   color: #ef4444;
+}
+
+.account-badge-connected.badge-paused {
+  background: rgba(245, 158, 11, 0.15) !important;
+  color: #d97706 !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
 }
 
 /* Portability Footer */
@@ -2213,6 +2232,62 @@ body {
   line-height: 1.45;
   background: var(--bg-muted);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* Bloques Multicolumna :::columns */
+.article-columns-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--col-count, 2), minmax(0, 1fr));
+  gap: 16px;
+  margin: 14px 0;
+  width: 100%;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.article-column-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 6px;
+}
+
+.article-column-item > :first-child {
+  margin-top: 0 !important;
+}
+
+.article-column-item > :last-child {
+  margin-bottom: 0 !important;
+}
+
+@media (max-width: 640px) {
+  .article-columns-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+}
+
+/* Botón de inserción de columnas en Toolbar */
+.btn-insert-columns {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: 6px;
+}
+
+.btn-insert-columns:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
 }
 
 /* Listas con sangría y sub-viñetas */
@@ -4473,9 +4548,22 @@ select.dialog-input {
   .reader-image-figure,
   .reader-code-block,
   .reader-blockquote,
-  .reader-hr {
+  .reader-hr,
+  .article-columns-grid,
+  .article-column-item {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+  }
+
+  .article-columns-grid {
+    display: grid !important;
+    grid-template-columns: repeat(var(--col-count, 2), minmax(0, 1fr)) !important;
+    gap: 12pt !important;
+    margin: 8pt 0 !important;
+  }
+
+  .article-column-item {
+    min-width: 0 !important;
   }
 
   /* Callouts clínicos con colores distintivos */
