@@ -5,7 +5,7 @@ import {
   LanguageSupport,
   StreamLanguage,
 } from '@codemirror/language'
-import type { Editor } from '@milkdown/core'
+import { Editor, editorViewCtx } from '@milkdown/core'
 import type { EditorView } from '@milkdown/prose/view'
 
 import '@milkdown/crepe/theme/common/style.css'
@@ -121,40 +121,53 @@ const hostRef = useRef<HTMLDivElement>(null)
       .addFeature((editor) => editor.use(wikiLinkPlugin(onWikiClickRef.current)))
 
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    let latestMarkdown: string | null = null
 
     crepe.on((listener) => {
       listener.markdownUpdated((_ctx, md) => {
-        // Usamos el nodeId capturado al mount (NO reasignado), para evitar
-        // que un markdownUpdated tardío del editor viejo guarde el body viejo
-        // sobre el contenido recién sembrado del nuevo artículo.
+        latestMarkdown = md
         if (debounceTimer) clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
           onChangeForNode(nodeIdRef.current, md)
+          latestMarkdown = null
         }, 150)
       })
     })
 
     crepe.create().then(() => {
       if (!editorRef) return
-      // El Editor de Milkdown no expone `view` en su tipo público pero
-      // guarda el EditorView de ProseMirror en este getter.
-      const milkdownEditor = (crepe as unknown as { editor: Editor & { view?: EditorView } })
-        .editor
-      const view: EditorView | undefined = milkdownEditor.view
       editorRef.current = {
         insertAtCursor: (text: string) => {
-          if (!view) return
-          const tr = view.state.tr.insertText(text)
-          view.dispatch(tr)
-          view.focus()
+          crepe.editor.action((ctx) => {
+            const view = ctx.get(editorViewCtx)
+            if (!view) return
+            const { from, to } = view.state.selection
+            const tr = view.state.tr.insertText(text, from, to)
+            view.dispatch(tr)
+            view.focus()
+            try {
+              const md = crepe.getMarkdown()
+              latestMarkdown = md
+              onChangeForNode(nodeIdRef.current, md)
+            } catch {}
+          })
         },
-        focus: () => view?.focus(),
+        focus: () => {
+          crepe.editor.action((ctx) => {
+            const view = ctx.get(editorViewCtx)
+            view?.focus()
+          })
+        },
         getMarkdown: () => crepe.getMarkdown(),
       }
     })
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer)
+      if (latestMarkdown !== null) {
+        onChangeForNode(nodeIdRef.current, latestMarkdown)
+        latestMarkdown = null
+      }
       if (editorRef) editorRef.current = null
       crepe.destroy()
     }

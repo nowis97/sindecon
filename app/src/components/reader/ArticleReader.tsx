@@ -81,7 +81,14 @@ function parseListTree(rawLines: Array<{ indent: number; text: string; ordered: 
 
 export function parseMarkdownBlocks(md: string): Block[] {
   if (!md) return []
-  const rawLines = md.split(/\r?\n/)
+  // Normalizar tags <br /> / <br> generados por ProseMirror/Milkdown, espacios y caracteres escapados por Markdown serializer
+  const normalizedMd = md
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\\+:/g, ':')
+    .replace(/\\+\|/g, '|')
+    .replace(/\\+([>#\-*+])/g, '$1')
+  const rawLines = normalizedMd.split(/\r?\n/)
   const blocks: Block[] = []
   let i = 0
 
@@ -175,22 +182,32 @@ export function parseMarkdownBlocks(md: string): Block[] {
       continue
     }
 
-    // 6. Bloques multicolumna (:::columns o :::col con separadores |||)
-    if (/^:::(?:columns?|cols?)/i.test(trimmed)) {
+    // 6. Bloques multicolumna (:::columns, :::columnas, :::col, :::2cols, etc., con separadores |||)
+    if (/^[-*+\s]*\\*:::\s*(?:columns?|columnas?|cols?|\d+\s*cols?|\d+\s*columnas?)/i.test(trimmed)) {
       i++ // saltar línea de apertura
       const columnRawSections: string[][] = [[]]
       let currentColIndex = 0
 
       while (i < rawLines.length) {
         const currLine = rawLines[i]
-        const currTrimmed = currLine.trim()
+        const currTrimmed = currLine.trim().replace(/^[-*+]\s+/, '')
 
-        if (currTrimmed === ':::') {
+        if (
+          currTrimmed === ':::' ||
+          currTrimmed === '\\:\\:\\:' ||
+          /^\\*:::\s*(?:columns?|columnas?|cols?|columnas?)?$/i.test(currTrimmed)
+        ) {
           i++ // saltar línea de cierre
           break
         }
 
-        if (currTrimmed === '|||') {
+        if (
+          /^\\*\|{2,4}\\*$/.test(currTrimmed) ||
+          currTrimmed === '|||' ||
+          currTrimmed === '\\|\\|\\|' ||
+          currTrimmed === '||' ||
+          currTrimmed === '\\|\\|'
+        ) {
           currentColIndex++
           columnRawSections[currentColIndex] = []
           i++

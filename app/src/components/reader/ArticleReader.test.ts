@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { parseMarkdownBlocks } from './ArticleReader'
 
 describe('parseMarkdownBlocks - Bloques Multicolumna (:::columns)', () => {
@@ -115,4 +115,42 @@ Texto columna 2
       expect(blocks[0].columns.length).toBe(2)
     }
   })
+
+  it('soporta markdown serializado por WYSIWYG con tags <br /> o <br>', () => {
+    const md = ':::columns<br />### Diagnóstico Clínico<br />- Criterios Framingham<br />|||<br />### Tratamiento<br />- Diuréticos<br />:::'
+    const blocks = parseMarkdownBlocks(md)
+    expect(blocks.length).toBe(1)
+    expect(blocks[0].type).toBe('columns')
+    if (blocks[0].type === 'columns') {
+      expect(blocks[0].columns.length).toBe(2)
+      expect(blocks[0].columns[0][0]).toEqual({ type: 'header', level: 3, text: 'Diagnóstico Clínico' })
+      expect(blocks[0].columns[0][1].type).toBe('list')
+      expect(blocks[0].columns[1][0]).toEqual({ type: 'header', level: 3, text: 'Tratamiento' })
+      expect(blocks[0].columns[1][1].type).toBe('list')
+    }
+  })
+
+  it('soporta variantes en español y escapes de colons/pipes (:::columnas, \\:\\:\\:, \\|\\|\\|)', () => {
+    const md = `
+\\\\:\\\\:\\\\:columnas
+### Col A
+Dato 1
+
+\\\\|\\\\|\\\\|
+
+### Col B
+Dato 2
+\\\\:\\\\:\\\\:
+`.trim()
+
+    const blocks = parseMarkdownBlocks(md)
+    expect(blocks.length).toBe(1)
+    expect(blocks[0].type).toBe('columns')
+    if (blocks[0].type === 'columns') {
+      expect(blocks[0].columns.length).toBe(2)
+      expect(blocks[0].columns[0][0]).toEqual({ type: 'header', level: 3, text: 'Col A' })
+      expect(blocks[0].columns[1][0]).toEqual({ type: 'header', level: 3, text: 'Col B' })
+    }
+  })
 })
+
