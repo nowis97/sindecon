@@ -6,7 +6,6 @@ import {
   StreamLanguage,
 } from '@codemirror/language'
 import { Editor, editorViewCtx } from '@milkdown/core'
-import type { EditorView } from '@milkdown/prose/view'
 
 import '@milkdown/crepe/theme/common/style.css'
 import '@milkdown/crepe/theme/frame.css'

@@ -9,6 +9,7 @@ interface GoogleDriveModalProps {
   isOpen: boolean
   onClose: () => void
   isConnected: boolean
+  isSessionExpired?: boolean
   syncState: SyncState
   lastSyncedAt: Date | null
   userEmail: string | null
@@ -23,6 +24,7 @@ export function GoogleDriveModal({
   isOpen,
   onClose,
   isConnected,
+  isSessionExpired = false,
   syncState,
   lastSyncedAt,
   userEmail,
@@ -99,7 +101,9 @@ export function GoogleDriveModal({
                     Espacio privado: <code>appDataFolder</code>
                   </span>
                 </div>
-                <span className="account-badge-connected">Conectado</span>
+                <span className={`account-badge-connected ${isSessionExpired ? 'badge-paused' : ''}`}>
+                  {isSessionExpired ? 'Sesión en pausa' : 'Conectado'}
+                </span>
               </div>
 
               <div className="sync-status-details-box">
@@ -112,7 +116,9 @@ export function GoogleDriveModal({
                         ? '⚪ Sin conexión (Offline-First)'
                         : syncState === 'error'
                           ? '🔴 Error en sincronización'
-                          : '🟢 Al día y sincronizado'}
+                          : isSessionExpired
+                            ? '🟡 Sesión en pausa (token expirado)'
+                            : '🟢 Al día y sincronizado'}
                   </strong>
                 </div>
                 <div className="sync-detail-row">
@@ -125,6 +131,24 @@ export function GoogleDriveModal({
                 </div>
               </div>
 
+              {isSessionExpired && (
+                <div
+                  className="dialog-info-box"
+                  style={{
+                    margin: '12px 0',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-muted)',
+                    border: '1px solid var(--border-subtle)',
+                    fontSize: '0.82rem',
+                    lineHeight: '1.4',
+                    color: 'var(--text-secondary)',
+                  }}
+                >
+                  ℹ️ Tu sesión temporal de Google Drive ha expirado. Tus notas están 100% seguras y guardadas en este dispositivo. Puedes reconectar cuando desees sincronizar tus cambios con la nube.
+                </div>
+              )}
+
               {errorMessage && (
                 <div className="dialog-error-text">
                   ⚠️ {errorMessage}
@@ -132,16 +156,26 @@ export function GoogleDriveModal({
               )}
 
               <div className="gdrive-actions-row">
-                <button
-                  type="button"
-                  className="btn-dialog-primary"
-                  onClick={onTriggerSync}
-                  disabled={syncState === 'syncing'}
-                >
-                  {syncState === 'syncing'
-                    ? 'Sincronizando…'
-                    : '🔄 Sincronizar ahora'}
-                </button>
+                {isSessionExpired ? (
+                  <button
+                    type="button"
+                    className="btn-dialog-primary"
+                    onClick={onInitiateOAuth}
+                  >
+                    🔑 Reconectar y sincronizar
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-dialog-primary"
+                    onClick={onTriggerSync}
+                    disabled={syncState === 'syncing'}
+                  >
+                    {syncState === 'syncing'
+                      ? 'Sincronizando…'
+                      : '🔄 Sincronizar ahora'}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-dialog-danger"

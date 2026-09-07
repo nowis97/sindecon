@@ -161,4 +161,24 @@ describe('syncEngine (Google Drive Local-First Sync)', () => {
       }),
     )
   })
+
+  it('gestiona la expiración de tokens sin borrar la cuenta y sin requerir reconexión invasiva', () => {
+    // 1. Guardar token temporal
+    gdrive.setStoredToken('temp-access-token', 3600, 'dr.house@hospital.org')
+    expect(gdrive.isGoogleSyncEnabled()).toBe(true)
+    expect(gdrive.getStoredEmail()).toBe('dr.house@hospital.org')
+    expect(gdrive.getStoredToken()).toBe('temp-access-token')
+    expect(gdrive.isTokenExpired(0)).toBe(false)
+
+    // 2. Invalidación no destructiva (por 401 o expiración): no borra email ni enabled flag
+    gdrive.clearStoredToken(false)
+    expect(gdrive.getStoredToken()).toBe(null)
+    expect(gdrive.isGoogleSyncEnabled()).toBe(true)
+    expect(gdrive.getStoredEmail()).toBe('dr.house@hospital.org')
+
+    // 3. Desconexión explícita del usuario: borra toda la configuración
+    gdrive.clearStoredToken(true)
+    expect(gdrive.isGoogleSyncEnabled()).toBe(false)
+    expect(gdrive.getStoredEmail()).toBe(null)
+  })
 })

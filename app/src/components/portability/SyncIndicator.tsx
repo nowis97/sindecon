@@ -2,6 +2,7 @@ import type { SyncState } from '../../pwa/syncEngine'
 
 interface SyncIndicatorProps {
   isConnected: boolean
+  isSessionExpired?: boolean
   syncState: SyncState
   lastSyncedAt: Date | null
   onClick: () => void
@@ -9,6 +10,7 @@ interface SyncIndicatorProps {
 
 export function SyncIndicator({
   isConnected,
+  isSessionExpired = false,
   syncState,
   lastSyncedAt,
   onClick,
@@ -19,6 +21,14 @@ export function SyncIndicator({
         status: 'disconnected',
         label: 'Drive',
         title: 'Google Drive no conectado. Haz click para activar sincronización y backup automático.',
+      }
+    }
+
+    if (isSessionExpired) {
+      return {
+        status: 'paused',
+        label: 'Drive',
+        title: 'Sesión de Google Drive en pausa (token temporal expirado). Haz clic para reconectar y sincronizar cuando lo desees.',
       }
     }
 
