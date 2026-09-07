@@ -7,6 +7,7 @@ interface PortabilityBarProps {
   onOpenGoogleDriveSync?: () => void
   onInstallPwa?: () => void
   canInstallPwa?: boolean
+  onBulkImportMarkdown?: () => void
 }
 
 /** Export a zip / import con fusión (spec data-portability) + acceso a nube e instalación PWA. */
@@ -14,6 +15,7 @@ export function PortabilityBar({
   onOpenGoogleDriveSync,
   onInstallPwa,
   canInstallPwa,
+  onBulkImportMarkdown,
 }: PortabilityBarProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -63,10 +65,20 @@ export function PortabilityBar({
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={busy}
-          title="Importar y fusionar datos desde un archivo .zip"
+          title="Importar y fusionar backup completo desde un archivo .zip de SINDECON"
         >
-          Importar
+          Importar backup
         </button>
+        {onBulkImportMarkdown && (
+          <button
+            type="button"
+            onClick={onBulkImportMarkdown}
+            disabled={busy}
+            title="Importación masiva de archivos Markdown (.md) y carpetas"
+          >
+            📥 Importar .md
+          </button>
+        )}
         {onOpenGoogleDriveSync && (
           <button
             type="button"

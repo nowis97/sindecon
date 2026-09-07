@@ -9,6 +9,7 @@ export interface FolderExplorerViewProps {
   onCreateArticle: (folderId: string) => void
   onCreateSubfolder: (folderId: string) => void
   onSmartImport: (folderId: string) => void
+  onBulkImport?: (folderId: string) => void
   onToggleFavorite?: (id: string) => void
   favoriteIds?: string[]
   onMoveNodeDirect?: (nodeId: string, targetFolderId: string | null) => Promise<void>
@@ -21,6 +22,7 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
   onCreateArticle,
   onCreateSubfolder,
   onSmartImport,
+  onBulkImport,
   onToggleFavorite,
   favoriteIds = [],
   onMoveNodeDirect,
@@ -87,6 +89,17 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
             <span>🪄</span>
             <span>Importar de ChatGPT/Word</span>
           </button>
+
+          {onBulkImport && (
+            <button
+              type="button"
+              className="btn-folder-action secondary"
+              onClick={() => onBulkImport(folderNode.id)}
+            >
+              <span>📥</span>
+              <span>Importar Archivos .md</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -113,6 +126,15 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
             >
               📁 Crear Primera Subcarpeta
             </button>
+            {onBulkImport && (
+              <button
+                type="button"
+                className="btn-folder-action secondary"
+                onClick={() => onBulkImport(folderNode.id)}
+              >
+                📥 Importar Archivos .md
+              </button>
+            )}
           </div>
         </div>
       ) : (

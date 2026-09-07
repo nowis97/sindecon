@@ -18,6 +18,8 @@ import { MarkdownEditor, type MarkdownEditorHandle } from './components/editor/M
 import { ArticleReader } from './components/reader/ArticleReader'
 import { QuickCapture } from './components/capture/QuickCapture'
 import { SmartImportModal } from './components/editor/SmartImportModal'
+import { BulkImportModal } from './components/portability/BulkImportModal'
+import type { BulkImportResult } from './db/bulkArticles'
 import { StudyModal } from './components/flashcards/StudyModal'
 import { ArticleFlashcardsModal } from './components/flashcards/ArticleFlashcardsModal'
 import { AiSettingsModal } from './components/settings/AiSettingsModal'
@@ -110,6 +112,8 @@ function App() {
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false)
   const [isSmartImportOpen, setIsSmartImportOpen] = useState(false)
   const [smartImportFolderId, setSmartImportFolderId] = useState<string | null>(null)
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
+  const [bulkImportFolderId, setBulkImportFolderId] = useState<string | null>(null)
   const [promptState, setPromptState] = useState<PromptState>(null)
   const [deleteState, setDeleteState] = useState<DeleteState>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -325,6 +329,26 @@ function App() {
   const handleOpenSmartImport = (folderId?: string | null) => {
     setSmartImportFolderId(folderId !== undefined ? folderId : null)
     setIsSmartImportOpen(true)
+  }
+
+  const handleOpenBulkImport = (folderId?: string | null) => {
+    setBulkImportFolderId(folderId !== undefined ? folderId : null)
+    setIsBulkImportOpen(true)
+  }
+
+  const handleBulkImportComplete = (result: BulkImportResult) => {
+    const parts: string[] = []
+    if (result.importedCount > 0) {
+      parts.push(`${result.importedCount} ${result.importedCount === 1 ? 'artículo importado' : 'artículos importados'}`)
+    }
+    if (result.updatedCount > 0) {
+      parts.push(`${result.updatedCount} ${result.updatedCount === 1 ? 'artículo actualizado' : 'artículos actualizados'}`)
+    }
+    if (result.skippedCount > 0) {
+      parts.push(`${result.skippedCount} ${result.skippedCount === 1 ? 'omitido' : 'omitidos'}`)
+    }
+    const summary = parts.length > 0 ? parts.join(', ') : 'No se importaron notas'
+    setToastMessage(`📥 ${summary}`)
   }
 
   const handlePromptConfirm = async (value: string) => {
@@ -624,6 +648,7 @@ function App() {
             onOpenGoogleDriveSync={() => setIsGoogleModalOpen(true)}
             onInstallPwa={triggerInstallPwa}
             canInstallPwa={canInstallPwa}
+            onBulkImportMarkdown={() => handleOpenBulkImport(null)}
           />
 
           <TreeView
@@ -647,6 +672,7 @@ function App() {
               handleOpenCreatePrompt(kind, parentId)
             }
             onSmartImport={(folderId) => handleOpenSmartImport(folderId)}
+            onBulkImport={(folderId) => handleOpenBulkImport(folderId)}
             favoriteIds={favoriteIds}
             onToggleFavorite={toggleFavorite}
           />
@@ -675,6 +701,7 @@ function App() {
                   onCreateArticle={(folderId) => handleOpenCreatePrompt('article', folderId)}
                   onCreateSubfolder={(folderId) => handleOpenCreatePrompt('folder', folderId)}
                   onSmartImport={(folderId) => handleOpenSmartImport(folderId)}
+                  onBulkImport={(folderId) => handleOpenBulkImport(folderId)}
                   onToggleFavorite={toggleFavorite}
                   favoriteIds={favoriteIds}
                   onMoveNodeDirect={handleMoveNodeDirect}
@@ -885,6 +912,18 @@ function App() {
         onReplaceCurrentArticle={handleReplaceCurrentArticle}
         onCreateNewArticle={handleCreateNewArticle}
         onSaveToInbox={handleSaveToInbox}
+      />
+
+      {/* Modal de Importación Masiva de Archivos Markdown y Carpetas */}
+      <BulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => {
+          setIsBulkImportOpen(false)
+          setBulkImportFolderId(null)
+        }}
+        targetFolderId={bulkImportFolderId ?? (selected?.kind === 'folder' ? selected.id : null)}
+        nodes={nodes}
+        onImportComplete={handleBulkImportComplete}
       />
 
       {/* Modal de Configuración y Estado de Google Drive */}

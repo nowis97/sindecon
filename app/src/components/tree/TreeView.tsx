@@ -18,6 +18,7 @@ interface TreeViewProps {
   onDeleteNode?: (id: string) => void
   onCreateChild?: (parentId: string, kind: 'folder' | 'article') => void
   onSmartImport?: (folderId: string) => void
+  onBulkImport?: (folderId: string) => void
   favoriteIds?: string[]
   onToggleFavorite?: (id: string) => void
 }
@@ -35,6 +36,7 @@ export function TreeView({
   onDeleteNode,
   onCreateChild,
   onSmartImport,
+  onBulkImport,
   favoriteIds = [],
   onToggleFavorite,
 }: TreeViewProps) {
@@ -517,6 +519,19 @@ export function TreeView({
                             }}
                           >
                             🪄 Importar aquí
+                          </button>
+                        )}
+                        {onBulkImport && (
+                          <button
+                            type="button"
+                            className="context-menu-item"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setActiveMenuId(null)
+                              onBulkImport(node.id)
+                            }}
+                          >
+                            📥 Importar archivos .md
                           </button>
                         )}
                         <hr className="context-menu-divider" />

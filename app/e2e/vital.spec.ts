@@ -827,4 +827,100 @@ UCI
     await expect(printDoc.locator('.article-columns-grid')).toBeVisible()
     await page.emulateMedia({ media: null })
   })
+
+  test('21. Importación masiva de archivos Markdown y carpetas (spec: bulk-markdown-import)', async ({ page }) => {
+    // 1. Crear carpeta destino Infectología
+    await page.getByRole('button', { name: '+ Carpeta' }).click()
+    const folderInput = page.locator('.dialog-input')
+    await expect(folderInput).toBeVisible()
+    await folderInput.fill('Infectología')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    const infectoFolder = page.locator('.tree-row', { hasText: 'Infectología' })
+    await expect(infectoFolder).toBeVisible()
+    await infectoFolder.click()
+
+    // 2. Abrir modal de importación masiva desde FolderExplorerView
+    const btnBulkImport = page.locator('.folder-hero-actions button', { hasText: 'Importar Archivos .md' })
+    await expect(btnBulkImport).toBeVisible()
+    await btnBulkImport.click()
+
+    // 3. Verificar modal abierto y carpeta preseleccionada
+    const bulkModal = page.locator('.bulk-import-modal')
+    await expect(bulkModal).toBeVisible()
+    await expect(bulkModal.locator('h3')).toContainText('Importación Masiva de Archivos Markdown')
+
+    // 4. Simular carga de archivos Markdown con metadatos Frontmatter y H1
+    const file1 = {
+      name: 'meningitis_aguda.md',
+      mimeType: 'text/markdown',
+      buffer: Buffer.from(`---
+title: Meningitis Bacteriana Aguda
+tags: [urgencias, infectología, lcr]
+---
+# Manejo Clínico de Meningitis
+Administrar Ceftriaxona 2g IV cada 12h + Vancomicina y Dexametasona previa al antibiótico.
+`),
+    }
+
+    const file2 = {
+      name: 'shock_septico.md',
+      mimeType: 'text/markdown',
+      buffer: Buffer.from(`# Choque Séptico y Resucitación
+Iniciar fluidoterapia con Cristaloides 30 ml/kg y Noradrenalina si PAM < 65 mmHg.
+`),
+    }
+
+    const file3 = {
+      name: 'celulitis_infecciosa.markdown',
+      mimeType: 'text/markdown',
+      buffer: Buffer.from(`Tratamiento ambulatorio con Cefadroxilo o Cloxacilina según sospecha de S. aureus o Streptococcus.`),
+    }
+
+    const fileInput = bulkModal.locator('input[type="file"]').first()
+    await fileInput.setInputFiles([file1, file2, file3])
+
+    // 5. Verificar previsualización del lote
+    const previewList = bulkModal.locator('.bulk-import-preview')
+    await expect(previewList).toBeVisible()
+    await expect(previewList).toContainText('3 notas detectadas')
+    await expect(previewList).toContainText('Meningitis Bacteriana Aguda')
+    await expect(previewList).toContainText('#urgencias')
+    await expect(previewList).toContainText('Choque Séptico y Resucitación')
+    await expect(previewList).toContainText('Celulitis Infecciosa')
+
+    // 6. Ejecutar importación
+    const btnConfirmImport = bulkModal.locator('.btn-dialog-primary', { hasText: 'Importar 3 Notas' })
+    await expect(btnConfirmImport).toBeEnabled()
+    await btnConfirmImport.click()
+
+    // 7. Verificar que el modal se cierra y los artículos aparecen en la vista de carpeta
+    await expect(bulkModal).not.toBeVisible()
+
+    const articleCards = page.locator('.folder-explorer-section .article-card-item')
+    await expect(articleCards).toHaveCount(3)
+    await expect(page.locator('.article-card-item', { hasText: 'Meningitis Bacteriana Aguda' })).toBeVisible()
+    await expect(page.locator('.article-card-item', { hasText: 'Choque Séptico y Resucitación' })).toBeVisible()
+    await expect(page.locator('.article-card-item', { hasText: 'Celulitis Infecciosa' })).toBeVisible()
+
+    // 8. Abrir uno de los artículos importados y verificar Modo Lector
+    await page.locator('.article-card-item', { hasText: 'Meningitis Bacteriana Aguda' }).click()
+    await expect(page.locator('.article-title')).toHaveText('Meningitis Bacteriana Aguda')
+
+    const btnLector = page.locator('button.btn-mode', { hasText: '👁 Lector' })
+    await btnLector.click()
+
+    const readerView = page.locator('.article-reader-view')
+    await expect(readerView).toBeVisible()
+    await expect(readerView).toContainText('Manejo Clínico de Meningitis')
+    await expect(readerView).toContainText('Ceftriaxona 2g IV')
+
+    // 9. Verificar que las etiquetas importadas están presentes en la cabecera
+    const tagPills = page.locator('.tag-input .chip')
+    await expect(tagPills).toHaveCount(3)
+    await expect(tagPills.nth(0)).toContainText('urgencias')
+    await expect(tagPills.nth(1)).toContainText('infectología')
+    await expect(tagPills.nth(2)).toContainText('lcr')
+  })
 })
+
