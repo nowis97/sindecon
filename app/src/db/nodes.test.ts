@@ -8,6 +8,7 @@ import {
   moveNode,
   deleteNodeCascade,
   deduplicateSystemNodes,
+  sortChildrenInFolder,
 } from './nodes'
 
 beforeEach(async () => {
@@ -162,5 +163,26 @@ describe('capa de datos: nodos', () => {
       (n) => n.kind === 'article' && n.title === 'Patología / Enfermedad' && n.deleted_at === null,
     )
     expect(livePatologia).toHaveLength(1)
+  })
+
+  it('sortChildrenInFolder actualiza atómicamente el campo order de los hijos según orden alfabético A-Z', async () => {
+    const folder = await createNode({ kind: 'folder', title: 'Farmacología' })
+    await createNode({ kind: 'article', title: 'Zumo', parent_id: folder.id })
+    await createNode({ kind: 'article', title: 'Amoxicilina', parent_id: folder.id })
+    await createNode({ kind: 'article', title: 'Ciprofloxacino', parent_id: folder.id })
+
+    // Orden inicial por inserción
+    let children = await listChildren(folder.id)
+    expect(children.map((c) => c.title)).toEqual(['Zumo', 'Amoxicilina', 'Ciprofloxacino'])
+
+    // Reordenar alfabéticamente A-Z
+    const updatedCount = await sortChildrenInFolder(folder.id, 'alpha-asc')
+    expect(updatedCount).toBeGreaterThan(0)
+
+    children = await listChildren(folder.id)
+    expect(children.map((c) => c.title)).toEqual(['Amoxicilina', 'Ciprofloxacino', 'Zumo'])
+    expect(children[0].order).toBe(0)
+    expect(children[1].order).toBe(1)
+    expect(children[2].order).toBe(2)
   })
 })

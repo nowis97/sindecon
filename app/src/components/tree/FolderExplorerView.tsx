@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import type { NodeRow } from '../../db/db'
-import { childrenOf, canMove } from '../../domain/tree'
+import { childrenOf, canMove, sortNodesBy, type SortCriteria } from '../../domain/tree'
 
 export interface FolderExplorerViewProps {
   folderNode: NodeRow
@@ -10,6 +10,7 @@ export interface FolderExplorerViewProps {
   onCreateSubfolder: (folderId: string) => void
   onSmartImport: (folderId: string) => void
   onBulkImport?: (folderId: string) => void
+  onSortFolderAlphabetically?: (folderId: string) => void
   onToggleFavorite?: (id: string) => void
   favoriteIds?: string[]
   onMoveNodeDirect?: (nodeId: string, targetFolderId: string | null) => Promise<void>
@@ -23,16 +24,25 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
   onCreateSubfolder,
   onSmartImport,
   onBulkImport,
+  onSortFolderAlphabetically,
   onToggleFavorite,
   favoriteIds = [],
   onMoveNodeDirect,
 }) => {
   const [dragOverSubfolderId, setDragOverSubfolderId] = useState<string | null>(null)
-  const directChildren = childrenOf(nodes, folderNode.id)
-  const subfolders = directChildren.filter((n) => n.kind === 'folder')
-  const articles = directChildren.filter((n) => n.kind === 'article')
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria>('manual')
 
-  const totalFavs = articles.filter((a) => favoriteIds.includes(a.id)).length
+  const directChildren = childrenOf(nodes, folderNode.id)
+  const subfolders = useMemo(
+    () => sortNodesBy(directChildren.filter((n) => n.kind === 'folder'), sortCriteria, false),
+    [directChildren, sortCriteria]
+  )
+  const articles = useMemo(
+    () => sortNodesBy(directChildren.filter((n) => n.kind === 'article'), sortCriteria, false),
+    [directChildren, sortCriteria]
+  )
+
+  const totalFavs = directChildren.filter((a) => a.kind === 'article' && favoriteIds.includes(a.id)).length
 
   return (
     <div className="folder-explorer-container">
@@ -100,6 +110,18 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
               <span>Importar Archivos .md</span>
             </button>
           )}
+
+          {onSortFolderAlphabetically && directChildren.length > 1 && (
+            <button
+              type="button"
+              className="btn-folder-action secondary btn-sort-folder"
+              onClick={() => onSortFolderAlphabetically(folderNode.id)}
+              title="Reordenar permanentemente los elementos de esta carpeta en orden alfabético A-Z"
+            >
+              <span>🔤</span>
+              <span>Ordenar A-Z</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -139,6 +161,52 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
         </div>
       ) : (
         <div className="folder-explorer-content-sections">
+          {/* Barra de opciones de ordenamiento de vista */}
+          <div
+            className="folder-sort-bar"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 8,
+              marginBottom: 12,
+            }}
+          >
+            <label
+              htmlFor="folder-sort-select"
+              style={{
+                fontSize: '0.84rem',
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontWeight: 500,
+              }}
+            >
+              <span>Vista:</span>
+              <select
+                id="folder-sort-select"
+                value={sortCriteria}
+                onChange={(e) => setSortCriteria(e.target.value as SortCriteria)}
+                className="folder-sort-select"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '4px 10px',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  width: 'auto',
+                }}
+              >
+                <option value="manual">Personalizado (Árbol)</option>
+                <option value="alpha-asc">Alfabético (A-Z)</option>
+                <option value="alpha-desc">Alfabético (Z-A)</option>
+                <option value="recent">Más recientes</option>
+              </select>
+            </label>
+          </div>
           {/* Sección de Subcarpetas */}
           {subfolders.length > 0 && (
             <section className="folder-explorer-section">

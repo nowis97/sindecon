@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { NodeRow } from '../db/db'
-import { collectDescendantIds, canMove, pathTo, childrenOf } from './tree'
+import { collectDescendantIds, canMove, pathTo, childrenOf, sortNodesBy } from './tree'
 
 let seq = 0
 function n(id: string, parent_id: string | null, order = 0): NodeRow {
@@ -69,5 +69,65 @@ describe('domain/tree', () => {
     const all = [...rows, artTarget]
     expect(canMove(all, 'D', 'art-target')).toBe(false)
     expect(canMove(all, 'D', 'A')).toBe(true)
+  })
+
+  describe('sortNodesBy', () => {
+    it('ordena alfabéticamente A-Z respetando acentos y secuencias numéricas en español', () => {
+      const list: NodeRow[] = [
+        { ...n('1', 'p'), kind: 'article', title: 'Zumo de naranja', order: 0 },
+        { ...n('2', 'p'), kind: 'article', title: 'Ácido acetilsalicílico', order: 1 },
+        { ...n('3', 'p'), kind: 'article', title: 'Aciclovir', order: 2 },
+        { ...n('4', 'p'), kind: 'article', title: 'Fármaco 10', order: 3 },
+        { ...n('5', 'p'), kind: 'article', title: 'Fármaco 2', order: 4 },
+      ]
+
+      const sorted = sortNodesBy(list, 'alpha-asc')
+      expect(sorted.map((x) => x.title)).toEqual([
+        'Aciclovir',
+        'Ácido acetilsalicílico',
+        'Fármaco 2',
+        'Fármaco 10',
+        'Zumo de naranja',
+      ])
+    })
+
+    it('ordena alfabéticamente Z-A en orden inverso', () => {
+      const list: NodeRow[] = [
+        { ...n('1', 'p'), kind: 'article', title: 'Beta' },
+        { ...n('2', 'p'), kind: 'article', title: 'Alfa' },
+        { ...n('3', 'p'), kind: 'article', title: 'Gamma' },
+      ]
+
+      const sorted = sortNodesBy(list, 'alpha-desc')
+      expect(sorted.map((x) => x.title)).toEqual(['Gamma', 'Beta', 'Alfa'])
+    })
+
+    it('ordena por fecha de modificación más reciente', () => {
+      const list: NodeRow[] = [
+        { ...n('1', 'p'), kind: 'article', title: 'Viejo', updated_at: 1000 },
+        { ...n('2', 'p'), kind: 'article', title: 'Nuevo', updated_at: 5000 },
+        { ...n('3', 'p'), kind: 'article', title: 'Medio', updated_at: 3000 },
+      ]
+
+      const sorted = sortNodesBy(list, 'recent')
+      expect(sorted.map((x) => x.title)).toEqual(['Nuevo', 'Medio', 'Viejo'])
+    })
+
+    it('mantiene las carpetas agrupadas antes de los artículos si groupFoldersFirst es true', () => {
+      const list: NodeRow[] = [
+        { ...n('1', 'p'), kind: 'article', title: 'Asma' },
+        { ...n('2', 'p'), kind: 'folder', title: 'Z-Carpeta' },
+        { ...n('3', 'p'), kind: 'folder', title: 'A-Carpeta' },
+        { ...n('4', 'p'), kind: 'article', title: 'Bronquitis' },
+      ]
+
+      const sorted = sortNodesBy(list, 'alpha-asc', true)
+      expect(sorted.map((x) => x.title)).toEqual([
+        'A-Carpeta',
+        'Z-Carpeta',
+        'Asma',
+        'Bronquitis',
+      ])
+    })
   })
 })

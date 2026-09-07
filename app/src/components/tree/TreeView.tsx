@@ -19,6 +19,7 @@ interface TreeViewProps {
   onCreateChild?: (parentId: string, kind: 'folder' | 'article') => void
   onSmartImport?: (folderId: string) => void
   onBulkImport?: (folderId: string) => void
+  onSortFolderAlphabetically?: (folderId: string) => void
   favoriteIds?: string[]
   onToggleFavorite?: (id: string) => void
 }
@@ -37,6 +38,7 @@ export function TreeView({
   onCreateChild,
   onSmartImport,
   onBulkImport,
+  onSortFolderAlphabetically,
   favoriteIds = [],
   onToggleFavorite,
 }: TreeViewProps) {
@@ -532,6 +534,19 @@ export function TreeView({
                             }}
                           >
                             📥 Importar archivos .md
+                          </button>
+                        )}
+                        {onSortFolderAlphabetically && (
+                          <button
+                            type="button"
+                            className="context-menu-item"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setActiveMenuId(null)
+                              onSortFolderAlphabetically(node.id)
+                            }}
+                          >
+                            🔤 Ordenar alfabéticamente (A-Z)
                           </button>
                         )}
                         <hr className="context-menu-divider" />

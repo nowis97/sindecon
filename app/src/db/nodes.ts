@@ -1,5 +1,5 @@
 import { db, type NodeRow, type NodeKind, type SystemMarker } from './db'
-import { canMove, collectDescendantIds } from '../domain/tree'
+import { canMove, collectDescendantIds, sortNodesBy } from '../domain/tree'
 
 export function newId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -218,4 +218,41 @@ export async function deleteNodeCascade(id: string): Promise<number> {
     }
   })
   return ids.length
+}
+
+/**
+ * Reordena atómicamente en IndexedDB todos los hijos vivos de una carpeta
+ * según el criterio especificado (por defecto alfabético A-Z).
+ * Actualiza el campo `order` ordinal (0, 1, 2...) y `updated_at`.
+ */
+export async function sortChildrenInFolder(
+  parentId: string | null,
+  criteria: 'alpha-asc' | 'alpha-desc' = 'alpha-asc',
+  groupFoldersFirst = true
+): Promise<number> {
+  const now = Date.now()
+  let updatedCount = 0
+
+  await db.transaction('rw', db.nodes, async () => {
+    const liveChildren = await db.nodes
+      .filter((n) => n.parent_id === parentId && n.deleted_at === null)
+      .toArray()
+
+    if (liveChildren.length <= 1) return
+
+    const sorted = sortNodesBy(liveChildren, criteria, groupFoldersFirst)
+
+    for (let index = 0; index < sorted.length; index++) {
+      const item = sorted[index]
+      if (item.order !== index) {
+        await db.nodes.update(item.id, {
+          order: index,
+          updated_at: now,
+        })
+        updatedCount++
+      }
+    }
+  })
+
+  return updatedCount
 }

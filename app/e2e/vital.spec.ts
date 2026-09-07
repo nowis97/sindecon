@@ -922,5 +922,77 @@ Iniciar fluidoterapia con Cristaloides 30 ml/kg y Noradrenalina si PAM < 65 mmHg
     await expect(tagPills.nth(1)).toContainText('infectología')
     await expect(tagPills.nth(2)).toContainText('lcr')
   })
+
+  test('22. Ordenamiento alfabético opcional de artículos en carpetas (spec: knowledge-tree)', async ({ page }) => {
+    // 1. Crear carpeta Farmacología Clínica
+    await page.getByRole('button', { name: '+ Carpeta' }).click()
+    const folderInput = page.locator('.dialog-input')
+    await expect(folderInput).toBeVisible()
+    await folderInput.fill('Farmacología Clínica')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    const farmacoFolder = page.locator('.tree-row', { hasText: 'Farmacología Clínica' })
+    await expect(farmacoFolder).toBeVisible()
+    await farmacoFolder.click()
+
+    // 2. Crear 3 artículos en orden no alfabético
+    const titles = ['Zidovudina', 'Amoxicilina', 'Ciprofloxacino']
+    for (const title of titles) {
+      await page.locator('.btn-folder-action', { hasText: 'Nuevo Artículo' }).click()
+      const artInput = page.locator('.dialog-input')
+      await expect(artInput).toBeVisible()
+      await artInput.fill(title)
+      await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+      // Volver a la carpeta
+      await farmacoFolder.click()
+    }
+
+    // 3. Verificar orden inicial manual en la vista de carpeta
+    let cardTitles = await page.locator('.article-card-item-title').allInnerTexts()
+    expect(cardTitles).toEqual(['Zidovudina', 'Amoxicilina', 'Ciprofloxacino'])
+
+    // 4. Cambiar criterio de ordenación temporal a Alfabético (A-Z)
+    const sortSelect = page.locator('#folder-sort-select')
+    await expect(sortSelect).toBeVisible()
+    await sortSelect.selectOption('alpha-asc')
+
+    cardTitles = await page.locator('.article-card-item-title').allInnerTexts()
+    expect(cardTitles).toEqual(['Amoxicilina', 'Ciprofloxacino', 'Zidovudina'])
+
+    // 5. Cambiar a Alfabético (Z-A)
+    await sortSelect.selectOption('alpha-desc')
+    cardTitles = await page.locator('.article-card-item-title').allInnerTexts()
+    expect(cardTitles).toEqual(['Zidovudina', 'Ciprofloxacino', 'Amoxicilina'])
+
+    // 6. Volver a modo Manual y aplicar botón permanente "Ordenar A-Z"
+    await sortSelect.selectOption('manual')
+    const btnSortPermanent = page.locator('.btn-sort-folder')
+    await expect(btnSortPermanent).toBeVisible()
+    await btnSortPermanent.click()
+
+    // 7. Verificar toast de confirmación y persistencia
+    await expect(page.locator('.toast-message')).toContainText('ordenados alfabéticamente')
+    await expect(page.locator('.article-card-item-title').first()).toHaveText('Amoxicilina')
+
+    cardTitles = await page.locator('.article-card-item-title').allInnerTexts()
+    expect(cardTitles).toEqual(['Amoxicilina', 'Ciprofloxacino', 'Zidovudina'])
+
+    // 8. Verificar que en el árbol de navegación también están ordenados A-Z
+    // Si la carpeta está colapsada, desplegarla con el chevron
+    const folderChevron = page.locator('.tree-folder-row', { hasText: 'Farmacología Clínica' }).locator('.tree-folder-chevron')
+    if (await folderChevron.isVisible()) {
+      const isCollapsed = await folderChevron.evaluate((el) => el.classList.contains('collapsed'))
+      if (isCollapsed) {
+        await folderChevron.click()
+      }
+    }
+
+    const treeArticles = page.locator('.tree-folder-row', { hasText: 'Farmacología Clínica' })
+      .locator('xpath=following-sibling::div')
+      .locator('.tree-article-row .tree-title')
+    const treeTitles = await treeArticles.allInnerTexts()
+    expect(treeTitles).toEqual(['Amoxicilina', 'Ciprofloxacino', 'Zidovudina'])
+  })
 })
+
 

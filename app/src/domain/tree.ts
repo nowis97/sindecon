@@ -83,3 +83,42 @@ export function childrenOf(rows: NodeRow[], parentId: string | null): NodeRow[] 
     .filter((n) => n.parent_id === parentId && n.deleted_at === null)
     .sort((a, b) => a.order - b.order)
 }
+
+export type SortCriteria = 'manual' | 'alpha-asc' | 'alpha-desc' | 'recent'
+
+const esCollator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' })
+
+/**
+ * Ordena una lista de nodos según el criterio especificado.
+ * Por defecto, en orden alfabético y reciente mantiene las carpetas primero y luego los artículos,
+ * ordenando cada subgrupo internamente.
+ */
+export function sortNodesBy(
+  nodes: NodeRow[],
+  criteria: SortCriteria = 'manual',
+  groupFoldersFirst = true
+): NodeRow[] {
+  if (criteria === 'manual') {
+    return [...nodes].sort((a, b) => a.order - b.order)
+  }
+
+  return [...nodes].sort((a, b) => {
+    // 1. Agrupar carpetas primero si está activo
+    if (groupFoldersFirst && a.kind !== b.kind) {
+      return a.kind === 'folder' ? -1 : 1
+    }
+
+    // 2. Aplicar criterio de ordenamiento
+    if (criteria === 'alpha-asc') {
+      return esCollator.compare(a.title, b.title)
+    }
+    if (criteria === 'alpha-desc') {
+      return esCollator.compare(b.title, a.title)
+    }
+    if (criteria === 'recent') {
+      return (b.updated_at || 0) - (a.updated_at || 0)
+    }
+
+    return a.order - b.order
+  })
+}

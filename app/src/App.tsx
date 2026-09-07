@@ -52,6 +52,7 @@ import {
   moveNode,
   deleteNodeCascade,
   deduplicateSystemNodes,
+  sortChildrenInFolder,
 } from './db/nodes'
 import { saveArticle } from './db/articles'
 import { ensureInboxFolder } from './db/inbox'
@@ -439,6 +440,16 @@ function App() {
     }
   }
 
+  const handleSortFolderAlphabetically = async (folderId: string) => {
+    try {
+      const folder = nodes.find((n) => n.id === folderId)
+      await sortChildrenInFolder(folderId, 'alpha-asc')
+      setToastMessage(`🔤 Elementos de "${folder?.title || 'Carpeta'}" ordenados alfabéticamente (A-Z)`)
+    } catch (e) {
+      setErrorMessage((e as Error).message || 'Error al ordenar la carpeta')
+    }
+  }
+
   // --- Handlers de Importación Inteligente (ChatGPT / Word) ---
   const handleAppendToCurrentArticle = async (articleId: string, additionalMarkdown: string) => {
     const art = await db.articles.get(articleId)
@@ -673,6 +684,7 @@ function App() {
             }
             onSmartImport={(folderId) => handleOpenSmartImport(folderId)}
             onBulkImport={(folderId) => handleOpenBulkImport(folderId)}
+            onSortFolderAlphabetically={handleSortFolderAlphabetically}
             favoriteIds={favoriteIds}
             onToggleFavorite={toggleFavorite}
           />
@@ -702,6 +714,7 @@ function App() {
                   onCreateSubfolder={(folderId) => handleOpenCreatePrompt('folder', folderId)}
                   onSmartImport={(folderId) => handleOpenSmartImport(folderId)}
                   onBulkImport={(folderId) => handleOpenBulkImport(folderId)}
+                  onSortFolderAlphabetically={handleSortFolderAlphabetically}
                   onToggleFavorite={toggleFavorite}
                   favoriteIds={favoriteIds}
                   onMoveNodeDirect={handleMoveNodeDirect}
