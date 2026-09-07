@@ -548,6 +548,15 @@ export function ArticleReader({
     }
   })
 
+  const [isJustified, setIsJustified] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('sindecon_reader_text_align')
+      return saved !== null ? saved === 'justify' : true
+    } catch {
+      return true
+    }
+  })
+
   const toggleColumns = () => {
     setIsTwoColumns((prev) => {
       const next = !prev
@@ -558,12 +567,32 @@ export function ArticleReader({
     })
   }
 
+  const toggleAlignment = () => {
+    setIsJustified((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem('sindecon_reader_text_align', next ? 'justify' : 'left')
+      } catch {}
+      return next
+    })
+  }
+
   const blocks = useMemo(() => parseMarkdownBlocks(markdown), [markdown])
+  const alignmentClass = isJustified ? 'text-justified' : 'text-left'
 
   return (
     <div className={isPrintView ? 'print-reader-container' : 'article-reader-container'}>
       {!isPrintView && (
         <div className="reader-toolbar-row">
+          <button
+            type="button"
+            className={`btn-reader-align-toggle ${isJustified ? 'active' : ''}`}
+            onClick={toggleAlignment}
+            title={isJustified ? 'Cambiar a alineación izquierda' : 'Cambiar a texto justificado'}
+          >
+            {isJustified ? '↔️ Justificado' : '⬅️ Izquierda'}
+          </button>
+
           <button
             type="button"
             className={`btn-reader-layout-toggle ${isTwoColumns ? 'active' : ''}`}
@@ -587,15 +616,15 @@ export function ArticleReader({
       )}
 
       {!markdown.trim() ? (
-        <div className={isPrintView ? 'print-reader-view empty' : 'article-reader-view empty'}>
+        <div className={isPrintView ? `print-reader-view empty ${alignmentClass}` : `article-reader-view empty ${alignmentClass}`}>
           <p className="muted empty-reader">Este artículo está vacío. Toca "Editar" para redactar contenido.</p>
         </div>
       ) : (
         <div
           className={
             isPrintView
-              ? 'print-reader-view'
-              : `article-reader-view ${isTwoColumns ? 'layout-two-columns' : 'layout-single-column'}`
+              ? `print-reader-view ${alignmentClass}`
+              : `article-reader-view ${isTwoColumns ? 'layout-two-columns' : 'layout-single-column'} ${alignmentClass}`
           }
         >
           {blocks.map((block, idx) => renderBlock(block, idx, onWikiLinkClick))}

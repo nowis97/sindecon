@@ -154,3 +154,50 @@ Dato 2
   })
 })
 
+describe('parseMarkdownBlocks - Párrafos y Bloques Estándar para Modo Lector', () => {
+  it('parsea correctamente párrafos estándar, citas y listas ordenadas/desordenadas', () => {
+    const md = `
+# Insuficiencia Cardíaca
+
+La insuficiencia cardíaca es un síndrome clínico complejo caracterizado por anomalías estructurales o funcionales del corazón.
+
+> Criterio clínico fundamental: presencia de síntomas típicos acompañados de signos cardinales.
+
+- Disnea de esfuerzo
+- Ortopnea
+- Edema maleolar bilateral
+
+1. Solicitar ecocardiograma transtorácico
+2. Medir biomarcadores NT-proBNP
+`.trim()
+
+    const blocks = parseMarkdownBlocks(md)
+    expect(blocks.length).toBe(5)
+    expect(blocks[0]).toEqual({ type: 'header', level: 1, text: 'Insuficiencia Cardíaca' })
+    expect(blocks[1].type).toBe('paragraph')
+    expect(blocks[2].type).toBe('blockquote')
+    expect(blocks[3].type).toBe('list')
+    expect((blocks[3] as any).ordered).toBe(false)
+    expect(blocks[4].type).toBe('list')
+    expect((blocks[4] as any).ordered).toBe(true)
+  })
+
+  it('parsea callouts clínicos (warning, tip, dosage, note)', () => {
+    const md = `
+> [!WARNING] Criterios de Alarma
+> Ingreso inmediato si PAS < 90 mmHg.
+
+> [!DOSIS] Furosemida
+> 20 a 40 mg IV inicial.
+`.trim()
+
+    const blocks = parseMarkdownBlocks(md)
+    expect(blocks.length).toBe(2)
+    expect(blocks[0].type).toBe('callout')
+    expect((blocks[0] as any).kind).toBe('warning')
+    expect(blocks[1].type).toBe('callout')
+    expect((blocks[1] as any).kind).toBe('dosage')
+  })
+})
+
+

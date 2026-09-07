@@ -2101,9 +2101,12 @@ body {
 .reader-toolbar-row {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
 }
 
+.btn-reader-align-toggle,
 .btn-reader-layout-toggle {
   display: inline-flex;
   align-items: center;
@@ -2120,6 +2123,7 @@ body {
   box-shadow: var(--shadow-subtle);
 }
 
+.btn-reader-align-toggle:hover,
 .btn-reader-layout-toggle:hover {
   background: var(--bg-card-hover);
   color: var(--text-primary);
@@ -2127,6 +2131,7 @@ body {
   transform: translateY(-1px);
 }
 
+.btn-reader-align-toggle.active,
 .btn-reader-layout-toggle.active {
   background: var(--accent-surface);
   color: var(--accent-primary);
@@ -2201,6 +2206,25 @@ body {
   margin-bottom: 9px;
   line-height: 1.48;
 }
+
+/* Justificación tipográfica en modo lector */
+.article-reader-view.text-justified .reader-paragraph,
+.article-reader-view.text-justified .reader-blockquote p,
+.article-reader-view.text-justified .callout-paragraph,
+.article-reader-view.text-justified .reader-list li,
+.article-reader-view.text-justified .article-column-item .reader-paragraph,
+.article-reader-view.text-justified .article-column-item p,
+.print-reader-view.text-justified .reader-paragraph,
+.print-reader-view.text-justified .reader-blockquote p,
+.print-reader-view.text-justified .callout-paragraph,
+.print-reader-view.text-justified .reader-list li {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  word-break: break-word;
+}
+
 /* Prevención de corte de bloques en columnas */
 .article-reader-view .reader-heading,
 .article-reader-view .reader-callout,

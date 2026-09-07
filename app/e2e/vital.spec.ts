@@ -993,6 +993,70 @@ Iniciar fluidoterapia con Cristaloides 30 ml/kg y Noradrenalina si PAM < 65 mmHg
     const treeTitles = await treeArticles.allInnerTexts()
     expect(treeTitles).toEqual(['Amoxicilina', 'Ciprofloxacino', 'Zidovudina'])
   })
+
+  test('23. Justificación de texto en modo lector y persistencia de alineación (spec: content-editing)', async ({ page }) => {
+    // 1. Crear un artículo de prueba
+    await page.getByRole('button', { name: '+ Artículo' }).click()
+    const input = page.locator('.dialog-input')
+    await expect(input).toBeVisible()
+    await input.fill('Guía de Hipertensión Arterial')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+    await expect(page.locator('.article-title')).toHaveText('Guía de Hipertensión Arterial')
+
+    // 2. Cambiar a modo Editor e importar contenido clínico con párrafos y callouts
+    await page.locator('.btn-mode', { hasText: 'Editor' }).click()
+    const btnImport = page.locator('.btn-smart-import-trigger')
+    await expect(btnImport).toBeVisible()
+    await btnImport.click()
+
+    const importModal = page.locator('.smart-import-modal')
+    await expect(importModal).toBeVisible()
+    await importModal.locator('input[value="replace"]').check()
+    await importModal.locator('.smart-import-textarea').fill(`# Hipertensión Arterial Esencial
+
+La hipertensión arterial constituye uno de los principales factores de riesgo modificables para enfermedad cardiovascular, accidente cerebrovascular e insuficiencia renal crónica.
+
+> Criterio diagnóstico: Presión arterial sistólica sostenida mayor o igual a 140 mmHg o diastólica mayor o igual a 90 mmHg.
+
+> [!WARNING] Emergencia Hipertensiva
+> Cifras tensionales severas con daño agudo a órgano diana requieren manejo en UCI con fármacos parenterales continuos.
+
+- Monitorización ambulatoria de presión arterial (MAPA)
+- Modificación en el estilo de vida y restricción de sodio
+`)
+    await importModal.locator('.btn-dialog-primary', { hasText: 'Aplicar Importación' }).click()
+    await expect(importModal).not.toBeVisible()
+
+    // 3. Cambiar a modo Lector
+    await page.locator('.btn-mode', { hasText: 'Lector' }).click()
+    const readerView = page.locator('.article-reader-view')
+    await expect(readerView).toBeVisible()
+
+    // 4. Verificar que por defecto cuenta con la clase .text-justified
+    await expect(readerView).toHaveClass(/text-justified/)
+
+    const alignBtn = page.locator('.btn-reader-align-toggle')
+    await expect(alignBtn).toBeVisible()
+    await expect(alignBtn).toContainText('Justificado')
+
+    // 5. Alternar alineación a la izquierda
+    await alignBtn.click()
+    await expect(readerView).toHaveClass(/text-left/)
+    await expect(alignBtn).toContainText('Izquierda')
+
+    // 6. Recargar, seleccionar el artículo y verificar persistencia en localStorage
+    await page.reload()
+    const artItem = page.locator('.tree-row', { hasText: 'Guía de Hipertensión Arterial' })
+    await expect(artItem).toBeVisible()
+    await artItem.click()
+    await expect(page.locator('.article-reader-view')).toHaveClass(/text-left/)
+
+    // 7. Volver a alternar a Justificado
+    await page.locator('.btn-reader-align-toggle').click()
+    await expect(page.locator('.article-reader-view')).toHaveClass(/text-justified/)
+  })
 })
+
+
 
 
