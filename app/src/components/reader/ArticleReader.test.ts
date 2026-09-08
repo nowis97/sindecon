@@ -198,6 +198,58 @@ La insuficiencia cardíaca es un síndrome clínico complejo caracterizado por a
     expect(blocks[1].type).toBe('callout')
     expect((blocks[1] as any).kind).toBe('dosage')
   })
+
+  it('parsea correctamente bloques de imágenes médicas standalone', () => {
+    const md = `
+# Radiología de Tórax
+
+![FIGURA 51-3 Radiografía de tórax en IC](asset://image-rx-thorax-123)
+
+Párrafo posterior a la imagen.
+`.trim()
+
+    const blocks = parseMarkdownBlocks(md)
+    expect(blocks.length).toBe(3)
+    expect(blocks[0]).toEqual({ type: 'header', level: 1, text: 'Radiología de Tórax' })
+    expect(blocks[1]).toEqual({
+      type: 'image',
+      alt: 'FIGURA 51-3 Radiografía de tórax en IC',
+      src: 'asset://image-rx-thorax-123',
+    })
+    expect(blocks[2].type).toBe('paragraph')
+  })
+
+  it('parsea imágenes médicas dentro de bloques de columnas paralelas (:::columns)', () => {
+    const md = `
+:::columns
+### Panel A
+![Rx A](asset://panel-a)
+
+|||
+
+### Panel B
+![Rx B](asset://panel-b)
+:::
+`.trim()
+
+    const blocks = parseMarkdownBlocks(md)
+    expect(blocks.length).toBe(1)
+    expect(blocks[0].type).toBe('columns')
+    if (blocks[0].type === 'columns') {
+      expect(blocks[0].columns.length).toBe(2)
+      expect(blocks[0].columns[0][1]).toEqual({
+        type: 'image',
+        alt: 'Rx A',
+        src: 'asset://panel-a',
+      })
+      expect(blocks[0].columns[1][1]).toEqual({
+        type: 'image',
+        alt: 'Rx B',
+        src: 'asset://panel-b',
+      })
+    }
+  })
 })
+
 
 

@@ -2225,6 +2225,31 @@ body {
   word-break: break-word;
 }
 
+/* Figuras e Imágenes Médicas en Modo Lector */
+.reader-image-figure {
+  margin: 18px auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  max-width: 100%;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.reader-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-subtle);
+  background: var(--bg-card);
+}
+
 /* Prevención de corte de bloques en columnas */
 .article-reader-view .reader-heading,
 .article-reader-view .reader-callout,
@@ -2234,10 +2259,12 @@ body {
 .article-reader-view .reader-list,
 .article-reader-view .reader-blockquote,
 .article-reader-view .reader-paragraph,
+.article-reader-view .reader-image-figure,
 .article-reader-view .reader-hr {
   break-inside: avoid;
   page-break-inside: avoid;
 }
+
 
 /* Línea divisoria horizontal */
 .reader-hr {
@@ -4589,6 +4616,31 @@ select.dialog-input {
   .article-column-item {
     min-width: 0 !important;
   }
+
+  /* Figuras e Imágenes Médicas centradas en PDF / impresión */
+  .reader-image-figure {
+    margin: 10pt auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+    max-width: 100% !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .reader-image {
+    display: block !important;
+    max-width: 100% !important;
+    height: auto !important;
+    object-fit: contain !important;
+    margin: 0 auto !important;
+    border-radius: 4pt !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+  }
+
 
   /* Callouts clínicos con colores distintivos */
   .reader-callout {

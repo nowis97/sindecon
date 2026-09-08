@@ -8,7 +8,6 @@ interface AssetImageProps {
 
 export function AssetImage({ src, alt }: AssetImageProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
-  const [isZoomed, setIsZoomed] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -38,23 +37,8 @@ export function AssetImage({ src, alt }: AssetImageProps) {
   }
 
   return (
-    <>
-      <div className="reader-image-wrapper" onClick={() => setIsZoomed(true)}>
-        <img src={blobUrl} alt={alt || 'Imagen médica'} className="reader-image" />
-        <span className="image-zoom-hint">🔍 Toca para ampliar</span>
-      </div>
-
-      {isZoomed && (
-        <div className="image-zoom-modal" onClick={() => setIsZoomed(false)}>
-          <div className="image-zoom-content" onClick={(e) => e.stopPropagation()}>
-            <button className="btn-close-zoom" onClick={() => setIsZoomed(false)}>
-              ✕
-            </button>
-            <img src={blobUrl} alt={alt || 'Imagen médica ampliada'} className="zoomed-full-image" />
-            {alt && <p className="image-caption">{alt}</p>}
-          </div>
-        </div>
-      )}
-    </>
+    <figure className="reader-image-figure">
+      <img src={blobUrl} alt={alt || 'Imagen médica'} className="reader-image" />
+    </figure>
   )
 }

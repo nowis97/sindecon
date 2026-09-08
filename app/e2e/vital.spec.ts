@@ -1055,7 +1055,74 @@ La hipertensión arterial constituye uno de los principales factores de riesgo m
     await page.locator('.btn-reader-align-toggle').click()
     await expect(page.locator('.article-reader-view')).toHaveClass(/text-justified/)
   })
+
+  test('24. Imágenes centradas, adaptadas a 2 columnas y sin opción de zoom (spec: content-editing)', async ({ page }) => {
+    // 1. Crear artículo con imagen médica
+    await page.getByRole('button', { name: '+ Artículo' }).click()
+    const input = page.locator('.dialog-input')
+    await expect(input).toBeVisible()
+    await input.fill('Radiografía de Tórax en IC')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+    await expect(page.locator('.article-title')).toHaveText('Radiografía de Tórax en IC')
+
+    // 2. Importar markdown con imagen mediante Smart Import
+    await page.locator('.btn-mode', { hasText: 'Editor' }).click()
+    const btnImport = page.locator('.btn-smart-import-trigger')
+    await expect(btnImport).toBeVisible()
+    await btnImport.click()
+
+    const importModal = page.locator('.smart-import-modal')
+    await expect(importModal).toBeVisible()
+    await importModal.locator('input[value="replace"]').check()
+    await importModal.locator('.smart-import-textarea').fill(`# Radiografía de Tórax
+
+La radiografía de tórax en proyección posteroanterior permite evaluar el índice cardiotorácico y el patrón alveolar.
+
+![FIGURA 51-3 Radiografía de tórax en la valoración de la IC](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9QzwAEjDAGYzUAAIpJA/0+0nJFAAAAAElFTkSuQmCC)
+
+Párrafo posterior a la radiografía médica.
+`)
+    await importModal.locator('.btn-dialog-primary', { hasText: 'Aplicar Importación' }).click()
+    await expect(importModal).not.toBeVisible()
+
+    // 3. Cambiar a modo Lector
+    await page.locator('.btn-mode', { hasText: 'Lector' }).click()
+    const readerView = page.locator('.article-reader-view')
+    await expect(readerView).toBeVisible()
+
+    // 4. Verificar contenedor semántico .reader-image-figure e imagen .reader-image
+    const imageFigure = page.locator('.article-reader-view .reader-image-figure')
+    await expect(imageFigure).toBeVisible()
+
+    const readerImg = imageFigure.locator('.reader-image')
+    await expect(readerImg).toBeVisible()
+    await expect(readerImg).toHaveAttribute('alt', 'FIGURA 51-3 Radiografía de tórax en la valoración de la IC')
+
+    // 5. Verificar que NO existe la pista de zoom ni texto de ampliar
+    await expect(page.locator('.image-zoom-hint')).toHaveCount(0)
+    await expect(page.getByText('Toca para ampliar')).toHaveCount(0)
+
+    // 6. Hacer clic sobre la imagen y comprobar que NO se abre ningún modal
+    await readerImg.click()
+    await expect(page.locator('.image-zoom-modal')).toHaveCount(0)
+
+    // 7. Probar en maquetación a 2 Columnas
+    const layoutBtn = page.locator('.btn-reader-layout-toggle')
+    await expect(layoutBtn).toBeVisible()
+
+    // Si no está en 2 columnas, activar
+    const isAlreadyTwoCols = await readerView.evaluate((el) => el.classList.contains('layout-two-columns'))
+    if (!isAlreadyTwoCols) {
+      await layoutBtn.click()
+      await expect(readerView).toHaveClass(/layout-two-columns/)
+    }
+
+    // Comprobar que la imagen sigue visible y contenida sin desbordar
+    await expect(imageFigure).toBeVisible()
+    await expect(readerImg).toBeVisible()
+  })
 })
+
 
 
 
