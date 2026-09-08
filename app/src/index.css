@@ -1936,6 +1936,30 @@ body {
   animation: star-pop 0.35s var(--ease-bounce);
 }
 
+.btn-article-rename {
+  background: none;
+  border: none;
+  font-size: 1.15rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  transition: transform var(--dur-fast) var(--ease-spring), color var(--dur-fast) var(--ease-smooth), opacity var(--dur-fast) var(--ease-smooth);
+  user-select: none;
+  opacity: 0.75;
+}
+
+.btn-article-rename:hover {
+  transform: scale(1.18);
+  color: var(--accent-primary);
+  opacity: 1;
+}
+
+.btn-article-rename:active {
+  transform: scale(0.92);
+}
+
 .article-header-actions-group {
   display: flex;
   align-items: center;
@@ -8022,6 +8046,34 @@ select.dialog-input {
 
 .article-sheet-icon {
   font-size: 0.85rem;
+}
+
+.article-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-card-rename {
+  background: transparent;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  opacity: 0.75;
+  transition: transform 0.15s ease, opacity 0.15s ease, color 0.15s ease;
+}
+
+.btn-card-rename:hover {
+  transform: scale(1.18);
+  opacity: 1;
+  color: var(--accent-primary);
+}
+
+.btn-card-rename:active {
+  transform: scale(0.92);
 }
 
 .btn-card-fav {

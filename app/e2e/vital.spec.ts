@@ -1121,6 +1121,66 @@ Párrafo posterior a la radiografía médica.
     await expect(imageFigure).toBeVisible()
     await expect(readerImg).toBeVisible()
   })
+
+  test('25. Renombrar artículo desde la cabecera y desde tarjeta en vista de carpeta (spec: knowledge-tree)', async ({ page }) => {
+    // 1. Crear carpeta
+    await page.getByRole('button', { name: '+ Carpeta' }).click()
+    const folderInput = page.locator('.dialog-input')
+    await expect(folderInput).toBeVisible()
+    await folderInput.fill('Nefrología')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    const nefroFolder = page.locator('.tree-row', { hasText: 'Nefrología' })
+    await expect(nefroFolder).toBeVisible()
+
+    // 2. Crear artículo dentro de la carpeta
+    await nefroFolder.click()
+    await page.getByRole('button', { name: '+ Artículo' }).click()
+    const articleInput = page.locator('.dialog-input')
+    await expect(articleInput).toBeVisible()
+    await articleInput.fill('Insuficiencia Renal Aguda')
+    await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
+
+    // 3. Verificar artículo abierto y botón de renombrar en la cabecera
+    await expect(page.locator('.article-title')).toHaveText('Insuficiencia Renal Aguda')
+    const btnHeaderRename = page.locator('.btn-article-rename')
+    await expect(btnHeaderRename).toBeVisible()
+
+    // 4. Renombrar desde la cabecera
+    await btnHeaderRename.click()
+    const renameInput = page.locator('.dialog-input')
+    await expect(renameInput).toBeVisible()
+    await expect(renameInput).toHaveValue('Insuficiencia Renal Aguda')
+    await renameInput.fill('Lesión Renal Aguda (LRA)')
+    await page.locator('.btn-dialog-primary', { hasText: 'Renombrar' }).click()
+    await expect(renameInput).not.toBeVisible()
+
+    // 5. Verificar que el título se actualizó en la cabecera y en el árbol
+    await expect(page.locator('.article-title')).toHaveText('Lesión Renal Aguda (LRA)')
+    await expect(page.locator('.tree-row', { hasText: 'Lesión Renal Aguda (LRA)' })).toBeVisible()
+
+    // 6. Navegar a la carpeta contenedora Nefrología para ver el FolderExplorerView
+    await nefroFolder.click()
+    await expect(page.locator('.folder-hero-title')).toHaveText('Nefrología')
+    const articleCard = page.locator('.article-card-item', { hasText: 'Lesión Renal Aguda (LRA)' })
+    await expect(articleCard).toBeVisible()
+
+    // 7. Renombrar desde la tarjeta en FolderExplorerView
+    const btnCardRename = articleCard.locator('.btn-card-rename')
+    await expect(btnCardRename).toBeVisible()
+    await btnCardRename.click()
+
+    // Verificar que abrió el modal con el título actual y no navegó al artículo
+    await expect(renameInput).toBeVisible()
+    await expect(renameInput).toHaveValue('Lesión Renal Aguda (LRA)')
+    await renameInput.fill('Injuria Renal Aguda (AKIN)')
+    await page.locator('.btn-dialog-primary', { hasText: 'Renombrar' }).click()
+    await expect(renameInput).not.toBeVisible()
+
+    // 8. Verificar que la tarjeta en FolderExplorerView se actualizó con el nuevo nombre
+    await expect(page.locator('.article-card-item-title', { hasText: 'Injuria Renal Aguda (AKIN)' })).toBeVisible()
+    await expect(page.locator('.tree-row', { hasText: 'Injuria Renal Aguda (AKIN)' })).toBeVisible()
+  })
 })
 
 

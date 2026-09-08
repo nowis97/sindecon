@@ -12,6 +12,7 @@ export interface FolderExplorerViewProps {
   onBulkImport?: (folderId: string) => void
   onSortFolderAlphabetically?: (folderId: string) => void
   onToggleFavorite?: (id: string) => void
+  onRenameNode?: (id: string) => void
   favoriteIds?: string[]
   onMoveNodeDirect?: (nodeId: string, targetFolderId: string | null) => Promise<void>
 }
@@ -26,6 +27,7 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
   onBulkImport,
   onSortFolderAlphabetically,
   onToggleFavorite,
+  onRenameNode,
   favoriteIds = [],
   onMoveNodeDirect,
 }) => {
@@ -320,20 +322,36 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
                           <span>Ficha Médica</span>
                         </div>
 
-                        {onToggleFavorite && (
-                          <button
-                            type="button"
-                            className={`btn-card-fav ${isFav ? 'active' : ''}`}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onToggleFavorite(art.id)
-                            }}
-                            title={isFav ? 'Quitar de favoritos' : 'Anclar a favoritos'}
-                            aria-label="Favorito"
-                          >
-                            {isFav ? '⭐' : '☆'}
-                          </button>
-                        )}
+                        <div className="article-card-actions">
+                          {onRenameNode && (
+                            <button
+                              type="button"
+                              className="btn-card-rename"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onRenameNode(art.id)
+                              }}
+                              title="Renombrar artículo"
+                              aria-label="Renombrar artículo"
+                            >
+                              ✏️
+                            </button>
+                          )}
+                          {onToggleFavorite && (
+                            <button
+                              type="button"
+                              className={`btn-card-fav ${isFav ? 'active' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onToggleFavorite(art.id)
+                              }}
+                              title={isFav ? 'Quitar de favoritos' : 'Anclar a favoritos'}
+                              aria-label="Favorito"
+                            >
+                              {isFav ? '⭐' : '☆'}
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <h3 className="article-card-item-title">{art.title}</h3>

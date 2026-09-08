@@ -716,6 +716,7 @@ function App() {
                   onBulkImport={(folderId) => handleOpenBulkImport(folderId)}
                   onSortFolderAlphabetically={handleSortFolderAlphabetically}
                   onToggleFavorite={toggleFavorite}
+                  onRenameNode={(id) => handleOpenRenamePrompt(id)}
                   favoriteIds={favoriteIds}
                   onMoveNodeDirect={handleMoveNodeDirect}
                 />
@@ -724,6 +725,15 @@ function App() {
                   <div className="article-header-row">
                     <div className="article-title-wrapper">
                       <h1 className="article-title">{selected.title}</h1>
+                      <button
+                        type="button"
+                        className="btn-article-rename"
+                        onClick={() => handleOpenRenamePrompt(selected.id)}
+                        title="Renombrar artículo"
+                        aria-label="Renombrar artículo"
+                      >
+                        ✏️
+                      </button>
                       <button
                         type="button"
                         className={`btn-fav-star ${isFavorite(selected.id) ? 'active' : ''}`}
