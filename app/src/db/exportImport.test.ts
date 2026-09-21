@@ -187,6 +187,35 @@ describe('export/import portable', () => {
     expect(report2.nodesUpdated).toBe(1)
   })
 
+  it('importa correctamente un zip con assets binarios reales usando uint8array', async () => {
+    const { fa } = await seedTree()
+    const assetId = 'test-asset-123'
+    const testBlob = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: 'image/png' })
+    await db.assets.add({
+      id: assetId,
+      node_id: fa.id,
+      blob: testBlob,
+      mime: 'image/png',
+    })
+    await saveArticle(fa.id, `# FA\n\n![ECG](asset://${assetId})`)
+
+    const zip = await buildExportZip()
+    expect(Object.keys(zip.files)).toContain(`assets/${assetId}.png`)
+
+    const exportedBytes = await zip.generateAsync({ type: 'uint8array' })
+
+    await clearDb()
+    const report = await importFromZip(exportedBytes)
+    expect(report.nodesAdded).toBe(5)
+    expect(report.articlesAdded).toBe(2)
+
+    const importedAssets = await db.assets.toArray()
+    expect(importedAssets).toHaveLength(1)
+    expect(importedAssets[0].id).toBe(assetId)
+    expect(importedAssets[0].mime).toBe('image/png')
+    expect(importedAssets[0].blob.size).toBe(8)
+  })
+
   it('rechaza formatos con versión desconocida', async () => {
     await seedTree()
     const zip = await buildExportZip()

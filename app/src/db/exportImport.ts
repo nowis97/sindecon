@@ -260,8 +260,8 @@ export async function importFromZip(
     const id = dot === -1 ? name : name.slice(0, dot)
     const ext = dot === -1 ? '' : name.slice(dot + 1)
     const mime = extToMime(ext)
-    const buf = await zip.file(path)!.async('nodebuffer')
-    incomingAssets.push({ id, node_id: '', blob: new Blob([new Uint8Array(buf)], { type: mime }), mime })
+    const buf = await zip.file(path)!.async('uint8array')
+    incomingAssets.push({ id, node_id: '', blob: new Blob([buf as BlobPart], { type: mime }), mime })
   }
   for (const asset of incomingAssets) {
     const owner = incomingArticles.find((a) => a.body_md.includes(`asset://${asset.id}`))
