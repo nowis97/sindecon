@@ -619,11 +619,21 @@ export function ArticleReader({
   }
 
   const blocks = useMemo(() => parseMarkdownBlocks(markdown), [markdown])
+  const isPdfArticle = useMemo(
+    () => blocks.length > 0 && blocks.some((b) => b.type === 'pdf'),
+    [blocks],
+  )
   const alignmentClass = isJustified ? 'text-justified' : 'text-left'
 
   return (
-    <div className={isPrintView ? 'print-reader-container' : 'article-reader-container'}>
-      {!isPrintView && (
+    <div
+      className={
+        isPrintView
+          ? 'print-reader-container'
+          : `article-reader-container ${isPdfArticle ? 'pdf-container-full' : ''}`
+      }
+    >
+      {!isPrintView && !isPdfArticle && (
         <div className="reader-toolbar-row">
           <button
             type="button"
@@ -665,7 +675,7 @@ export function ArticleReader({
           className={
             isPrintView
               ? `print-reader-view ${alignmentClass}`
-              : `article-reader-view ${isTwoColumns ? 'layout-two-columns' : 'layout-single-column'} ${alignmentClass}`
+              : `article-reader-view ${isPdfArticle ? 'pdf-mode' : isTwoColumns ? 'layout-two-columns' : 'layout-single-column'} ${isPdfArticle ? '' : alignmentClass}`
           }
         >
           {blocks.map((block, idx) => renderBlock(block, idx, onWikiLinkClick, articleTitle))}

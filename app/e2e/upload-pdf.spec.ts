@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test'
 
+const VALID_MINIMAL_PDF = Buffer.from(
+  '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000101 00000 n \ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF',
+)
+
 test.describe('Subida y visualización de documentos PDF', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
@@ -32,13 +36,13 @@ test.describe('Subida y visualización de documentos PDF', () => {
     await expect(modal).toBeVisible()
     await expect(modal.locator('select option:checked')).toContainText('Documentación Médica')
 
-    // 4. Cargar un archivo PDF simulado mediante el input de archivo
+    // 4. Cargar un archivo PDF válido mediante el input de archivo
     const fileInput = modal.locator('input[type="file"]')
     await fileInput.setInputFiles([
       {
         name: 'algoritmo_rcp_soporte_vital.pdf',
         mimeType: 'application/pdf',
-        buffer: Buffer.from('%PDF-1.4 Mock PDF Content for Testing\n%%EOF'),
+        buffer: VALID_MINIMAL_PDF,
       },
     ])
 
@@ -58,7 +62,14 @@ test.describe('Subida y visualización de documentos PDF', () => {
     // 7. El modal se cierra y el artículo se selecciona automáticamente
     await expect(modal).not.toBeVisible()
 
-    // 8. Verificar que el visor de PDF se renderiza en el área de lectura
+    // 8. Verificar que el contenedor se expande a pantalla completa y se ocultan los botones de justificado, columnas y exportar
+    await expect(page.locator('.article-container.article-container-pdf')).toBeVisible()
+    await expect(page.locator('.article-reader-container.pdf-container-full')).toBeVisible()
+    await expect(page.locator('.btn-reader-align-toggle')).not.toBeVisible()
+    await expect(page.locator('.btn-reader-layout-toggle')).not.toBeVisible()
+    await expect(page.locator('.btn-reader-export-pdf')).not.toBeVisible()
+
+    // Verificar que el visor de PDF se renderiza en el área de lectura
     const pdfViewer = page.locator('main.content .pdf-document-viewer')
     await expect(pdfViewer).toBeVisible({ timeout: 10000 })
 
@@ -68,11 +79,11 @@ test.describe('Subida y visualización de documentos PDF', () => {
     )
     await expect(pdfViewer.locator('.pdf-viewer-toolbar .btn-pdf-download')).toBeVisible()
     await expect(pdfViewer.locator('.pdf-viewer-toolbar .btn-pdf-open')).toBeVisible()
+    await expect(pdfViewer.locator('.btn-pdf-zoom').first()).toBeVisible()
 
-    // Comprobar el tag <object> del visor nativo
-    const pdfObject = pdfViewer.locator('object.pdf-viewer-object')
-    await expect(pdfObject).toBeVisible()
-    await expect(pdfObject).toHaveAttribute('type', 'application/pdf')
+    // Comprobar que el canvas de la página PDF se renderizó
+    const pdfCanvas = pdfViewer.locator('.pdf-page-canvas')
+    await expect(pdfCanvas).toBeVisible({ timeout: 10000 })
 
     // 9. Renombrar el artículo desde la cabecera
     const renameBtn = page.locator('.btn-article-rename')
@@ -118,17 +129,17 @@ test.describe('Subida y visualización de documentos PDF', () => {
       {
         name: 'asma_pediatrica.pdf',
         mimeType: 'application/pdf',
-        buffer: Buffer.from('%PDF-1.4 PDF 1\n%%EOF'),
+        buffer: VALID_MINIMAL_PDF,
       },
       {
         name: 'deshidratacion_infantil.pdf',
         mimeType: 'application/pdf',
-        buffer: Buffer.from('%PDF-1.4 PDF 2\n%%EOF'),
+        buffer: VALID_MINIMAL_PDF,
       },
       {
         name: 'descartar_archivo.pdf',
         mimeType: 'application/pdf',
-        buffer: Buffer.from('%PDF-1.4 PDF 3\n%%EOF'),
+        buffer: VALID_MINIMAL_PDF,
       },
     ])
 

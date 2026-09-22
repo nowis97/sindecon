@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import {
   useAllNodes,
   useArticle,
@@ -326,6 +326,15 @@ function App() {
       ? selected.id
       : selected.parent_id
     : null
+
+  const isPdfArticle = useMemo(() => {
+    if (selected?.kind !== 'article' || !currentBody) return false
+    const trimmed = currentBody.trim()
+    return (
+      /^!?\[pdf(?::\s*.*?)?\]\(asset:\/\/[^)]+\)$/i.test(trimmed) ||
+      /^!?\[.*?\.pdf\]\(asset:\/\/[^)]+\)$/i.test(trimmed)
+    )
+  }, [selected?.kind, currentBody])
 
   const selectArticle = (id: string) => {
     setSelectedId(id)
@@ -784,7 +793,7 @@ function App() {
           />
         </aside>
 
-        <main className="content">
+        <main className={`content ${isPdfArticle ? 'content-pdf-active' : ''}`}>
           {desktopSidebarCollapsed && (
             <div className="desktop-sidebar-expand-bar">
               <button
@@ -809,7 +818,7 @@ function App() {
           />
 
           {selected ? (
-            <div className={selected.kind === 'folder' ? 'folder-main-view-wrapper' : 'article-container'}>
+            <div className={selected.kind === 'folder' ? 'folder-main-view-wrapper' : `article-container ${isPdfArticle ? 'article-container-pdf' : ''}`}>
               {selected.kind === 'folder' ? (
                 <FolderExplorerView
                   folderNode={selected}
@@ -859,14 +868,16 @@ function App() {
                     </div>
 
                     <div className="article-header-actions-group">
-                      <button
-                        type="button"
-                        className="btn-article-export-pdf"
-                        onClick={() => setIsExportPdfOpen(true)}
-                        title="Exportar artículo a PDF o Imprimir"
-                      >
-                        🖨️ PDF
-                      </button>
+                      {!isPdfArticle && (
+                        <button
+                          type="button"
+                          className="btn-article-export-pdf"
+                          onClick={() => setIsExportPdfOpen(true)}
+                          title="Exportar artículo a PDF o Imprimir"
+                        >
+                          🖨️ PDF
+                        </button>
+                      )}
 
                       <button
                         type="button"
@@ -954,7 +965,7 @@ function App() {
                         />
                       )}
 
-                      {backlinks.length > 0 && (
+                      {!isPdfArticle && backlinks.length > 0 && (
                         <aside className="backlinks">
                           <h3>Artículos que enlazan aquí</h3>
                           <ul>
