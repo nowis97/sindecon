@@ -8516,19 +8516,16 @@ select.dialog-input {
 }
 
 .pdf-page-canvas-wrapper {
+  flex-shrink: 0;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
   background: #ffffff;
   border-radius: 2px;
   line-height: 0;
-  max-width: 100%;
-  overflow: hidden;
   transition: box-shadow var(--dur-fast) var(--ease-smooth);
 }
 
 .pdf-page-canvas {
   display: block;
-  max-width: 100%;
-  height: auto;
 }
 
 .pdf-page-error {

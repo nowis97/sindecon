@@ -81,9 +81,18 @@ test.describe('Subida y visualización de documentos PDF', () => {
     await expect(pdfViewer.locator('.pdf-viewer-toolbar .btn-pdf-open')).toBeVisible()
     await expect(pdfViewer.locator('.btn-pdf-zoom').first()).toBeVisible()
 
-    // Comprobar que el canvas de la página PDF se renderizó
-    const pdfCanvas = pdfViewer.locator('.pdf-page-canvas')
+    // Comprobar que el canvas de la página PDF se renderizó y no está cortado
+    const pdfCanvas = pdfViewer.locator('.pdf-page-canvas').first()
     await expect(pdfCanvas).toBeVisible({ timeout: 10000 })
+
+    const wrapper = pdfViewer.locator('.pdf-page-canvas-wrapper').first()
+    await expect(wrapper).toBeVisible()
+    const wrapperBox = await wrapper.boundingBox()
+    const canvasBox = await pdfCanvas.boundingBox()
+    expect(wrapperBox).not.toBeNull()
+    expect(canvasBox).not.toBeNull()
+    // El contenedor no debe truncar la altura del canvas
+    expect(wrapperBox!.height).toBeGreaterThanOrEqual(canvasBox!.height - 1)
 
     // 9. Renombrar el artículo desde la cabecera
     const renameBtn = page.locator('.btn-article-rename')
