@@ -136,6 +136,52 @@ function App() {
     includeTags: true,
   })
 
+  // Visibilidad de Carpeta de Plantillas y Colapso de Barra Lateral en Escritorio
+  const [showTemplatesFolder, setShowTemplatesFolder] = useState<boolean>(
+    () => localStorage.getItem('sindecon_show_templates_folder') !== 'false',
+  )
+  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState<boolean>(
+    () => localStorage.getItem('sindecon_sidebar_collapsed_desktop') === 'true',
+  )
+
+  const toggleTemplatesFolder = useCallback(() => {
+    setShowTemplatesFolder((prev) => {
+      const next = !prev
+      localStorage.setItem('sindecon_show_templates_folder', String(next))
+      return next
+    })
+  }, [])
+
+  const toggleDesktopSidebar = useCallback(() => {
+    setDesktopSidebarCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem('sindecon_sidebar_collapsed_desktop', String(next))
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        const activeEl = document.activeElement as HTMLElement | null
+        if (
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.isContentEditable ||
+            activeEl.closest('.milkdown, [contenteditable="true"], input, textarea'))
+        ) {
+          return
+        }
+        e.preventDefault()
+        toggleDesktopSidebar()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [toggleDesktopSidebar])
+
   const refreshFlashcardCounts = useCallback(async () => {
     try {
       const due = await getDueFlashcards()
@@ -529,7 +575,7 @@ function App() {
         </button>
       </header>
 
-      <div className={`layout ${sidebarOpen ? 'sidebar-open' : ''}`}>
+      <div className={`layout ${sidebarOpen ? 'sidebar-open' : ''} ${desktopSidebarCollapsed ? 'desktop-sidebar-collapsed' : ''}`}>
         {sidebarOpen && (
           <div
             className="sidebar-backdrop"
@@ -563,6 +609,15 @@ function App() {
                   aria-label="Cambiar tema"
                 >
                   {theme === 'dark' ? '☀️' : '🌙'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-sidebar-collapse-desktop desktop-only"
+                  onClick={toggleDesktopSidebar}
+                  title="Colapsar barra lateral (Ctrl+B)"
+                  aria-label="Colapsar barra lateral"
+                >
+                  ◀
                 </button>
               </div>
             </div>
@@ -609,29 +664,48 @@ function App() {
             >
               + Artículo
             </button>
-            <select
-              className="template-select"
-              defaultValue=""
-              onChange={(e) => {
-                const v = e.currentTarget.value
-                e.currentTarget.value = ''
-                if (v) handleOpenTemplatePrompt(v)
-              }}
-              title={
-                templates.length > 0
-                  ? 'Nuevo artículo desde plantilla'
-                  : 'Sembrando plantillas…'
-              }
-            >
-              <option value="" disabled>
-                {templates.length > 0 ? '+ desde plantilla' : 'cargando…'}
-              </option>
-              {templates.map((t) => (
-                <option key={t.node.id} value={t.node.title}>
-                  {t.node.title}
+            <div className="toolbar-template-group">
+              <select
+                className="template-select"
+                defaultValue=""
+                onChange={(e) => {
+                  const v = e.currentTarget.value
+                  e.currentTarget.value = ''
+                  if (v) handleOpenTemplatePrompt(v)
+                }}
+                title={
+                  templates.length > 0
+                    ? 'Nuevo artículo desde plantilla'
+                    : 'Sembrando plantillas…'
+                }
+              >
+                <option value="" disabled>
+                  {templates.length > 0 ? '+ desde plantilla' : 'cargando…'}
                 </option>
-              ))}
-            </select>
+                {templates.map((t) => (
+                  <option key={t.node.id} value={t.node.title}>
+                    {t.node.title}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className={`btn-toggle-templates ${!showTemplatesFolder ? 'is-hidden' : ''}`}
+                onClick={toggleTemplatesFolder}
+                title={
+                  showTemplatesFolder
+                    ? 'Ocultar carpeta de plantillas en el árbol'
+                    : 'Mostrar carpeta de plantillas en el árbol'
+                }
+                aria-label={
+                  showTemplatesFolder
+                    ? 'Ocultar carpeta de plantillas'
+                    : 'Mostrar carpeta de plantillas'
+                }
+              >
+                {showTemplatesFolder ? '👁️' : '🙈'}
+              </button>
+            </div>
           </div>
 
           {moveMode && (
@@ -687,10 +761,25 @@ function App() {
             onSortFolderAlphabetically={handleSortFolderAlphabetically}
             favoriteIds={favoriteIds}
             onToggleFavorite={toggleFavorite}
+            showTemplatesFolder={showTemplatesFolder}
           />
         </aside>
 
         <main className="content">
+          {desktopSidebarCollapsed && (
+            <div className="desktop-sidebar-expand-bar">
+              <button
+                type="button"
+                className="btn-sidebar-expand-desktop"
+                onClick={toggleDesktopSidebar}
+                title="Expandir barra lateral (Ctrl+B)"
+                aria-label="Expandir barra lateral"
+              >
+                <span>☰</span>
+                <span>Temas</span>
+              </button>
+            </div>
+          )}
           <Breadcrumbs
             nodes={nodes}
             selectedId={selectedId}

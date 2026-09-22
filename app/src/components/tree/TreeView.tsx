@@ -22,6 +22,7 @@ interface TreeViewProps {
   onSortFolderAlphabetically?: (folderId: string) => void
   favoriteIds?: string[]
   onToggleFavorite?: (id: string) => void
+  showTemplatesFolder?: boolean
 }
 
 export function TreeView({
@@ -41,6 +42,7 @@ export function TreeView({
   onSortFolderAlphabetically,
   favoriteIds = [],
   onToggleFavorite,
+  showTemplatesFolder = true,
 }: TreeViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [favoritesCollapsed, setFavoritesCollapsed] = useState(false)
@@ -114,7 +116,7 @@ export function TreeView({
     .filter((n): n is NodeRow => Boolean(n))
 
   const renderLevel = (parentId: string | null, depth: number) =>
-    childrenOf(nodes, parentId).map((node) => {
+    childrenOf(nodes, parentId, { excludeTemplates: !showTemplatesFolder }).map((node) => {
       const isFolder = node.kind === 'folder'
       const isCollapsed = collapsed.has(node.id)
       const directChildren = isFolder ? childrenOf(nodes, node.id) : []

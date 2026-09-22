@@ -77,10 +77,24 @@ export function pathTo(rows: NodeRow[], id: string): NodeRow[] {
   return path
 }
 
+export interface ChildrenOfOptions {
+  excludeTemplates?: boolean
+}
+
 /** Hijos vivos de un padre, ordenados por `order`. */
-export function childrenOf(rows: NodeRow[], parentId: string | null): NodeRow[] {
+export function childrenOf(
+  rows: NodeRow[],
+  parentId: string | null,
+  options?: ChildrenOfOptions,
+): NodeRow[] {
   return rows
-    .filter((n) => n.parent_id === parentId && n.deleted_at === null)
+    .filter((n) => {
+      if (n.parent_id !== parentId || n.deleted_at !== null) return false
+      if (options?.excludeTemplates && parentId === null && n.system === 'templates') {
+        return false
+      }
+      return true
+    })
     .sort((a, b) => a.order - b.order)
 }
 

@@ -64,6 +64,13 @@ describe('domain/tree', () => {
     expect(childrenOf(rows, null).map((x) => x.id)).toEqual(['A', 'E'])
   })
 
+  it('childrenOf filtra la carpeta templates si excludeTemplates es true', () => {
+    const tplFolder: NodeRow = { ...n('tpl-folder', null, 2), system: 'templates' }
+    const all = [...rows, tplFolder]
+    expect(childrenOf(all, null).map((x) => x.id)).toEqual(['A', 'E', 'tpl-folder'])
+    expect(childrenOf(all, null, { excludeTemplates: true }).map((x) => x.id)).toEqual(['A', 'E'])
+  })
+
   it('canMove solo permite carpetas o null como destino', () => {
     const artTarget: NodeRow = { ...n('art-target', null), kind: 'article' }
     const all = [...rows, artTarget]
