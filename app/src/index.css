@@ -3246,71 +3246,108 @@ select.dialog-input {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
-.btn-dialog-primary {
+.btn-dialog-primary,
+.dialog-btn-primary {
   background: var(--accent-primary);
   color: #ffffff;
-  border: none;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  padding: 8px 16px;
+  padding: 9px 18px;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px var(--accent-glow);
   transition: background-color var(--dur-fast) var(--ease-smooth),
               transform var(--dur-fast) var(--ease-spring),
-              box-shadow var(--dur-fast) var(--ease-smooth);
+              box-shadow var(--dur-fast) var(--ease-smooth),
+              opacity var(--dur-fast) var(--ease-smooth);
 }
 
-.btn-dialog-primary:hover {
+.btn-dialog-primary:hover:not(:disabled),
+.dialog-btn-primary:hover:not(:disabled) {
   background: var(--accent-primary-hover);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-subtle);
+  box-shadow: 0 4px 12px var(--accent-glow);
 }
 
-.btn-dialog-primary:active {
-  transform: translateY(0) scale(0.97);
+.btn-dialog-primary:active:not(:disabled),
+.dialog-btn-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
-.btn-dialog-secondary {
+.btn-dialog-primary:disabled,
+.dialog-btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-dialog-secondary,
+.dialog-btn-secondary {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   border-radius: var(--radius-md);
-  padding: 8px 16px;
+  padding: 9px 18px;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   transition: all var(--dur-fast) var(--ease-smooth);
 }
 
-.btn-dialog-secondary:hover {
+.btn-dialog-secondary:hover:not(:disabled),
+.dialog-btn-secondary:hover:not(:disabled) {
   background: var(--bg-card-hover);
   color: var(--text-primary);
+  border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
-.btn-dialog-secondary:active {
-  transform: translateY(0) scale(0.97);
+.btn-dialog-secondary:active:not(:disabled),
+.dialog-btn-secondary:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
-.btn-dialog-danger {
+.btn-dialog-secondary:disabled,
+.dialog-btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none;
+}
+
+.btn-dialog-danger,
+.dialog-btn-danger {
   background: #ef4444;
   color: #ffffff;
   border: none;
   border-radius: var(--radius-md);
-  padding: 8px 16px;
+  padding: 9px 18px;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   transition: all var(--dur-fast) var(--ease-smooth);
 }
 
-.btn-dialog-danger:hover {
+.btn-dialog-danger:hover:not(:disabled),
+.dialog-btn-danger:hover:not(:disabled) {
   background: #dc2626;
   transform: translateY(-1px);
 }
 
-.btn-dialog-danger:active {
-  transform: translateY(0) scale(0.97);
+.btn-dialog-danger:active:not(:disabled),
+.dialog-btn-danger:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 /* ==========================================================================
@@ -8434,10 +8471,14 @@ select.dialog-input {
 .upload-pdf-dropzone {
   border: 2px dashed var(--border-strong);
   border-radius: var(--radius-lg);
-  padding: 24px 16px;
+  padding: 24px 20px;
   text-align: center;
   background-color: var(--bg-muted);
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   transition: all var(--dur-fast) var(--ease-smooth);
 }
 
@@ -8445,13 +8486,64 @@ select.dialog-input {
 .upload-pdf-dropzone.drag-over {
   border-color: var(--accent-primary);
   background-color: var(--accent-surface);
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+
+.upload-pdf-browse-btn {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: var(--shadow-subtle);
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+
+.upload-pdf-browse-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.upload-pdf-browse-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-upload-pdf-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+
+.btn-upload-pdf-clear:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
 }
 
 .upload-pdf-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 8px;
   max-height: 280px;
   overflow-y: auto;
   padding-right: 4px;
@@ -8460,28 +8552,34 @@ select.dialog-input {
 .upload-pdf-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 10px 14px;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  transition: border-color var(--dur-fast) var(--ease-smooth);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all var(--dur-fast) var(--ease-smooth);
 }
 
 .upload-pdf-item:hover {
   border-color: var(--border-strong);
+  box-shadow: var(--shadow-subtle);
+  transform: translateY(-1px);
 }
 
 .upload-pdf-item-icon {
   font-size: 1.4rem;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .upload-pdf-item-details {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -8491,16 +8589,17 @@ select.dialog-input {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 6px 10px;
+  padding: 7px 12px;
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--text-primary);
   outline: none;
-  transition: border-color var(--dur-fast) var(--ease-smooth);
+  transition: border-color var(--dur-fast) var(--ease-smooth), box-shadow var(--dur-fast) var(--ease-smooth);
 }
 
 .upload-pdf-item-input:focus {
   border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .upload-pdf-item-meta {
@@ -8513,21 +8612,40 @@ select.dialog-input {
 
 .btn-upload-pdf-remove {
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 6px;
-  border-radius: var(--radius-sm);
-  font-size: 1rem;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   transition: all var(--dur-fast) var(--ease-smooth);
 }
 
 .btn-upload-pdf-remove:hover {
   color: #ef4444;
   background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  transform: scale(1.08);
+}
+
+.btn-upload-pdf-remove:active {
+  transform: scale(0.96);
+}
+
+.btn-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 

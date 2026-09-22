@@ -243,13 +243,39 @@ export const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
             }}
             onClick={() => !isUploading && fileInputRef.current?.click()}
           >
-            <div style={{ fontSize: '2rem', marginBottom: 6 }}>📑</div>
-            <h4 style={{ margin: '0 0 6px 0', color: 'var(--text-primary)' }}>
+            <div style={{ fontSize: '2.2rem', marginBottom: 4 }}>📑</div>
+            <h4 style={{ margin: '0 0 4px 0', color: 'var(--text-primary)', fontSize: '0.96rem', fontWeight: 600 }}>
               Arrastra aquí tus archivos PDF o haz clic para explorar
             </h4>
             <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
               Puedes seleccionar uno o varios documentos (.pdf) simultáneamente
             </p>
+            <button
+              type="button"
+              className="upload-pdf-browse-btn"
+              disabled={isUploading}
+              onClick={(e) => {
+                e.stopPropagation()
+                fileInputRef.current?.click()
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <span>Explorar archivos PDF</span>
+            </button>
             <input
               ref={fileInputRef}
               type="file"
@@ -321,17 +347,24 @@ export const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
                 {!isUploading && (
                   <button
                     type="button"
+                    className="btn-upload-pdf-clear"
                     onClick={handleClearAll}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      fontSize: '0.78rem',
-                      cursor: 'pointer',
-                      textDecoration: 'underline',
-                    }}
+                    title="Descartar todos los archivos de la lista"
                   >
-                    Quitar todos
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                    <span>Quitar todos</span>
                   </button>
                 )}
               </div>
@@ -362,8 +395,21 @@ export const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
                         className="btn-upload-pdf-remove"
                         onClick={() => handleRemoveItem(item.id)}
                         title="Descartar este PDF"
+                        aria-label={`Descartar ${item.title}`}
                       >
-                        🗑️
+                        <svg
+                          width="15"
+                          height="15"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2m-6 5v6m4-6v6" />
+                        </svg>
                       </button>
                     )}
                   </div>
@@ -373,19 +419,10 @@ export const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
           )}
         </div>
 
-        <div
-          className="dialog-footer"
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 10,
-            padding: '12px 20px',
-            borderTop: '1px solid var(--border-subtle)',
-          }}
-        >
+        <div className="dialog-footer">
           <button
             type="button"
-            className="dialog-btn-secondary"
+            className="btn-dialog-secondary dialog-btn-secondary"
             onClick={onClose}
             disabled={isUploading}
           >
@@ -393,16 +430,32 @@ export const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
           </button>
           <button
             type="button"
-            className="dialog-btn-primary"
+            className="btn-dialog-primary dialog-btn-primary"
             onClick={handleStartUpload}
             disabled={isUploading || items.length === 0}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
             {isUploading ? (
-              <>Guardando...</>
+              <>
+                <span className="btn-spinner" aria-hidden="true" />
+                <span>Guardando documentos...</span>
+              </>
             ) : (
               <>
-                <span>📄</span>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
                 <span>
                   {items.length === 1
                     ? 'Subir 1 documento PDF'
