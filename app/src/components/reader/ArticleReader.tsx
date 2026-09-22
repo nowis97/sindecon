@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { MermaidViewer } from './MermaidViewer'
 import { AssetImage } from './AssetImage'
+import { PdfDocumentViewer } from './PdfDocumentViewer'
 import { WIKI_LINK_REGEX } from '../../domain/wikiLinks'
 
 interface ArticleReaderProps {
@@ -8,6 +9,7 @@ interface ArticleReaderProps {
   onWikiLinkClick: (uuid: string) => void
   onOpenExportPdf?: () => void
   isPrintView?: boolean
+  articleTitle?: string
 }
 
 export type CalloutKind = 'warning' | 'tip' | 'dosage' | 'important' | 'note'
@@ -25,6 +27,7 @@ export type Block =
   | { type: 'table'; headers: string[]; rows: string[][]; alignments?: ('left' | 'center' | 'right')[] }
   | { type: 'hr' }
   | { type: 'image'; alt: string; src: string }
+  | { type: 'pdf'; src: string; title?: string }
   | { type: 'list'; items: NestedListItem[]; ordered: boolean }
   | { type: 'callout'; kind: CalloutKind; title: string; text: string }
   | { type: 'blockquote'; text: string }
@@ -77,6 +80,18 @@ function parseListTree(rawLines: Array<{ indent: number; text: string; ordered: 
   }
 
   return items
+}
+
+export function matchPdfBlock(trimmed: string): { src: string; title?: string } | null {
+  const m1 = trimmed.match(/^!?\[pdf(?::\s*(.*?))?\]\((asset:\/\/[a-zA-Z0-9_-]+)\)$/i)
+  if (m1) {
+    return { src: m1[2], title: m1[1]?.trim() }
+  }
+  const m2 = trimmed.match(/^!?\[(.*?\.pdf)\]\((asset:\/\/[a-zA-Z0-9_-]+)\)$/i)
+  if (m2) {
+    return { src: m2[2], title: m2[1].trim() }
+  }
+  return null
 }
 
 export function parseMarkdownBlocks(md: string): Block[] {
@@ -140,7 +155,19 @@ export function parseMarkdownBlocks(md: string): Block[] {
       continue
     }
 
-    // 4. Imágenes standalone ![alt](src)
+    // 4. Documentos PDF standalone [pdf](asset://...) o ![pdf](asset://...)
+    const pdfBlock = matchPdfBlock(trimmed)
+    if (pdfBlock) {
+      blocks.push({
+        type: 'pdf',
+        src: pdfBlock.src,
+        title: pdfBlock.title,
+      })
+      i++
+      continue
+    }
+
+    // 5. Imágenes standalone ![alt](src)
     const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/)
     if (imgMatch) {
       blocks.push({
@@ -412,7 +439,8 @@ function getCalloutIcon(kind: CalloutKind) {
 function renderBlock(
   block: Block,
   key: string | number,
-  onWikiLinkClick: (uuid: string) => void
+  onWikiLinkClick: (uuid: string) => void,
+  articleTitle?: string,
 ): React.ReactNode {
   switch (block.type) {
     case 'header': {
@@ -458,19 +486,21 @@ function renderBlock(
     case 'code':
       return (
         <pre key={key} className="reader-code-block">
-          <code>{block.code}</code>
+          <code className={block.lang ? `language-${block.lang}` : ''}>{block.code}</code>
         </pre>
       )
     case 'table':
       return (
-        <div key={key} className="reader-table-wrapper">
+        <div key={key} className="reader-table-container">
           <table className="reader-table">
             <thead>
               <tr>
                 {block.headers.map((h, hIdx) => (
                   <th
                     key={hIdx}
-                    style={{ textAlign: block.alignments?.[hIdx] ?? 'left' }}
+                    style={{
+                      textAlign: block.alignments ? block.alignments[hIdx] : 'left',
+                    }}
                   >
                     {renderFormattedInline(h, onWikiLinkClick)}
                   </th>
@@ -483,7 +513,9 @@ function renderBlock(
                   {row.map((cell, cIdx) => (
                     <td
                       key={cIdx}
-                      style={{ textAlign: block.alignments?.[cIdx] ?? 'left' }}
+                      style={{
+                        textAlign: block.alignments ? block.alignments[cIdx] : 'left',
+                      }}
                     >
                       {renderFormattedInline(cell, onWikiLinkClick)}
                     </td>
@@ -496,6 +528,14 @@ function renderBlock(
       )
     case 'image':
       return <AssetImage key={key} src={block.src} alt={block.alt} />
+    case 'pdf':
+      return (
+        <PdfDocumentViewer
+          key={key}
+          src={block.src}
+          title={block.title || articleTitle}
+        />
+      )
     case 'list': {
       const ListTag = block.ordered ? 'ol' : 'ul'
       return (
@@ -515,7 +555,7 @@ function renderBlock(
           {block.columns.map((colBlocks, colIdx) => (
             <div key={colIdx} className="article-column-item">
               {colBlocks.map((childBlock, childIdx) =>
-                renderBlock(childBlock, `${key}-${colIdx}-${childIdx}`, onWikiLinkClick)
+                renderBlock(childBlock, `${key}-${colIdx}-${childIdx}`, onWikiLinkClick, articleTitle)
               )}
             </div>
           ))}
@@ -538,6 +578,7 @@ export function ArticleReader({
   onWikiLinkClick,
   onOpenExportPdf,
   isPrintView = false,
+  articleTitle,
 }: ArticleReaderProps) {
   const [isTwoColumns, setIsTwoColumns] = useState<boolean>(() => {
     try {
@@ -627,7 +668,7 @@ export function ArticleReader({
               : `article-reader-view ${isTwoColumns ? 'layout-two-columns' : 'layout-single-column'} ${alignmentClass}`
           }
         >
-          {blocks.map((block, idx) => renderBlock(block, idx, onWikiLinkClick))}
+          {blocks.map((block, idx) => renderBlock(block, idx, onWikiLinkClick, articleTitle))}
         </div>
       )}
     </div>

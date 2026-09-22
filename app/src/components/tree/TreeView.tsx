@@ -19,6 +19,7 @@ interface TreeViewProps {
   onCreateChild?: (parentId: string, kind: 'folder' | 'article') => void
   onSmartImport?: (folderId: string) => void
   onBulkImport?: (folderId: string) => void
+  onUploadPdf?: (folderId: string) => void
   onSortFolderAlphabetically?: (folderId: string) => void
   favoriteIds?: string[]
   onToggleFavorite?: (id: string) => void
@@ -39,6 +40,7 @@ export function TreeView({
   onCreateChild,
   onSmartImport,
   onBulkImport,
+  onUploadPdf,
   onSortFolderAlphabetically,
   favoriteIds = [],
   onToggleFavorite,
@@ -536,6 +538,19 @@ export function TreeView({
                             }}
                           >
                             📥 Importar archivos .md
+                          </button>
+                        )}
+                        {onUploadPdf && (
+                          <button
+                            type="button"
+                            className="context-menu-item"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setActiveMenuId(null)
+                              onUploadPdf(node.id)
+                            }}
+                          >
+                            📄 Subir PDFs
                           </button>
                         )}
                         {onSortFolderAlphabetically && (

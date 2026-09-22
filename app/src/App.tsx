@@ -19,7 +19,9 @@ import { ArticleReader } from './components/reader/ArticleReader'
 import { QuickCapture } from './components/capture/QuickCapture'
 import { SmartImportModal } from './components/editor/SmartImportModal'
 import { BulkImportModal } from './components/portability/BulkImportModal'
+import { UploadPdfModal } from './components/portability/UploadPdfModal'
 import type { BulkImportResult } from './db/bulkArticles'
+import type { SavedPdfArticleResult } from './db/pdfArticles'
 import { StudyModal } from './components/flashcards/StudyModal'
 import { ArticleFlashcardsModal } from './components/flashcards/ArticleFlashcardsModal'
 import { AiSettingsModal } from './components/settings/AiSettingsModal'
@@ -115,6 +117,8 @@ function App() {
   const [smartImportFolderId, setSmartImportFolderId] = useState<string | null>(null)
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
   const [bulkImportFolderId, setBulkImportFolderId] = useState<string | null>(null)
+  const [isUploadPdfOpen, setIsUploadPdfOpen] = useState(false)
+  const [uploadPdfFolderId, setUploadPdfFolderId] = useState<string | null>(null)
   const [promptState, setPromptState] = useState<PromptState>(null)
   const [deleteState, setDeleteState] = useState<DeleteState>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -396,6 +400,20 @@ function App() {
     }
     const summary = parts.length > 0 ? parts.join(', ') : 'No se importaron notas'
     setToastMessage(`📥 ${summary}`)
+  }
+
+  const handleOpenUploadPdf = (folderId?: string | null) => {
+    setUploadPdfFolderId(folderId !== undefined ? folderId : null)
+    setIsUploadPdfOpen(true)
+  }
+
+  const handleUploadPdfComplete = (results: SavedPdfArticleResult[]) => {
+    if (results.length === 1) {
+      setSelectedId(results[0].nodeId)
+      setToastMessage(`📄 PDF "${results[0].title}" subido con éxito`)
+    } else if (results.length > 1) {
+      setToastMessage(`📄 Se subieron ${results.length} documentos PDF con éxito`)
+    }
   }
 
   const handlePromptConfirm = async (value: string) => {
@@ -758,6 +776,7 @@ function App() {
             }
             onSmartImport={(folderId) => handleOpenSmartImport(folderId)}
             onBulkImport={(folderId) => handleOpenBulkImport(folderId)}
+            onUploadPdf={(folderId) => handleOpenUploadPdf(folderId)}
             onSortFolderAlphabetically={handleSortFolderAlphabetically}
             favoriteIds={favoriteIds}
             onToggleFavorite={toggleFavorite}
@@ -803,6 +822,7 @@ function App() {
                   onCreateSubfolder={(folderId) => handleOpenCreatePrompt('folder', folderId)}
                   onSmartImport={(folderId) => handleOpenSmartImport(folderId)}
                   onBulkImport={(folderId) => handleOpenBulkImport(folderId)}
+                  onUploadPdf={(folderId) => handleOpenUploadPdf(folderId)}
                   onSortFolderAlphabetically={handleSortFolderAlphabetically}
                   onToggleFavorite={toggleFavorite}
                   onRenameNode={(id) => handleOpenRenamePrompt(id)}
@@ -927,6 +947,7 @@ function App() {
                         </>
                       ) : (
                         <ArticleReader
+                          articleTitle={selected.title}
                           markdown={currentBody}
                           onWikiLinkClick={selectArticle}
                           onOpenExportPdf={() => setIsExportPdfOpen(true)}
@@ -1036,6 +1057,18 @@ function App() {
         targetFolderId={bulkImportFolderId ?? (selected?.kind === 'folder' ? selected.id : null)}
         nodes={nodes}
         onImportComplete={handleBulkImportComplete}
+      />
+
+      {/* Modal de Subida de Documentos PDF */}
+      <UploadPdfModal
+        isOpen={isUploadPdfOpen}
+        onClose={() => {
+          setIsUploadPdfOpen(false)
+          setUploadPdfFolderId(null)
+        }}
+        targetFolderId={uploadPdfFolderId ?? (selected?.kind === 'folder' ? selected.id : null)}
+        nodes={nodes}
+        onUploadComplete={handleUploadPdfComplete}
       />
 
       {/* Modal de Configuración y Estado de Google Drive */}
@@ -1238,6 +1271,7 @@ function App() {
 
           <div className="print-article-body">
             <ArticleReader
+              articleTitle={selected?.title}
               markdown={currentBody}
               onWikiLinkClick={() => {}}
               isPrintView={true}

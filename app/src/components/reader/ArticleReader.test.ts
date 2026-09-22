@@ -249,7 +249,26 @@ Párrafo posterior a la imagen.
       })
     }
   })
+
+  it('reconoce y parsea bloques de documentos PDF standalone', () => {
+    const md = `
+# Guía Clínica
+
+[pdf](asset://1111-2222-3333)
+
+[pdf: Guía de Hipertensión 2024](asset://4444-5555)
+
+[algoritmo.pdf](asset://6666-7777)
+`
+    const blocks = parseMarkdownBlocks(md)
+    expect(blocks).toHaveLength(4)
+    expect(blocks[0]).toEqual({ type: 'header', level: 1, text: 'Guía Clínica' })
+    expect(blocks[1]).toEqual({ type: 'pdf', src: 'asset://1111-2222-3333', title: undefined })
+    expect(blocks[2]).toEqual({ type: 'pdf', src: 'asset://4444-5555', title: 'Guía de Hipertensión 2024' })
+    expect(blocks[3]).toEqual({ type: 'pdf', src: 'asset://6666-7777', title: 'algoritmo.pdf' })
+  })
 })
+
 
 
 

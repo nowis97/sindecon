@@ -10,6 +10,7 @@ export interface FolderExplorerViewProps {
   onCreateSubfolder: (folderId: string) => void
   onSmartImport: (folderId: string) => void
   onBulkImport?: (folderId: string) => void
+  onUploadPdf?: (folderId: string) => void
   onSortFolderAlphabetically?: (folderId: string) => void
   onToggleFavorite?: (id: string) => void
   onRenameNode?: (id: string) => void
@@ -25,6 +26,7 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
   onCreateSubfolder,
   onSmartImport,
   onBulkImport,
+  onUploadPdf,
   onSortFolderAlphabetically,
   onToggleFavorite,
   onRenameNode,
@@ -113,6 +115,17 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
             </button>
           )}
 
+          {onUploadPdf && (
+            <button
+              type="button"
+              className="btn-folder-action secondary"
+              onClick={() => onUploadPdf(folderNode.id)}
+            >
+              <span>📄</span>
+              <span>Subir PDFs</span>
+            </button>
+          )}
+
           {onSortFolderAlphabetically && directChildren.length > 1 && (
             <button
               type="button"
@@ -157,6 +170,15 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
                 onClick={() => onBulkImport(folderNode.id)}
               >
                 📥 Importar Archivos .md
+              </button>
+            )}
+            {onUploadPdf && (
+              <button
+                type="button"
+                className="btn-folder-action secondary"
+                onClick={() => onUploadPdf(folderNode.id)}
+              >
+                📄 Subir PDFs
               </button>
             )}
           </div>
@@ -237,7 +259,9 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
                       onDragOver={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
-                        e.dataTransfer.dropEffect = 'move'
+                        if (e.dataTransfer) {
+                          e.dataTransfer.dropEffect = 'move'
+                        }
                         if (dragOverSubfolderId !== sub.id) {
                           setDragOverSubfolderId(sub.id)
                         }
