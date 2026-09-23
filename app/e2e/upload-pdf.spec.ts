@@ -69,6 +69,12 @@ test.describe('Subida y visualización de documentos PDF', () => {
     await expect(page.locator('.btn-reader-layout-toggle')).not.toBeVisible()
     await expect(page.locator('.btn-reader-export-pdf')).not.toBeVisible()
 
+    // Verificar que las opciones de flashcard, importar y editar están deshabilitadas
+    await expect(page.locator('.btn-article-flashcards')).toBeDisabled()
+    await expect(page.locator('.btn-smart-import-trigger')).toBeDisabled()
+    await expect(page.locator('.view-mode-toggle .btn-mode', { hasText: 'Editor' })).toBeDisabled()
+    await expect(page.locator('.view-mode-toggle .btn-mode', { hasText: 'Lector' })).toBeEnabled()
+
     // Verificar que el visor de PDF se renderiza en el área de lectura
     const pdfViewer = page.locator('main.content .pdf-document-viewer')
     await expect(pdfViewer).toBeVisible({ timeout: 10000 })

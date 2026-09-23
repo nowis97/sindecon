@@ -2042,13 +2042,21 @@ body {
               box-shadow var(--dur-fast) var(--ease-smooth);
 }
 
-.btn-smart-import-trigger:hover {
+.btn-smart-import-trigger:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(168, 85, 247, 0.2);
 }
 
-.btn-smart-import-trigger:active {
+.btn-smart-import-trigger:active:not(:disabled) {
   transform: translateY(0) scale(0.96);
+}
+
+.btn-smart-import-trigger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  box-shadow: none;
+  transform: none;
 }
 
 /* Segmented Control (Tabs Lector/Editor) */
@@ -2076,7 +2084,7 @@ body {
   user-select: none;
 }
 
-.btn-mode:hover:not(.active) {
+.btn-mode:hover:not(.active):not(:disabled) {
   color: var(--text-primary);
   background: var(--bg-card-hover);
 }
@@ -2088,8 +2096,15 @@ body {
   transform: scale(1.02);
 }
 
-.btn-mode:active {
+.btn-mode:active:not(:disabled) {
   transform: scale(0.96);
+}
+
+.btn-mode:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 /* Tags Input (Contraste corregido para Dark & Light) */
@@ -5101,11 +5116,19 @@ select.dialog-input {
   transition: all var(--dur-fast) var(--ease-smooth);
 }
 
-.btn-article-flashcards:hover {
+.btn-article-flashcards:hover:not(:disabled) {
   background: var(--accent-primary);
   color: #ffffff;
   transform: translateY(-1px);
   box-shadow: var(--shadow-subtle);
+}
+
+.btn-article-flashcards:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  box-shadow: none;
+  transform: none;
 }
 
 /* Tarjeta de Acción de Repaso en Dashboard */

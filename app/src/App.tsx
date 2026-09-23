@@ -15,7 +15,7 @@ import { TreeView } from './components/tree/TreeView'
 import { Breadcrumbs } from './components/tree/Breadcrumbs'
 import { FolderExplorerView } from './components/tree/FolderExplorerView'
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/editor/MarkdownEditor'
-import { ArticleReader } from './components/reader/ArticleReader'
+import { ArticleReader, matchPdfBlock } from './components/reader/ArticleReader'
 import { QuickCapture } from './components/capture/QuickCapture'
 import { SmartImportModal } from './components/editor/SmartImportModal'
 import { BulkImportModal } from './components/portability/BulkImportModal'
@@ -329,12 +329,16 @@ function App() {
 
   const isPdfArticle = useMemo(() => {
     if (selected?.kind !== 'article' || !currentBody) return false
-    const trimmed = currentBody.trim()
-    return (
-      /^!?\[pdf(?::\s*.*?)?\]\(asset:\/\/[^)]+\)$/i.test(trimmed) ||
-      /^!?\[.*?\.pdf\]\(asset:\/\/[^)]+\)$/i.test(trimmed)
-    )
+    return matchPdfBlock(currentBody.trim()) !== null
   }, [selected?.kind, currentBody])
+
+  const effectiveEditMode = isEditMode && !isPdfArticle
+
+  useEffect(() => {
+    if (isPdfArticle && isEditMode) {
+      setIsEditMode(false)
+    }
+  }, [isPdfArticle, isEditMode])
 
   const selectArticle = (id: string) => {
     setSelectedId(id)
@@ -882,8 +886,15 @@ function App() {
                       <button
                         type="button"
                         className="btn-article-flashcards"
-                        onClick={() => setIsArticleFlashcardsOpen(true)}
-                        title="Ver y generar flashcards de este tema"
+                        onClick={() => {
+                          if (!isPdfArticle) setIsArticleFlashcardsOpen(true)
+                        }}
+                        disabled={isPdfArticle}
+                        title={
+                          isPdfArticle
+                            ? 'Las flashcards no están disponibles en artículos PDF'
+                            : 'Ver y generar flashcards de este tema'
+                        }
                       >
                         🧠 Flashcards
                       </button>
@@ -891,8 +902,15 @@ function App() {
                       <button
                         type="button"
                         className="btn-smart-import-trigger"
-                        onClick={() => handleOpenSmartImport()}
-                        title="Importar contenido desde ChatGPT, IA o Word (.docx)"
+                        onClick={() => {
+                          if (!isPdfArticle) handleOpenSmartImport()
+                        }}
+                        disabled={isPdfArticle}
+                        title={
+                          isPdfArticle
+                            ? 'La importación de contenido no está disponible en artículos PDF'
+                            : 'Importar contenido desde ChatGPT, IA o Word (.docx)'
+                        }
                       >
                         🪄 Importar
                       </button>
@@ -900,15 +918,24 @@ function App() {
                       <div className="view-mode-toggle">
                         <button
                           type="button"
-                          className={`btn-mode ${!isEditMode ? 'active' : ''}`}
+                          className={`btn-mode ${!effectiveEditMode ? 'active' : ''}`}
                           onClick={() => setIsEditMode(false)}
+                          title="Ver en modo lectura"
                         >
                           👁 Lector
                         </button>
                         <button
                           type="button"
-                          className={`btn-mode ${isEditMode ? 'active' : ''}`}
-                          onClick={() => setIsEditMode(true)}
+                          className={`btn-mode ${effectiveEditMode ? 'active' : ''}`}
+                          onClick={() => {
+                            if (!isPdfArticle) setIsEditMode(true)
+                          }}
+                          disabled={isPdfArticle}
+                          title={
+                            isPdfArticle
+                              ? 'La edición directa no está disponible en documentos PDF'
+                              : 'Editar artículo'
+                          }
                         >
                           ✏ Editor
                         </button>
@@ -925,7 +952,7 @@ function App() {
                         />
                       </div>
 
-                      {isEditMode ? (
+                      {effectiveEditMode ? (
                         <>
                           <div className="article-toolbar">
                             <WikiLinkPicker
