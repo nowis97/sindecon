@@ -8520,6 +8520,146 @@ select.dialog-input {
   color: var(--text-primary);
 }
 
+.btn-pdf-annotate-toggle.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #ffffff;
+}
+
+.btn-pdf-annotate-toggle.active:hover {
+  background: var(--accent-primary-hover, var(--accent-primary));
+  border-color: var(--accent-primary-hover, var(--accent-primary));
+  color: #ffffff;
+}
+
+/* Barra de herramientas secundaria de Anotación */
+.pdf-annotation-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  animation: pdfAnnotationSlideDown 0.18s ease-out;
+}
+
+@keyframes pdfAnnotationSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pdf-tool-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg-muted);
+  padding: 2px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.btn-pdf-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+
+.btn-pdf-tool:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
+.btn-pdf-tool.active {
+  background: var(--bg-card);
+  color: var(--accent-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.pdf-color-palette {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.btn-pdf-color {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  outline: none;
+  padding: 0;
+  transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+}
+
+.btn-pdf-color:hover {
+  transform: scale(1.18);
+}
+
+.btn-pdf-color.active {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--accent-primary);
+}
+
+.pdf-width-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg-muted);
+  padding: 2px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.btn-pdf-width {
+  padding: 4px 8px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+
+.btn-pdf-width:hover {
+  color: var(--text-primary);
+}
+
+.btn-pdf-width.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.pdf-annotation-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
 /* Área de desplazamiento y páginas PDF en Canvas */
 .pdf-canvas-scroll-container {
   flex: 1;
@@ -8549,6 +8689,25 @@ select.dialog-input {
 
 .pdf-page-canvas {
   display: block;
+}
+
+.pdf-annotation-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+}
+
+.pdf-annotation-canvas.active.tool-pen {
+  cursor: crosshair;
+}
+
+.pdf-annotation-canvas.active.tool-highlighter {
+  cursor: crosshair;
+}
+
+.pdf-annotation-canvas.active.tool-eraser {
+  cursor: cell;
 }
 
 .pdf-page-error {
@@ -8599,6 +8758,23 @@ select.dialog-input {
   .pdf-viewer-toolbar-title {
     max-width: 180px;
     font-size: 0.88rem;
+  }
+  .pdf-annotation-toolbar {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+  .pdf-annotation-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .btn-pdf-tool,
+  .btn-pdf-width {
+    padding: 6px 8px;
+  }
+  .btn-pdf-color {
+    width: 24px;
+    height: 24px;
   }
   .pdf-canvas-scroll-container {
     padding: 12px 6px;

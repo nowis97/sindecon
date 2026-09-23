@@ -63,12 +63,37 @@ export interface AiConfig {
   updated_at?: number
 }
 
+export type AnnotationTool = 'pen' | 'highlighter' | 'eraser'
+
+export interface AnnotationPoint {
+  x: number // Coordenada X normalizada (escala base 1.0 en puntos PDF)
+  y: number // Coordenada Y normalizada (escala base 1.0 en puntos PDF)
+  pressure?: number
+}
+
+export interface AnnotationStroke {
+  id: string
+  tool: AnnotationTool
+  color: string
+  width: number
+  points: AnnotationPoint[]
+}
+
+export interface PageAnnotationsRecord {
+  id?: number // Clave primaria autoincremental
+  documentId: string // ID del documento o asset (ej. assetId o URI)
+  pageNumber: number // Número de página (1-indexado)
+  strokes: AnnotationStroke[] // Trazos vectoriales de la página
+  updatedAt: number // Timestamp ms
+}
+
 export class KbDatabase extends Dexie {
   nodes!: Table<NodeRow, string>
   articles!: Table<ArticleRow, string>
   assets!: Table<AssetRow, string>
   meta!: Table<MetaRow, string>
   flashcards!: Table<FlashcardRow, string>
+  pdf_annotations!: Table<PageAnnotationsRecord, number>
 
   constructor(name = 'cuaderno-medico') {
     super(name)
@@ -80,6 +105,9 @@ export class KbDatabase extends Dexie {
     })
     this.version(2).stores({
       flashcards: 'id, node_id, due_date, updated_at',
+    })
+    this.version(3).stores({
+      pdf_annotations: '++id, [documentId+pageNumber], documentId, updatedAt',
     })
   }
 }

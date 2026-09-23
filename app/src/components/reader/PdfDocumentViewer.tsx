@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { getAssetBlob } from '../../db/assets'
+import type { AnnotationTool } from '../../db/db'
+import { PdfAnnotationOverlay } from './PdfAnnotationOverlay'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
@@ -15,13 +17,44 @@ interface PdfPageProps {
   pdfDoc: pdfjsLib.PDFDocumentProxy
   pageNumber: number
   scale: number
+  documentId: string
+  isAnnotationMode: boolean
+  activeTool: AnnotationTool
+  activeColor: string
+  activeWidth: number
+  undoTrigger: number
+  clearTrigger: number
+  targetPageNumber: number
+  onPageDrawn: (pageNumber: number) => void
 }
 
 const PdfPageCanvas: React.FC<PdfPageProps> = React.memo(
-  ({ pdfDoc, pageNumber, scale }) => {
+  ({
+    pdfDoc,
+    pageNumber,
+    scale,
+    documentId,
+    isAnnotationMode,
+    activeTool,
+    activeColor,
+    activeWidth,
+    undoTrigger,
+    clearTrigger,
+    targetPageNumber,
+    onPageDrawn,
+  }) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null)
     const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null)
     const [renderError, setRenderError] = useState<string | null>(null)
+    const [dimensions, setDimensions] = useState<{
+      width: number
+      height: number
+      pixelRatio: number
+    }>({
+      width: 0,
+      height: 0,
+      pixelRatio: 1,
+    })
 
     useEffect(() => {
       let cancelled = false
@@ -46,11 +79,15 @@ const PdfPageCanvas: React.FC<PdfPageProps> = React.memo(
 
           const pixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
           const viewport = page.getViewport({ scale })
+          const w = Math.floor(viewport.width)
+          const h = Math.floor(viewport.height)
 
-          canvas.width = Math.floor(viewport.width * pixelRatio)
-          canvas.height = Math.floor(viewport.height * pixelRatio)
-          canvas.style.width = `${Math.floor(viewport.width)}px`
-          canvas.style.height = `${Math.floor(viewport.height)}px`
+          canvas.width = Math.floor(w * pixelRatio)
+          canvas.height = Math.floor(h * pixelRatio)
+          canvas.style.width = `${w}px`
+          canvas.style.height = `${h}px`
+
+          setDimensions({ width: w, height: h, pixelRatio })
 
           ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
 
@@ -98,14 +135,56 @@ const PdfPageCanvas: React.FC<PdfPageProps> = React.memo(
     }
 
     return (
-      <div className="pdf-page-canvas-wrapper" data-page-number={pageNumber}>
+      <div
+        className="pdf-page-canvas-wrapper"
+        data-page-number={pageNumber}
+        style={{ position: 'relative' }}
+      >
         <canvas ref={canvasRef} className="pdf-page-canvas" />
+        {dimensions.width > 0 && dimensions.height > 0 && (
+          <PdfAnnotationOverlay
+            documentId={documentId}
+            pageNumber={pageNumber}
+            scale={scale}
+            pixelRatio={dimensions.pixelRatio}
+            width={dimensions.width}
+            height={dimensions.height}
+            isAnnotationMode={isAnnotationMode}
+            activeTool={activeTool}
+            activeColor={activeColor}
+            activeWidth={activeWidth}
+            undoTrigger={undoTrigger}
+            clearTrigger={clearTrigger}
+            isCurrentTargetPage={targetPageNumber === pageNumber}
+            onStrokeCountChange={() => onPageDrawn(pageNumber)}
+          />
+        )}
       </div>
     )
   },
 )
 
 PdfPageCanvas.displayName = 'PdfPageCanvas'
+
+interface ColorOption {
+  label: string
+  value: string
+  previewColor?: string
+}
+
+const PEN_COLORS: ColorOption[] = [
+  { label: 'Negro', value: '#1e293b' },
+  { label: 'Azul', value: '#2563eb' },
+  { label: 'Rojo', value: '#dc2626' },
+  { label: 'Verde', value: '#16a34a' },
+]
+
+const HIGHLIGHTER_COLORS: ColorOption[] = [
+  { label: 'Amarillo', value: 'rgba(250, 204, 21, 0.45)', previewColor: '#facc15' },
+  { label: 'Verde', value: 'rgba(74, 222, 128, 0.45)', previewColor: '#4ade80' },
+  { label: 'Rosa', value: 'rgba(244, 114, 182, 0.45)', previewColor: '#f472b6' },
+  { label: 'Celeste', value: 'rgba(56, 189, 248, 0.45)', previewColor: '#38bdf8' },
+]
 
 export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
   src,
@@ -119,8 +198,42 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Estados de anotaciones
+  const [isAnnotationMode, setIsAnnotationMode] = useState(false)
+  const [activeTool, setActiveTool] = useState<AnnotationTool>('pen')
+  const [activeColor, setActiveColor] = useState('#1e293b')
+  const [activeWidth, setActiveWidth] = useState(3)
+  const [undoTrigger, setUndoTrigger] = useState(0)
+  const [clearTrigger, setClearTrigger] = useState(0)
+  const [lastDrawnPage, setLastDrawnPage] = useState(1)
+
+  const documentId = src.replace(/^asset:\/\//, '')
+
   const containerRef = useRef<HTMLDivElement | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
+
+  const handleSelectTool = (tool: AnnotationTool) => {
+    setActiveTool(tool)
+    if (tool === 'highlighter') {
+      if (!activeColor.startsWith('rgba')) {
+        setActiveColor('rgba(250, 204, 21, 0.45)')
+      }
+      setActiveWidth(18)
+    } else if (tool === 'pen') {
+      if (activeColor.startsWith('rgba')) {
+        setActiveColor('#1e293b')
+      }
+      setActiveWidth(3)
+    }
+  }
+
+  const handleUndo = () => {
+    setUndoTrigger((c) => c + 1)
+  }
+
+  const handleClearPage = () => {
+    setClearTrigger((c) => c + 1)
+  }
 
   const calculateFitScale = useCallback(async (doc: pdfjsLib.PDFDocumentProxy): Promise<number> => {
     try {
@@ -231,20 +344,19 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
   }
 
   const downloadFilename = title
-    ? `${title.replace(/[\\/:*?"<>|]/g, '_')}.pdf`
+    ? `${title.replace(/[\\/:*?"<>|]/g, '-').trim()}.pdf`
     : 'documento.pdf'
 
   const handleOpenInNewTab = () => {
-    if (blobUrl) {
-      window.open(blobUrl, '_blank', 'noopener,noreferrer')
-    }
+    if (!blobUrl) return
+    window.open(blobUrl, '_blank')
   }
 
   if (isLoading) {
     return (
       <div className={`pdf-viewer-loading-container ${className}`}>
         <div className="pdf-viewer-spinner" />
-        <p>Cargando documento PDF...</p>
+        <p>Cargando documento con PDF.js…</p>
       </div>
     )
   }
@@ -311,6 +423,18 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
 
         {/* Acciones principales */}
         <div className="pdf-viewer-toolbar-actions">
+          <button
+            type="button"
+            className={`btn-pdf-action btn-pdf-annotate-toggle ${isAnnotationMode ? 'active' : ''}`}
+            onClick={() => setIsAnnotationMode((prev) => !prev)}
+            title={
+              isAnnotationMode
+                ? 'Finalizar y salir del modo anotación'
+                : 'Anotar con lápiz o resaltador sobre el PDF'
+            }
+          >
+            ✏️ <span className="btn-text">{isAnnotationMode ? 'Finalizar' : 'Anotar'}</span>
+          </button>
           <a
             href={blobUrl}
             download={downloadFilename}
@@ -330,6 +454,102 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
         </div>
       </div>
 
+      {/* Barra de herramientas secundaria de Anotación (Lápiz, Resaltador, Borrador) */}
+      {isAnnotationMode && (
+        <div className="pdf-annotation-toolbar">
+          <div className="pdf-tool-group">
+            <button
+              type="button"
+              className={`btn-pdf-tool ${activeTool === 'pen' ? 'active' : ''}`}
+              onClick={() => handleSelectTool('pen')}
+              title="Lápiz / Bolígrafo"
+            >
+              ✏️ <span className="tool-label">Lápiz</span>
+            </button>
+            <button
+              type="button"
+              className={`btn-pdf-tool ${activeTool === 'highlighter' ? 'active' : ''}`}
+              onClick={() => handleSelectTool('highlighter')}
+              title="Resaltador / Marcador"
+            >
+              🖍️ <span className="tool-label">Resaltador</span>
+            </button>
+            <button
+              type="button"
+              className={`btn-pdf-tool ${activeTool === 'eraser' ? 'active' : ''}`}
+              onClick={() => handleSelectTool('eraser')}
+              title="Borrador de trazos"
+            >
+              🧹 <span className="tool-label">Borrador</span>
+            </button>
+          </div>
+
+          {activeTool !== 'eraser' && (
+            <div className="pdf-color-palette">
+              {(activeTool === 'pen' ? PEN_COLORS : HIGHLIGHTER_COLORS).map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  className={`btn-pdf-color ${activeColor === c.value ? 'active' : ''}`}
+                  style={{ backgroundColor: c.previewColor || c.value }}
+                  onClick={() => setActiveColor(c.value)}
+                  title={c.label}
+                  aria-label={c.label}
+                />
+              ))}
+            </div>
+          )}
+
+          {activeTool !== 'eraser' && (
+            <div className="pdf-width-group">
+              <button
+                type="button"
+                className={`btn-pdf-width ${activeWidth === (activeTool === 'pen' ? 2 : 10) ? 'active' : ''}`}
+                onClick={() => setActiveWidth(activeTool === 'pen' ? 2 : 10)}
+                title="Grosor fino"
+              >
+                Fino
+              </button>
+              <button
+                type="button"
+                className={`btn-pdf-width ${activeWidth === (activeTool === 'pen' ? 4 : 18) ? 'active' : ''}`}
+                onClick={() => setActiveWidth(activeTool === 'pen' ? 4 : 18)}
+                title="Grosor medio"
+              >
+                Medio
+              </button>
+              <button
+                type="button"
+                className={`btn-pdf-width ${activeWidth === (activeTool === 'pen' ? 7 : 28) ? 'active' : ''}`}
+                onClick={() => setActiveWidth(activeTool === 'pen' ? 7 : 28)}
+                title="Grosor grueso"
+              >
+                Grueso
+              </button>
+            </div>
+          )}
+
+          <div className="pdf-annotation-actions">
+            <button
+              type="button"
+              className="btn-pdf-action btn-pdf-undo"
+              onClick={handleUndo}
+              title="Deshacer último trazo de la página"
+            >
+              ↩️ <span className="btn-text">Deshacer</span>
+            </button>
+            <button
+              type="button"
+              className="btn-pdf-action btn-pdf-clear-page"
+              onClick={handleClearPage}
+              title="Borrar todas las anotaciones de esta página"
+            >
+              🗑️ <span className="btn-text">Borrar pág.</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Contenedor de scroll y renderizado de páginas en Canvas */}
       <div ref={scrollContainerRef} className="pdf-canvas-scroll-container">
         {pdfDoc &&
@@ -339,6 +559,15 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
               pdfDoc={pdfDoc}
               pageNumber={idx + 1}
               scale={scale}
+              documentId={documentId}
+              isAnnotationMode={isAnnotationMode}
+              activeTool={activeTool}
+              activeColor={activeColor}
+              activeWidth={activeWidth}
+              undoTrigger={undoTrigger}
+              clearTrigger={clearTrigger}
+              targetPageNumber={lastDrawnPage}
+              onPageDrawn={(p) => setLastDrawnPage(p)}
             />
           ))}
       </div>

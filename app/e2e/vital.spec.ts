@@ -548,6 +548,9 @@ DOSIS: Paracetamol 1g cada 8h condicional a fiebre.
     await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
 
     // 4. Crear artículo Hemorragia Digestiva
+    if (await btnTemas.isVisible() && !(await page.locator('.sidebar').evaluate((el) => el.classList.contains('mobile-open')))) {
+      await btnTemas.click()
+    }
     await page.getByRole('button', { name: '+ Artículo' }).click()
     await page.locator('.dialog-input').fill('Hemorragia Digestiva')
     await page.locator('.btn-dialog-primary', { hasText: 'Crear' }).click()
