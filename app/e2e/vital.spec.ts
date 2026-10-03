@@ -691,11 +691,21 @@ DOSIS: Paracetamol 1g cada 8h condicional a fiebre.
     const selectedOption = await folderSelect.locator('option:checked').innerText()
     expect(selectedOption).toContain('Endocrinología')
 
-    // Pegar contenido simulado y título
-    const titleInput = importModal.locator('.new-article-meta-row input[type="text"]')
-    await titleInput.fill('Protocolo Cetoacidosis')
+    // Pegar contenido simulado
     const textarea = importModal.locator('.smart-import-textarea')
     await textarea.fill('### Protocolo CAD\n\nADVERTENCIA: Reponer potasio antes de infusión de insulina.')
+
+    // Verificar que el título sugerido se extrae
+    const titleInput = importModal.locator('.new-article-meta-row input[type="text"]')
+    await expect(titleInput).toHaveValue('Protocolo CAD')
+
+    // Probar borrar el título por completo: debe permanecer vacío sin que reaparezca el título sugerido
+    await titleInput.fill('')
+    await expect(titleInput).toHaveValue('')
+
+    // Escribir el título personalizado definitivo
+    await titleInput.fill('Protocolo Cetoacidosis')
+    await expect(titleInput).toHaveValue('Protocolo Cetoacidosis')
 
     // Aplicar importación
     await importModal.locator('.btn-dialog-primary', { hasText: 'Aplicar Importación' }).click()

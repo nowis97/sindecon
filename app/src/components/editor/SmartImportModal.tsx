@@ -43,7 +43,7 @@ export function SmartImportModal({
   const [targetFolderId, setTargetFolderId] = useState<string | null>(
     currentFolderId ?? null,
   )
-  const [customTitle, setCustomTitle] = useState('')
+  const [customTitle, setCustomTitle] = useState<string | null>(null)
   const [previewMode, setPreviewMode] = useState<'rendered' | 'raw'>('rendered')
   const [isProcessing, setIsProcessing] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -58,7 +58,7 @@ export function SmartImportModal({
       setErrorMessage(null)
       setDestination(currentArticle ? 'append' : 'new-article')
       setTargetFolderId(currentFolderId ?? null)
-      setCustomTitle('')
+      setCustomTitle(null)
       setEnrichCallouts(true)
     }
     wasOpenRef.current = isOpen
@@ -87,7 +87,7 @@ export function SmartImportModal({
     return extractSuggestedTitle(processedMarkdown)
   }, [processedMarkdown])
 
-  const effectiveTitle = customTitle || suggestedTitle
+  const effectiveTitle = customTitle !== null ? customTitle : suggestedTitle
 
   if (!isOpen) return null
 
@@ -130,10 +130,10 @@ export function SmartImportModal({
       } else if (destination === 'replace' && currentArticle) {
         await onReplaceCurrentArticle(currentArticle.id, processedMarkdown)
       } else if (destination === 'new-article') {
-        const finalTitle = effectiveTitle.trim() || 'Nuevo Artículo Importado'
+        const finalTitle = effectiveTitle.trim() || suggestedTitle || 'Nuevo Artículo Importado'
         await onCreateNewArticle(finalTitle, processedMarkdown, targetFolderId)
       } else if (destination === 'inbox') {
-        const finalTitle = effectiveTitle.trim() || 'Captura Importada'
+        const finalTitle = effectiveTitle.trim() || suggestedTitle || 'Captura Importada'
         await onSaveToInbox(finalTitle, processedMarkdown)
       }
       onClose()
@@ -301,9 +301,9 @@ export function SmartImportModal({
                   <input
                     type="text"
                     className="dialog-input"
-                    value={customTitle !== '' ? customTitle : suggestedTitle}
+                    value={customTitle !== null ? customTitle : suggestedTitle}
                     onChange={(e) => setCustomTitle(e.target.value)}
-                    placeholder="ej. Guía Diagnóstica..."
+                    placeholder={suggestedTitle || 'ej. Guía Diagnóstica...'}
                   />
                 </div>
                 <div className="field-group">
