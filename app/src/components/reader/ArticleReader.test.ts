@@ -269,6 +269,56 @@ Párrafo posterior a la imagen.
   })
 })
 
+describe('parseMarkdownBlocks - Callouts clínicos con corchetes escapados y directos', () => {
+  it('parsea callout con corchetes escapados (ej. \\[!DOSIS\\])', () => {
+    const md = `
+\\[!DOSIS\\]
+Dosificación: Revisar protocolo de dosis
+400–800 μg.
+`.trim()
+
+    const blocks = parseMarkdownBlocks(md)
+    expect(blocks.length).toBe(1)
+    expect(blocks[0].type).toBe('callout')
+    if (blocks[0].type === 'callout') {
+      expect(blocks[0].kind).toBe('dosage')
+      expect(blocks[0].title).toBe('Dosificación: Revisar protocolo de dosis')
+      expect(blocks[0].text).toContain('400–800 μg.')
+    }
+  })
+
+  it('parsea callout con bloque de cita escapado (> \\[!DOSIS\\])', () => {
+    const md = `
+> \\[!DOSIS\\] Pauta rápida
+> 100 μg IV bolo lento.
+`.trim()
+
+    const blocks = parseMarkdownBlocks(md)
+    expect(blocks.length).toBe(1)
+    expect(blocks[0].type).toBe('callout')
+    if (blocks[0].type === 'callout') {
+      expect(blocks[0].kind).toBe('dosage')
+      expect(blocks[0].title).toBe('Pauta rápida')
+      expect(blocks[0].text).toBe('100 μg IV bolo lento.')
+    }
+  })
+
+  it('limpia backslashes de salto de línea al final de línea', () => {
+    const md = `
+Dosis
+
+1 g IV en 10 mL\\
+Concentración: 100 mg/mL.
+`.trim()
+
+    const blocks = parseMarkdownBlocks(md)
+    expect(blocks.length).toBe(3)
+    if (blocks[1].type === 'paragraph') {
+      expect(blocks[1].text).not.toContain('mL\\')
+    }
+  })
+})
+
 
 
 

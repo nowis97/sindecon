@@ -4,9 +4,10 @@ let mermaidIdCounter = 0
 
 interface MermaidViewerProps {
   code: string
+  isPrintView?: boolean
 }
 
-export function MermaidViewer({ code }: MermaidViewerProps) {
+export function MermaidViewer({ code, isPrintView = false }: MermaidViewerProps) {
   const [svg, setSvg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
@@ -96,42 +97,44 @@ export function MermaidViewer({ code }: MermaidViewerProps) {
   }
 
   const viewerContent = (
-    <div className={`mermaid-viewer-card ${isFullscreen ? 'fullscreen-mode' : ''}`}>
-      <div className="mermaid-controls">
-        <span className="mermaid-tag">Algoritmo / Esquema</span>
-        <div className="mermaid-buttons">
-          <button type="button" onClick={handleZoomIn} title="Acercar (+)">
-            +
-          </button>
-          <button type="button" onClick={handleZoomOut} title="Alejar (-)">
-            -
-          </button>
-          <button type="button" onClick={handleResetZoom} title="Restablecer tamaño">
-            {Math.round(zoom * 100)}%
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-          >
-            {isFullscreen ? '✕' : '⛶'}
-          </button>
+    <div className={`mermaid-viewer-card ${isFullscreen ? 'fullscreen-mode' : ''} ${isPrintView ? 'is-print-view' : ''}`}>
+      {!isPrintView && (
+        <div className="mermaid-controls">
+          <span className="mermaid-tag">Algoritmo / Esquema</span>
+          <div className="mermaid-buttons">
+            <button type="button" onClick={handleZoomIn} title="Acercar (+)">
+              +
+            </button>
+            <button type="button" onClick={handleZoomOut} title="Alejar (-)">
+              -
+            </button>
+            <button type="button" onClick={handleResetZoom} title="Restablecer tamaño">
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+            >
+              {isFullscreen ? '✕' : '⛶'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div
         ref={containerRef}
         className="mermaid-viewport"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        onPointerDown={isPrintView ? undefined : handlePointerDown}
+        onPointerMove={isPrintView ? undefined : handlePointerMove}
+        onPointerUp={isPrintView ? undefined : handlePointerUp}
+        onPointerCancel={isPrintView ? undefined : handlePointerUp}
+        style={{ cursor: isPrintView ? 'default' : isDragging ? 'grabbing' : 'grab' }}
       >
         <div
           className="mermaid-svg-wrapper"
           style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transform: isPrintView ? 'none' : `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: 'top center',
           }}
           dangerouslySetInnerHTML={{ __html: svg }}

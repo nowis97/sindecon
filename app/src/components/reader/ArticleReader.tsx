@@ -102,6 +102,9 @@ export function parseMarkdownBlocks(md: string): Block[] {
     .replace(/&nbsp;/gi, ' ')
     .replace(/\\+:/g, ':')
     .replace(/\\+\|/g, '|')
+    .replace(/\\+\[/g, '[')
+    .replace(/\\+\]/g, ']')
+    .replace(/\\+(\r?\n)/g, '$1')
     .replace(/\\+([>#\-*+])/g, '$1')
   const rawLines = normalizedMd.split(/\r?\n/)
   const blocks: Block[] = []
@@ -179,7 +182,7 @@ export function parseMarkdownBlocks(md: string): Block[] {
       continue
     }
 
-    // 5. Callouts y Blockquotes (> [!TYPE] Title)
+    // 5. Callouts y Blockquotes (> [!TYPE] Title o directos [!TYPE])
     if (trimmed.startsWith('>')) {
       const quoteLines: string[] = []
       while (i < rawLines.length && rawLines[i].trim().startsWith('>')) {
@@ -206,6 +209,56 @@ export function parseMarkdownBlocks(md: string): Block[] {
           text: fullQuote,
         })
       }
+      continue
+    }
+
+    const directCalloutMatch = trimmed.match(/^\[!([A-Z_-]+)\](?:\s+(.*))?$/i)
+    if (directCalloutMatch) {
+      const typeInfo = parseCalloutType(directCalloutMatch[1])
+      let customTitle = directCalloutMatch[2]?.trim() || ''
+      const bodyLines: string[] = []
+      i++
+      while (i < rawLines.length) {
+        const nextTrimmed = rawLines[i].trim()
+        if (
+          !nextTrimmed &&
+          i + 1 < rawLines.length &&
+          (!rawLines[i + 1].trim() ||
+            /^#{1,6}\s+/.test(rawLines[i + 1].trim()) ||
+            /^\[!([A-Z_-]+)\]/i.test(rawLines[i + 1].trim()) ||
+            rawLines[i + 1].trim().startsWith(':::') ||
+            rawLines[i + 1].trim().startsWith('```') ||
+            rawLines[i + 1].trim().startsWith('>'))
+        ) {
+          break
+        }
+        if (
+          /^#{1,6}\s+/.test(nextTrimmed) ||
+          /^\[!([A-Z_-]+)\]/i.test(nextTrimmed) ||
+          nextTrimmed.startsWith(':::') ||
+          nextTrimmed.startsWith('```') ||
+          nextTrimmed.startsWith('---') ||
+          nextTrimmed.startsWith('>')
+        ) {
+          break
+        }
+        if (nextTrimmed) {
+          bodyLines.push(nextTrimmed)
+        }
+        i++
+      }
+
+      if (!customTitle && bodyLines.length > 0 && bodyLines[0].toLowerCase().startsWith('dosificación:')) {
+        customTitle = bodyLines.shift()!
+      }
+
+      const bodyText = bodyLines.join('\n').trim()
+      blocks.push({
+        type: 'callout',
+        kind: typeInfo.kind,
+        title: customTitle || typeInfo.defaultTitle,
+        text: bodyText,
+      })
       continue
     }
 
@@ -441,6 +494,7 @@ function renderBlock(
   key: string | number,
   onWikiLinkClick: (uuid: string) => void,
   articleTitle?: string,
+  isPrintView: boolean = false,
 ): React.ReactNode {
   switch (block.type) {
     case 'header': {
@@ -482,16 +536,17 @@ function renderBlock(
         </blockquote>
       )
     case 'mermaid':
-      return <MermaidViewer key={key} code={block.code} />
+      return <MermaidViewer key={key} code={block.code} isPrintView={isPrintView} />
     case 'code':
       return (
         <pre key={key} className="reader-code-block">
           <code className={block.lang ? `language-${block.lang}` : ''}>{block.code}</code>
         </pre>
       )
-    case 'table':
+    case 'table': {
+      const isWide = block.headers.length >= 3 || block.rows.some((r) => r.length >= 3)
       return (
-        <div key={key} className="reader-table-container">
+        <div key={key} className={`reader-table-container reader-table-wrapper ${isWide ? 'table-wide' : ''}`}>
           <table className="reader-table">
             <thead>
               <tr>
@@ -526,6 +581,7 @@ function renderBlock(
           </table>
         </div>
       )
+    }
     case 'image':
       return <AssetImage key={key} src={block.src} alt={block.alt} />
     case 'pdf':
@@ -555,7 +611,7 @@ function renderBlock(
           {block.columns.map((colBlocks, colIdx) => (
             <div key={colIdx} className="article-column-item">
               {colBlocks.map((childBlock, childIdx) =>
-                renderBlock(childBlock, `${key}-${colIdx}-${childIdx}`, onWikiLinkClick, articleTitle)
+                renderBlock(childBlock, `${key}-${colIdx}-${childIdx}`, onWikiLinkClick, articleTitle, isPrintView)
               )}
             </div>
           ))}
@@ -678,7 +734,7 @@ export function ArticleReader({
               : `article-reader-view ${isPdfArticle ? 'pdf-mode' : isTwoColumns ? 'layout-two-columns' : 'layout-single-column'} ${isPdfArticle ? '' : alignmentClass}`
           }
         >
-          {blocks.map((block, idx) => renderBlock(block, idx, onWikiLinkClick, articleTitle))}
+          {blocks.map((block, idx) => renderBlock(block, idx, onWikiLinkClick, articleTitle, isPrintView))}
         </div>
       )}
     </div>

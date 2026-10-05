@@ -4732,6 +4732,7 @@ select.dialog-input {
     columns: 2 !important;
     column-gap: 2.25rem !important;
     column-rule: 1px solid #e2e8f0 !important;
+    column-fill: auto !important;
     font-size: 9.5pt !important;
     line-height: 1.30 !important;
   }
@@ -4744,11 +4745,18 @@ select.dialog-input {
     background: transparent !important;
   }
 
+  .print-reader-view > *:first-child,
+  .article-column-item > *:first-child {
+    margin-top: 0 !important;
+  }
+
   /* 6. Tipografía y Encabezados Fieles al Modo Lector */
   .reader-heading {
     font-weight: 700 !important;
     letter-spacing: -0.01em !important;
     line-height: 1.25 !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
   }
 
   .reader-heading.h1 {
@@ -4784,11 +4792,21 @@ select.dialog-input {
     color: #1e293b !important;
     margin-bottom: 5pt !important;
     line-height: 1.32 !important;
+    orphans: 2 !important;
+    widows: 2 !important;
+  }
+
+  .reader-paragraph:has(+ .reader-list),
+  .reader-paragraph:has(+ ol),
+  .reader-paragraph:has(+ ul) {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
   }
 
   /* 7. Bloques, Callouts y Tablas con Estilo Idéntico al Lector */
   table,
   .reader-table-wrapper,
+  .reader-table-container,
   .reader-callout,
   .mermaid-container,
   .mermaid-viewer-card,
@@ -4800,6 +4818,58 @@ select.dialog-input {
   .article-column-item {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+  }
+
+  /* Ocultar controles interactivos de diagramas en impresión */
+  .mermaid-controls,
+  .mermaid-buttons {
+    display: none !important;
+  }
+
+  /* Diagramas Mermaid en modo impresión */
+  .mermaid-viewer-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 8pt 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* En modo 2 columnas, diagramas y tablas anchas se expanden a ancho completo para garantizar su legibilidad */
+  .print-layout-two-columns .mermaid-viewer-card,
+  body.print-columns-2 #print-article-document .mermaid-viewer-card,
+  .print-layout-two-columns .reader-table-wrapper.table-wide,
+  body.print-columns-2 #print-article-document .reader-table-wrapper.table-wide,
+  .print-layout-two-columns .reader-table-container.table-wide,
+  body.print-columns-2 #print-article-document .reader-table-container.table-wide {
+    column-span: all !important;
+    width: 100% !important;
+    margin: 10pt 0 !important;
+  }
+
+  .mermaid-viewport {
+    overflow: visible !important;
+    cursor: default !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+  }
+
+  .mermaid-svg-wrapper {
+    transform: none !important;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+
+  .mermaid-svg-wrapper svg {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    margin: 0 auto !important;
   }
 
   .article-columns-grid {
