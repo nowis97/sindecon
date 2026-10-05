@@ -1156,6 +1156,8 @@ body {
   display: grid;
   grid-template-rows: 1fr;
   transition: grid-template-rows var(--dur-normal) var(--ease-spring);
+  min-width: 0;
+  width: 100%;
 }
 
 .tree-children-accordion.collapsed,
@@ -1176,6 +1178,17 @@ body {
 .tree-children-accordion.expanded .tree-children-inner,
 .tree-favorites-accordion.expanded .tree-favorites-inner {
   overflow: visible;
+}
+
+.tree-children-inner,
+.tree-favorites-inner {
+  min-width: 0;
+  width: 100%;
+}
+
+.tree-node-wrapper {
+  min-width: 0;
+  width: 100%;
 }
 
 .favorite-row {
@@ -1211,6 +1224,9 @@ body {
               color var(--dur-fast) var(--ease-smooth),
               transform var(--dur-fast) var(--ease-spring);
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .tree-row:active {
@@ -1424,7 +1440,7 @@ body {
 }
 
 .btn-tree-row-menu {
-  opacity: 0;
+  opacity: 0.65;
   background: none;
   border: none;
   color: var(--text-muted);
@@ -1432,6 +1448,7 @@ body {
   padding: 2px 4px;
   border-radius: 4px;
   font-size: 0.85rem;
+  line-height: 1;
   transition: opacity var(--dur-fast) var(--ease-smooth),
               background-color var(--dur-fast) var(--ease-smooth),
               color var(--dur-fast) var(--ease-smooth),
@@ -1439,14 +1456,22 @@ body {
 }
 
 .tree-row:hover .btn-tree-row-menu,
+.btn-tree-row-menu:focus-visible,
 .btn-tree-row-menu.active {
   opacity: 1;
+  color: var(--text-primary);
 }
 
 .btn-tree-row-menu:hover {
+  opacity: 1;
   background: var(--border-subtle);
   color: var(--text-primary);
   transform: scale(1.1);
+}
+
+.btn-tree-row-menu:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
 }
 
 /* Stacking context para menú activo */
