@@ -39,6 +39,7 @@ import { TagInput } from './components/search/TagInput'
 import { WikiLinkPicker } from './components/search/WikiLinkPicker'
 import { Dashboard } from './components/dashboard/Dashboard'
 import { MobileBottomBar } from './components/navigation/MobileBottomBar'
+import { APP_VERSION } from './version'
 import {
   PromptDialog,
   ConfirmDialog,
@@ -795,6 +796,15 @@ function App() {
             onToggleFavorite={toggleFavorite}
             showTemplatesFolder={showTemplatesFolder}
           />
+
+          <div className="sidebar-footer">
+            <span
+              className="sidebar-version-badge"
+              title={`SINDECON v${APP_VERSION} — Cuaderno Médico`}
+            >
+              SINDECON v{APP_VERSION}
+            </span>
+          </div>
         </aside>
 
         <main className={`content ${isPdfArticle ? 'content-pdf-active' : ''}`}>

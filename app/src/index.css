@@ -309,6 +309,31 @@ body {
   flex-shrink: 0;
 }
 
+.sidebar-footer {
+  margin-top: auto;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-vault);
+  flex-shrink: 0;
+}
+
+.sidebar-version-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-version-badge:hover {
+  opacity: 1;
+  color: var(--text-primary);
+}
+
 .sidebar-header-desktop {
   padding: 12px 14px;
   display: flex;
