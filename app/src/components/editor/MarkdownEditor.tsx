@@ -11,7 +11,7 @@ import '@milkdown/crepe/theme/common/style.css'
 import '@milkdown/crepe/theme/frame.css'
 
 import { compressImage } from '../../utils/imageCompress'
-import { createAssetFromFile } from '../../db/assets'
+import { createAssetFromFile, getAssetBlob } from '../../db/assets'
 import { imageAssetPlugin } from './imageAssetView'
 import { wikiLinkPlugin } from './wikiLinkPlugin'
 
@@ -53,9 +53,10 @@ export function MarkdownEditor({
   onWikiLinkClick,
   editorRef,
 }: MarkdownEditorProps) {
-const hostRef = useRef<HTMLDivElement>(null)
+  const hostRef = useRef<HTMLDivElement>(null)
   const onChangeRef = useRef(onChange)
   const onWikiClickRef = useRef(onWikiLinkClick)
+  const activeObjectUrlsRef = useRef<Set<string>>(new Set())
   // CRÍTICO: capturar nodeId UNA vez al mount. NO reasignar en cada render.
   // Si reasignáramos, el editor viejo durante el swap heredaría el nodeId
   // del nuevo artículo y un markdownUpdated tardío sobreescribiría el
@@ -113,6 +114,18 @@ const hostRef = useRef<HTMLDivElement>(null)
             const { id } = await createAssetFromFile(compressed)
             return `asset://${id}`
           },
+          proxyDomURL: async (url: string) => {
+            if (url.startsWith('asset://')) {
+              const id = url.slice('asset://'.length)
+              const blob = await getAssetBlob(id)
+              if (blob) {
+                const objectUrl = URL.createObjectURL(blob)
+                activeObjectUrlsRef.current.add(objectUrl)
+                return objectUrl
+              }
+            }
+            return url
+          },
         },
       },
     })
@@ -169,6 +182,12 @@ const hostRef = useRef<HTMLDivElement>(null)
       }
       if (editorRef) editorRef.current = null
       crepe.destroy()
+      activeObjectUrlsRef.current.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url)
+        } catch {}
+      })
+      activeObjectUrlsRef.current.clear()
     }
     // defaultValue es solo el valor inicial; el padre fuerza remonte con key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
