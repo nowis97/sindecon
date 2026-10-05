@@ -6,12 +6,24 @@ Que la aplicación funcione por completo sin conexión y se instale como una app
 
 ### Requirement: Instalable como PWA
 
-El sistema SHALL ser instalable como aplicación (manifest + iconos) tanto en escritorio como en móvil, desde el navegador, sin pasar por tiendas de aplicaciones.
+El sistema SHALL ser instalable como aplicación (manifest + iconos) tanto en escritorio como en móvil, desde el navegador, sin pasar por tiendas de aplicaciones, ofreciendo un botón de instalación en la interfaz ( 📲 Instalar App), capturando el evento nativo eforeinstallprompt y proporcionando instrucciones visuales para entornos que requieren instalación manual como iOS Safari.
 
 #### Scenario: Instalar en el teléfono
-
-- **WHEN** el usuario abre la app en el navegador del móvil y elige "Añadir a pantalla de inicio"
+- **WHEN** el usuario abre la app en el navegador del móvil y elige \Añadir a pantalla de inicio\
 - **THEN** la app queda instalada con su icono y abre a pantalla completa sin la barra del navegador
+
+#### Scenario: Instalación directa mediante prompt del navegador en Desktop y Android
+- **WHEN** el usuario hace clic en el botón \📲 Instalar App\ en un navegador compatible con eforeinstallprompt
+- **THEN** el sistema dispara el prompt nativo de instalación del navegador
+- **AND** tras la aceptación, la aplicación queda instalada con icono propio y se ejecuta en modo standalone a pantalla completa
+
+#### Scenario: Instalación guiada en iOS Safari
+- **WHEN** el usuario pulsa en \📲 Instalar App\ desde Safari en iOS
+- **THEN** la aplicación muestra un modal o tooltip con pasos claros: \Toca Compartir ⎋ y selecciona Añadir a pantalla de inicio ➕\
+
+#### Scenario: Detección de aplicación ya instalada
+- **WHEN** la aplicación se abre en modo standalone (display-mode: standalone) o tras haberse instalado
+- **THEN** el botón de instalación se oculta automáticamente para mantener la interfaz limpia
 
 ### Requirement: Funcionamiento offline total
 
@@ -43,12 +55,13 @@ El sistema SHALL solicitar al navegador almacenamiento persistente en el primer 
 
 ### Requirement: Transiciones de navegación y micro-interacciones del shell
 
-El sistema SHALL presentar transiciones fluidas en la barra de navegación móvil, el drawer lateral y el cambio de temas (claro/oscuro), respetando las preferencias de accesibilidad del usuario.
+El sistema SHALL presentar transiciones fluidas en la barra de navegación móvil, el drawer lateral y el cambio de temas (claro/oscuro), respetando las preferencias de accesibilidad del usuario. El drawer lateral en móvil SHALL posicionarse desde el borde superior de la pantalla cubriendo la cabecera superior y finalizar en el límite superior de la barra de navegación inferior dock, con scroll completo e independiente.
 
 #### Scenario: Apertura fluida del drawer lateral en móvil
 
 - **WHEN** el usuario pulsa el botón de menú o el botón de temas en la barra superior/inferior móvil
-- **THEN** el drawer lateral se despliega con una transición de aceleración suave y el fondo oscurecido aplica un desenfoque progresivo
+- **THEN** el drawer lateral se despliega desde la parte superior sobre la cabecera sin superponerse a la barra inferior flotante
+- **AND** el fondo oscurecido aplica un desenfoque progresivo en la zona de contenido
 
 #### Scenario: Cambio de tema visual sin saltos abruptos
 
@@ -57,7 +70,7 @@ El sistema SHALL presentar transiciones fluidas en la barra de navegación móvi
 
 #### Scenario: Respeto a preferencias de movimiento reducido
 
-- **WHEN** el sistema operativo o navegador tiene activada la opción `prefers-reduced-motion: reduce`
+- **WHEN** el sistema operativo o navegador tiene activada la opción prefers-reduced-motion: reduce
 - **THEN** las transiciones cinéticas y animaciones complejas se desactivan o se reducen a desvanecimientos instantáneos
 
 ### Requirement: Tema visual moderno estilo Obsidian y Notion
@@ -68,11 +81,15 @@ El sistema DEBE aplicar una jerarquía visual de alto contraste y densidad limpi
 - **THEN** todas las superficies, tarjetas, inputs de tags y modales adaptan sus colores de fondo y texto sin pérdida de contraste
 
 ### Requirement: Floating Dock de navegación móvil con Glassmorphism
-El sistema DEBE proveer en dispositivos móviles una barra inferior translúcida con desenfoque de cristal (`backdrop-filter: blur(16px)`), botón central flotante para captura rápida y accesos directos a Temas, Favoritos, Inbox y Sincronización.
+El sistema DEBE proveer en dispositivos móviles una barra inferior translúcida con desenfoque de cristal (ackdrop-filter: blur(16px)), botón central flotante para captura rápida y accesos directos a Temas, Favoritos, Inbox y Sincronización, manteniéndose siempre al frente en capa superior (z-index: 40) accesible con el pulgar.
 
 #### Scenario: Navegar mediante el dock móvil
 - **WHEN** el usuario interactúa con la barra inferior en un dispositivo móvil
 - **THEN** el sistema navega instantáneamente a la sección seleccionada con respuesta visual activa
+
+#### Scenario: Coexistencia con el menú lateral desplegado
+- **WHEN** el drawer de temas está abierto en un dispositivo móvil
+- **THEN** la barra de navegación inferior permanece visible y completamente funcional, sin tapar los nodos del árbol ni quedar oculta por el menú
 
 ### Requirement: Protección de la interfaz mediante Error Boundary
 El shell de la aplicación DEBE estar envuelto en un Error Boundary que prevenga caídas globales de la aplicación y preserve el estado de navegación y datos en caso de errores en subárboles de componentes.
@@ -126,5 +143,3 @@ El sistema SHALL permitir colapsar y expandir la barra lateral en vistas de escr
 #### Scenario: Persistencia del estado de la barra lateral
 - **WHEN** el usuario colapsa la barra lateral y recarga la página o reabre la PWA en escritorio
 - **THEN** la aplicación inicia con la barra lateral colapsada según la última preferencia guardada
-
-

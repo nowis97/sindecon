@@ -100,3 +100,75 @@ Durante el procesamiento, el sistema SHALL mostrar una barra de progreso y conta
 #### Scenario: Progreso y reporte de importación por lotes
 - **WHEN** se procesa un lote de 25 archivos Markdown
 - **THEN** la interfaz muestra el avance de cada archivo procesado y al finalizar presenta un resumen de artículos creados, actualizados u omitidos.
+
+### Requirement: Renderizado fiel de bloques de columnas en exportación a PDF e impresión
+El sistema SHALL renderizar los bloques `:::columns` como columnas visuales paralelas alineadas durante la generación de PDF y vista de impresión de artículos individuales y por lotes. Si la exportación está configurada en 1 columna de página, el bloque interno `:::columns` SHALL mantener sus sub-columnas en paralelo dentro del ancho de la página.
+
+#### Scenario: Exportar a PDF artículo con bloque de dos columnas
+- **WHEN** el usuario genera el PDF de un artículo que contiene un bloque `:::columns`
+- **THEN** el documento PDF resultante muestra las secciones del bloque en columnas paralelas sin cortes anómalos
+
+### Requirement: Exportación de artículos individuales a PDF con selección de maquetación
+
+El sistema SHALL permitir exportar o imprimir cualquier artículo clínico a formato PDF mediante un modal interactivo donde el usuario SHALL poder elegir entre dos modos de maquetación: **1 Columna (Lectura continua)** y **2 Columnas (Ficha médica / Resumen compacto)**. El documento generado SHALL incluir opciones para mostrar u ocultar la cabecera médica (título, fecha de modificación y ruta de carpetas) y las etiquetas (tags), aplicando reglas CSS optimizadas para impresión en papel (`@media print`) que eviten cortes accidentales en tablas, imágenes, diagramas y callouts, y empleando una tipografía con interlineado compacto (`line-height` entre 1.25 y 1.35) y márgenes de párrafo reducidos que maximicen la densidad de información clínica y reduzcan el número total de páginas impresas.
+
+#### Scenario: Selección de maquetación en 2 columnas para ficha médica
+
+- **WHEN** el usuario pulsa "Exportar PDF", selecciona la opción "2 Columnas (Ficha médica)" y confirma la acción
+- **THEN** el sistema prepara el documento con maquetación de dos columnas compactas con interlineado reducido (`line-height: 1.30`) y dispara el diálogo de impresión/guardado en PDF del navegador (`window.print()`)
+
+#### Scenario: Selección de maquetación en 1 columna para lectura lineal
+
+- **WHEN** el usuario selecciona "1 Columna (Lectura continua)" en el modal de exportación PDF y confirma la acción
+- **THEN** el sistema prepara el documento con diseño de columna completa y tipografía compacta (`line-height: 1.35`) antes de invocar la impresión
+
+#### Scenario: Ocultación de elementos no imprimibles de la interfaz
+
+- **WHEN** se dispara la impresión o exportación a PDF
+- **THEN** las barras laterales, barras de navegación inferior, botones de edición y elementos de control de la app quedan estrictamente ocultos en el PDF resultante
+
+#### Scenario: Densidad de lectura e interlineado compacto en elementos clínicos del PDF
+
+- **WHEN** se genera la vista de impresión en cualquier modalidad (1 o 2 columnas)
+- **THEN** los párrafos, listas, tablas, citas y bloques de aviso (callouts) se renderizan con interlineado compacto (`line-height` ≤ 1.35) y separación vertical moderada, evitando saltos de línea innecesariamente amplios en papel
+
+### Requirement: Persistencia y sincronización de configuración de IA en Google Drive
+
+El sistema SHALL persistir y sincronizar de forma bidireccional la configuración de Inteligencia Artificial (proveedor, clave de API y modelo seleccionado) en el espacio privado ppDataFolder de Google Drive del usuario mediante el archivo i-config.json. Al iniciar sesión en Google Drive o ejecutar el ciclo de sincronización, si el almacenamiento local no cuenta con una clave de API configurada y existe una versión en Google Drive, el sistema SHALL descargar y aplicar la configuración automáticamente en el almacenamiento local IndexedDB.
+
+#### Scenario: Carga automática de API Key al iniciar sesión en un dispositivo nuevo
+
+- **WHEN** un usuario inicia sesión con su cuenta de Google Drive en un dispositivo o navegador sin clave de API configurada
+- **THEN** el sistema descarga automáticamente el archivo i-config.json de su espacio privado ppDataFolder y guarda la configuración de IA en IndexedDB dejándola lista para su uso inmediato sin requerir configuración manual
+
+#### Scenario: Subida reactiva al guardar nueva configuración de IA con Drive conectado
+
+- **WHEN** el usuario actualiza o ingresa una nueva API Key o cambia de modelo en el modal de Ajustes de IA estando Google Drive conectado
+- **THEN** el sistema guarda la configuración localmente en IndexedDB y sube de inmediato el archivo i-config.json actualizado al espacio ppDataFolder de Google Drive
+
+#### Scenario: Preservación local al desconectar Google Drive
+
+- **WHEN** el usuario decide desconectar su cuenta de Google Drive
+- **THEN** la configuración de IA local (API Key y modelo) permanece intacta en el dispositivo local para evitar interrupciones en el flujo de trabajo
+
+#### Scenario: Aislamiento estricto de exportaciones manuales en ZIP
+
+- **WHEN** el usuario exporta un respaldo completo de su cuaderno a archivo .zip
+- **THEN** el archivo .zip generado NO contiene claves de API ni secretos de IA, previniendo fugas de credenciales privadas al compartir respaldos
+
+### Requirement: Sincronización persistente en Google Drive con Silent Token Refresh
+
+El sistema SHALL mantener la sesión del usuario en Google Drive de forma persistente a través de reinicios y cierres de la aplicación, renovando automáticamente los Access Tokens expirados en segundo plano mediante Google Identity Services (GIS) sin interrumpir al usuario ni abrir ventanas emergentes cuando la cuenta ya ha sido autorizada previamente.
+
+#### Scenario: Auto-reconexión silenciosa al abrir la aplicación
+- **WHEN** el usuario abre SINDECON habiendo vinculado previamente su cuenta de Google Drive y el Access Token temporal ha caducado
+- **THEN** el sistema solicita silenciosamente un nuevo Access Token (prompt: '') en segundo plano
+- **AND** el estado de sincronización se actualiza automáticamente a conectado ( Al día) sin solicitar interacción manual
+
+#### Scenario: Refresco proactivo en segundo plano
+- **WHEN** la aplicación permanece abierta y el Access Token activo está próximo a expirar (después de 45-50 minutos)
+- **THEN** el sistema renueva el Access Token de forma silenciosa para asegurar la continuidad de la sincronización automática
+
+#### Scenario: Desconexión explícita por el usuario
+- **WHEN** el usuario pulsa en Desconectar cuenta en el modal de Google Drive
+- **THEN** el sistema elimina todas las credenciales y marcas de sesión persistente, volviendo al estado desconectado

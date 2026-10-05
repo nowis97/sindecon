@@ -645,6 +645,31 @@ DOSIS: Paracetamol 1g cada 8h condicional a fiebre.
     await expect(printDoc.locator('.print-article-title')).toHaveText('Cetoacidosis Diabética')
     await expect(printDoc.locator('.print-reader-view')).toBeVisible()
 
+    // Los h1 del cuerpo no abarcan ambas columnas: el PDF fluye igual que la vista 2 columnas en pantalla
+    const h1ColumnSpan = await printDoc.locator('.print-reader-view').evaluate((view) => {
+      const h1 = document.createElement('h1')
+      h1.className = 'reader-heading h1'
+      view.prepend(h1)
+      const span = getComputedStyle(h1).columnSpan
+      h1.remove()
+      return span
+    })
+    expect(h1ColumnSpan).toBe('none')
+
+    // Verificar interlineado compacto en párrafos para exportación a PDF (line-height ~1.32)
+    const paragraphRatio = await printDoc.locator('.print-reader-view').evaluate((view) => {
+      const p = document.createElement('p')
+      p.className = 'reader-paragraph'
+      p.textContent = 'Texto clínico de prueba'
+      view.appendChild(p)
+      const computed = getComputedStyle(p)
+      const fontSize = parseFloat(computed.fontSize) || 13
+      const lineHeight = parseFloat(computed.lineHeight) || (fontSize * 1.32)
+      p.remove()
+      return lineHeight / fontSize
+    })
+    expect(paragraphRatio).toBeLessThanOrEqual(1.35)
+
     // Restaurar media
     await page.emulateMedia({ media: null })
   })

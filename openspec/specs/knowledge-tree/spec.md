@@ -104,16 +104,16 @@ El árbol de carpetas y artículos DEBE presentarse con un diseño minimalista d
 - **THEN** el árbol responde con transiciones suaves y permite gestionar artículos directamente desde el menú contextual
 
 ### Requirement: Drag and Drop de Artículos y Carpetas en el Árbol
-El sistema SHALL permitir organizar el árbol de conocimiento arrastrando y soltando artículos y subcarpetas directamente sobre carpetas de destino o hacia la raíz.
+El sistema SHALL permitir organizar el árbol de conocimiento arrastrando y soltando artículos y subcarpetas directamente sobre carpetas de destino o hacia la raíz de forma sólida y reactiva en plataformas Desktop y Web.
 
 #### Scenario: Arrastrar artículo a una carpeta
 - **GIVEN** el usuario tiene un artículo en la raíz o en una carpeta
-- **WHEN** arrastra el artículo sobre una carpeta de destino y lo suelta
-- **THEN** el artículo se mueve a la carpeta de destino y el árbol se actualiza inmediatamente
+- **WHEN** arrastra el artículo sobre una carpeta de destino en Desktop y lo suelta
+- **THEN** el artículo se mueve a la carpeta de destino y el árbol se actualiza inmediatamente sin interrupciones por elementos internos
 
 #### Scenario: Auto-despliegue de carpeta al arrastrar
 - **GIVEN** una carpeta con subcarpetas está colapsada
-- **WHEN** el usuario arrastra un artículo y mantiene el cursor sobre la carpeta por más de 600ms
+- **WHEN** el usuario arrastra un artículo y mantiene el cursor sobre la carpeta por más de 350ms
 - **THEN** la carpeta se despliega automáticamente mostrando sus subcarpetas para permitir soltar dentro de ellas
 
 #### Scenario: Validación anti-ciclos al arrastrar carpetas
@@ -184,3 +184,28 @@ El sistema SHALL permitir al usuario cargar uno o varios archivos PDF simultáne
 - **WHEN** el usuario abre el menú de opciones (`···`) de una carpeta en el árbol o pulsa el botón "📄 Subir PDF" en la barra de herramientas de `FolderExplorerView`
 - **THEN** el modal de subida de PDFs se abre con dicha carpeta preseleccionada como destino predeterminado
 
+### Requirement: Vista de Explorador de Contenidos de Carpeta
+Cuando una carpeta está seleccionada en el árbol o migas de pan, el área de contenido principal SHALL mostrar una vista de explorador interactivo (FolderExplorerView) con la cabecera de la carpeta, recuento de elementos contenidos (X subcarpetas • Y artículos), cuadrícula de subcarpetas navegables, lista/tarjetas de artículos contenidos con etiquetas y favoritos, y acciones directas para añadir contenido a esa carpeta.
+
+#### Scenario: Explorar contenido de una carpeta con subcarpetas y artículos
+- **WHEN** el usuario selecciona una carpeta que contiene subcarpetas y artículos
+- **THEN** el panel principal muestra el título de la carpeta, la cuadrícula de subcarpetas con acceso clicable y la lista de artículos con sus etiquetas clínicas
+
+#### Scenario: Visualización de carpeta vacía
+- **WHEN** el usuario abre una carpeta que no contiene elementos
+- **THEN** el explorador muestra un estado vacío amigable con botones directos para crear un nuevo artículo o una subcarpeta
+
+#### Scenario: Navegación descendente desde el explorador
+- **WHEN** el usuario hace clic en una tarjeta de subcarpeta dentro del explorador
+- **THEN** la aplicación navega hacia esa subcarpeta, actualizando la selección en el árbol lateral y los breadcrumbs
+
+### Requirement: Diferenciación visual estricta entre carpetas y artículos en el árbol
+El árbol de navegación lateral SHALL diferenciar con alta claridad visual las carpetas contenedoras de los artículos de lectura/edición, empleando iconografía contrastada (📁/📂 con rotación de chevron vs 📄 de ficha clínica), badges contadores de hijos en carpetas y resaltado de artículo activo.
+
+#### Scenario: Identificación visual de carpeta con badge contador
+- **WHEN** se renderiza una carpeta en el árbol lateral
+- **THEN** la fila muestra el icono de carpeta, el indicador de despliegue interactivo y un chip con la cantidad total de elementos directos que contiene
+
+#### Scenario: Identificación de artículo con acceso a favoritos
+- **WHEN** se renderiza un artículo en el árbol lateral
+- **THEN** la fila muestra el icono de documento médico, guías de sangría de árbol y botón de anclar a favoritos

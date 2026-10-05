@@ -4721,7 +4721,7 @@ select.dialog-input {
     column-count: 1 !important;
     columns: 1 !important;
     font-size: 10pt !important;
-    line-height: 1.5 !important;
+    line-height: 1.35 !important;
   }
 
   .print-layout-two-columns .print-reader-view,
@@ -4733,7 +4733,7 @@ select.dialog-input {
     column-gap: 2.25rem !important;
     column-rule: 1px solid #e2e8f0 !important;
     font-size: 9.5pt !important;
-    line-height: 1.48 !important;
+    line-height: 1.30 !important;
   }
 
   .print-reader-view,
@@ -4752,7 +4752,6 @@ select.dialog-input {
   }
 
   .reader-heading.h1 {
-    column-span: all !important;
     color: #008080 !important;
     font-size: 14pt !important;
     border-bottom: 2px solid #008080 !important;
@@ -4783,8 +4782,8 @@ select.dialog-input {
 
   .reader-paragraph {
     color: #1e293b !important;
-    margin-bottom: 8pt !important;
-    line-height: 1.48 !important;
+    margin-bottom: 5pt !important;
+    line-height: 1.32 !important;
   }
 
   /* 7. Bloques, Callouts y Tablas con Estilo Idéntico al Lector */
@@ -4888,7 +4887,7 @@ select.dialog-input {
 
   .reader-callout .callout-body {
     font-size: 8.5pt !important;
-    line-height: 1.4 !important;
+    line-height: 1.28 !important;
     color: #334155 !important;
   }
 
@@ -4902,7 +4901,7 @@ select.dialog-input {
     width: 100% !important;
     border-collapse: collapse !important;
     font-size: 8.5pt !important;
-    line-height: 1.35 !important;
+    line-height: 1.25 !important;
   }
 
   .reader-table th,
@@ -4923,14 +4922,14 @@ select.dialog-input {
 
   /* Listas con sangría y sub-viñetas */
   .reader-list {
-    margin: 5pt 0 8pt 0 !important;
+    margin: 4pt 0 6pt 0 !important;
     padding-left: 20pt !important;
-    line-height: 1.4 !important;
+    line-height: 1.28 !important;
     color: #1e293b !important;
   }
 
   .reader-list li {
-    margin: 2pt 0 !important;
+    margin: 1.5pt 0 !important;
   }
 
   .reader-list-nested {
@@ -4942,11 +4941,11 @@ select.dialog-input {
   /* Bloques de Cita */
   .reader-blockquote {
     border-left: 3.5px solid #94a3b8 !important;
-    margin: 7pt 0 !important;
-    padding: 5pt 10pt !important;
+    margin: 6pt 0 !important;
+    padding: 4pt 8pt !important;
     color: #475569 !important;
     font-style: italic !important;
-    line-height: 1.42 !important;
+    line-height: 1.30 !important;
     background: #f8fafc !important;
     border-radius: 0 4pt 4pt 0 !important;
   }
