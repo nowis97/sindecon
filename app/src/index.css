@@ -4755,11 +4755,18 @@ select.dialog-input {
   body.print-columns-2 #print-article-document .article-reader-view {
     column-count: 2 !important;
     columns: 2 !important;
-    column-gap: 2.25rem !important;
+    column-gap: 1.5rem !important;
     column-rule: 1px solid #e2e8f0 !important;
-    column-fill: auto !important;
     font-size: 9.5pt !important;
     line-height: 1.30 !important;
+  }
+
+  /* Garantizar que NINGÚN elemento rompa la continuidad de las dos columnas */
+  .print-layout-two-columns,
+  .print-layout-two-columns *,
+  body.print-columns-2 #print-article-document,
+  body.print-columns-2 #print-article-document * {
+    column-span: none !important;
   }
 
   .print-reader-view,
@@ -4851,26 +4858,18 @@ select.dialog-input {
     display: none !important;
   }
 
-  /* Diagramas Mermaid en modo impresión */
+  /* Diagramas Mermaid en modo impresión: contenidos estrictamente en la columna */
   .mermaid-viewer-card {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    margin: 8pt 0 !important;
+    margin: 6pt 0 !important;
     padding: 0 !important;
     width: 100% !important;
-  }
-
-  /* En modo 2 columnas, diagramas y tablas anchas se expanden a ancho completo para garantizar su legibilidad */
-  .print-layout-two-columns .mermaid-viewer-card,
-  body.print-columns-2 #print-article-document .mermaid-viewer-card,
-  .print-layout-two-columns .reader-table-wrapper.table-wide,
-  body.print-columns-2 #print-article-document .reader-table-wrapper.table-wide,
-  .print-layout-two-columns .reader-table-container.table-wide,
-  body.print-columns-2 #print-article-document .reader-table-container.table-wide {
-    column-span: all !important;
-    width: 100% !important;
-    margin: 10pt 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   .mermaid-viewport {
@@ -4880,21 +4879,28 @@ select.dialog-input {
     justify-content: center !important;
     align-items: center !important;
     width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .mermaid-svg-wrapper {
     transform: none !important;
     width: 100% !important;
+    max-width: 100% !important;
     display: flex !important;
     justify-content: center !important;
     align-items: center !important;
+    box-sizing: border-box !important;
   }
 
   .mermaid-svg-wrapper svg {
+    width: 100% !important;
     max-width: 100% !important;
     height: auto !important;
+    max-height: 200mm !important;
     display: block !important;
     margin: 0 auto !important;
+    box-sizing: border-box !important;
   }
 
   .article-columns-grid {
@@ -4987,13 +4993,20 @@ select.dialog-input {
   }
 
   /* Tablas Clínicas */
-  .reader-table-wrapper {
+  .reader-table-wrapper,
+  .reader-table-container {
     margin: 8pt 0 !important;
     width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   .reader-table {
     width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
     border-collapse: collapse !important;
     font-size: 8.5pt !important;
     line-height: 1.25 !important;
