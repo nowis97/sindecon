@@ -4705,8 +4705,8 @@ select.dialog-input {
 
   /* 4. Encabezado Médico del Documento */
   .print-article-header {
-    margin-bottom: 14pt !important;
-    padding-bottom: 8pt !important;
+    margin-bottom: 6pt !important;
+    padding-bottom: 4pt !important;
     border-bottom: 2pt solid #008080 !important;
     break-after: avoid !important;
     page-break-after: avoid !important;
@@ -4737,7 +4737,7 @@ select.dialog-input {
     font-size: 18pt !important;
     font-weight: 800 !important;
     color: #0f172a !important;
-    margin: 4pt 0 !important;
+    margin: 2pt 0 !important;
     line-height: 1.25 !important;
     letter-spacing: -0.01em !important;
   }
@@ -4752,7 +4752,7 @@ select.dialog-input {
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 4pt !important;
-    margin-bottom: 12pt !important;
+    margin-bottom: 4pt !important;
   }
 
   .print-tag-pill {
@@ -4770,8 +4770,8 @@ select.dialog-input {
   .print-layout-single .article-reader-view {
     column-count: 1 !important;
     columns: 1 !important;
-    font-size: 10pt !important;
-    line-height: 1.35 !important;
+    font-size: 9pt !important;
+    line-height: 1 !important;
   }
 
   .print-layout-two-columns .print-reader-view,
@@ -4782,8 +4782,8 @@ select.dialog-input {
     columns: 2 !important;
     column-gap: 1.5rem !important;
     column-rule: 1px solid #e2e8f0 !important;
-    font-size: 9.5pt !important;
-    line-height: 1.30 !important;
+    font-size: 9pt !important;
+    line-height: 1 !important;
   }
 
   /* Garantizar que NINGÚN elemento rompa la continuidad de las dos columnas */
@@ -4846,9 +4846,10 @@ select.dialog-input {
   }
 
   .reader-paragraph {
+    font-size: 9pt !important;
     color: #1e293b !important;
-    margin-bottom: 5pt !important;
-    line-height: 1.32 !important;
+    margin-bottom: 4pt !important;
+    line-height: 1 !important;
     orphans: 2 !important;
     widows: 2 !important;
   }
@@ -5109,7 +5110,7 @@ select.dialog-input {
   }
 
   @page {
-    margin: 16mm 18mm;
+    margin: 7mm 9mm;
     size: auto;
   }
 }
