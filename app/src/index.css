@@ -4850,6 +4850,10 @@ select.dialog-input {
     color: #1e293b !important;
     margin-bottom: 4pt !important;
     line-height: 1 !important;
+    text-align: justify !important;
+    text-justify: inter-word !important;
+    hyphens: auto !important;
+    -webkit-hyphens: auto !important;
     orphans: 2 !important;
     widows: 2 !important;
   }
@@ -5016,6 +5020,10 @@ select.dialog-input {
     font-size: 8.5pt !important;
     line-height: 1.28 !important;
     color: #334155 !important;
+    text-align: justify !important;
+    text-justify: inter-word !important;
+    hyphens: auto !important;
+    -webkit-hyphens: auto !important;
   }
 
   /* Tablas Clínicas */
@@ -5064,6 +5072,10 @@ select.dialog-input {
 
   .reader-list li {
     margin: 1.5pt 0 !important;
+    text-align: justify !important;
+    text-justify: inter-word !important;
+    hyphens: auto !important;
+    -webkit-hyphens: auto !important;
   }
 
   .reader-list-nested {
@@ -5082,6 +5094,10 @@ select.dialog-input {
     line-height: 1.30 !important;
     background: #f8fafc !important;
     border-radius: 0 4pt 4pt 0 !important;
+    text-align: justify !important;
+    text-justify: inter-word !important;
+    hyphens: auto !important;
+    -webkit-hyphens: auto !important;
   }
 
   /* Línea divisoria horizontal */
