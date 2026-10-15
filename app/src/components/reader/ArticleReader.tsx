@@ -544,9 +544,14 @@ function renderBlock(
         </pre>
       )
     case 'table': {
-      const isWide = block.headers.length >= 3 || block.rows.some((r) => r.length >= 3)
+      const colCount = Math.max(block.headers.length, ...block.rows.map((r) => r.length), 0)
+      const isWide = colCount >= 3
+      const isExtraWide = colCount >= 5
       return (
-        <div key={key} className={`reader-table-container reader-table-wrapper ${isWide ? 'table-wide' : ''}`}>
+        <div
+          key={key}
+          className={`reader-table-container reader-table-wrapper ${isWide ? 'table-wide' : ''} ${isExtraWide ? 'table-extra-wide' : ''}`}
+        >
           <table className="reader-table">
             <thead>
               <tr>

@@ -5042,14 +5042,18 @@ select.dialog-input {
     max-width: 100% !important;
     box-sizing: border-box !important;
     border-collapse: collapse !important;
-    font-size: 8.5pt !important;
-    line-height: 1.25 !important;
+    font-size: 8pt !important;
+    line-height: 1.2 !important;
   }
 
   .reader-table th,
   .reader-table td {
-    padding: 4pt 7pt !important;
+    padding: 3pt 5pt !important;
     border: 1px solid #cbd5e1 !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    hyphens: auto !important;
+    -webkit-hyphens: auto !important;
   }
 
   .reader-table th {
@@ -5060,6 +5064,40 @@ select.dialog-input {
 
   .reader-table tr:nth-child(even) {
     background: #f8fafc !important;
+  }
+
+  .reader-table .reader-code-inline {
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    white-space: normal !important;
+  }
+
+  /* Tablas anchas (>= 3 columnas): tipografía y espaciado compacto */
+  .reader-table-wrapper.table-wide .reader-table,
+  .reader-table-container.table-wide .reader-table {
+    font-size: 7.5pt !important;
+    line-height: 1.15 !important;
+  }
+
+  .reader-table-wrapper.table-wide .reader-table th,
+  .reader-table-wrapper.table-wide .reader-table td,
+  .reader-table-container.table-wide .reader-table th,
+  .reader-table-container.table-wide .reader-table td {
+    padding: 2.5pt 3.5pt !important;
+  }
+
+  /* Tablas muy anchas (>= 5 columnas): máxima compacidad para no desbordar */
+  .reader-table-wrapper.table-extra-wide .reader-table,
+  .reader-table-container.table-extra-wide .reader-table {
+    font-size: 7pt !important;
+    line-height: 1.1 !important;
+  }
+
+  .reader-table-wrapper.table-extra-wide .reader-table th,
+  .reader-table-wrapper.table-extra-wide .reader-table td,
+  .reader-table-container.table-extra-wide .reader-table th,
+  .reader-table-container.table-extra-wide .reader-table td {
+    padding: 2pt 2.5pt !important;
   }
 
   /* Listas con sangría y sub-viñetas */
