@@ -4771,7 +4771,7 @@ select.dialog-input {
     column-count: 1 !important;
     columns: 1 !important;
     font-size: 9pt !important;
-    line-height: 1 !important;
+    line-height: 1.15 !important;
   }
 
   .print-layout-two-columns .print-reader-view,
@@ -4783,7 +4783,7 @@ select.dialog-input {
     column-gap: 1.5rem !important;
     column-rule: 1px solid #e2e8f0 !important;
     font-size: 9pt !important;
-    line-height: 1 !important;
+    line-height: 1.15 !important;
   }
 
   /* Garantizar que NINGÚN elemento rompa la continuidad de las dos columnas */
@@ -4849,7 +4849,7 @@ select.dialog-input {
     font-size: 9pt !important;
     color: #1e293b !important;
     margin-bottom: 4pt !important;
-    line-height: 1 !important;
+    line-height: 1.15 !important;
     text-align: justify !important;
     text-justify: inter-word !important;
     hyphens: auto !important;
