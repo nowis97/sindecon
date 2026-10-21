@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseMarkdownBlocks } from './ArticleReader'
+import { parseMarkdownBlocks, partitionBlocksIntoSheets } from './ArticleReader'
 
 describe('parseMarkdownBlocks - Bloques Multicolumna (:::columns)', () => {
   it('parsea correctamente un bloque de 2 columnas con encabezados y listas', () => {
@@ -318,6 +318,85 @@ Concentración: 100 mg/mL.
     }
   })
 })
+
+describe('partitionBlocksIntoSheets - Segmentación en Hojas A4', () => {
+  it('retorna una única hoja vacía si no hay bloques', () => {
+    const sheets = partitionBlocksIntoSheets([])
+    expect(sheets.length).toBe(1)
+    expect(sheets[0]).toEqual([])
+  })
+
+  it('mantiene todos los bloques en una sola hoja si no hay regla horizontal', () => {
+    const md = `
+# Sección 1
+Texto de la primera sección.
+
+## Sección 2
+Texto de la segunda sección.
+`.trim()
+
+    const blocks = parseMarkdownBlocks(md)
+    const sheets = partitionBlocksIntoSheets(blocks)
+
+    expect(sheets.length).toBe(1)
+    expect(sheets[0].length).toBe(4)
+    expect(sheets[0][0].type).toBe('header')
+    expect(sheets[0][1].type).toBe('paragraph')
+  })
+
+  it('segmenta en múltiples hojas A4 cuando hay saltos de página con reglas horizontales (---)', () => {
+    const md = `
+# Página 1
+Contenido médico inicial.
+
+---
+
+# Página 2
+Contenido médico en la siguiente hoja.
+
+---
+
+# Página 3
+Conclusiones y tratamiento.
+`.trim()
+
+    const blocks = parseMarkdownBlocks(md)
+    const sheets = partitionBlocksIntoSheets(blocks)
+
+    expect(sheets.length).toBe(3)
+
+    // Hoja 1
+    expect(sheets[0].length).toBe(2)
+    expect(sheets[0][0]).toEqual({ type: 'header', level: 1, text: 'Página 1' })
+    expect(sheets[0][1]).toEqual({ type: 'paragraph', text: 'Contenido médico inicial.' })
+
+    // Hoja 2
+    expect(sheets[1].length).toBe(2)
+    expect(sheets[1][0]).toEqual({ type: 'header', level: 1, text: 'Página 2' })
+    expect(sheets[1][1]).toEqual({ type: 'paragraph', text: 'Contenido médico en la siguiente hoja.' })
+
+    // Hoja 3
+    expect(sheets[2].length).toBe(2)
+    expect(sheets[2][0]).toEqual({ type: 'header', level: 1, text: 'Página 3' })
+    expect(sheets[2][1]).toEqual({ type: 'paragraph', text: 'Conclusiones y tratamiento.' })
+  })
+
+  it('no genera hojas fantasma si hay una regla horizontal al final del documento', () => {
+    const md = `
+# Título
+Párrafo único.
+
+---
+`.trim()
+
+    const blocks = parseMarkdownBlocks(md)
+    const sheets = partitionBlocksIntoSheets(blocks)
+
+    expect(sheets.length).toBe(1)
+    expect(sheets[0].length).toBe(2)
+  })
+})
+
 
 
 

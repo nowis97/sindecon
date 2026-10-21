@@ -2255,6 +2255,10 @@ body {
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 12px;
+  max-width: 210mm;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .btn-reader-align-toggle,
@@ -2289,6 +2293,16 @@ body {
   border-color: var(--accent-primary);
 }
 
+/* Lienzo y Estructura de Hojas A4 */
+.a4-sheet-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 28px;
+  margin: 0 auto;
+}
+
 /* Lector & Editor Host */
 .article-reader-view,
 .editor-host {
@@ -2302,10 +2316,76 @@ body {
   animation: fade-in-up var(--dur-fast) var(--ease-smooth);
 }
 
+/* Hoja A4 Estándar del Modo Vista */
+.article-reader-view.a4-sheet,
+.a4-sheet {
+  width: 100%;
+  max-width: 210mm;
+  min-height: 297mm;
+  padding: 24mm 20mm;
+  box-sizing: border-box;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 4px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  margin: 0 auto;
+  line-height: 1.48;
+  font-size: 1rem;
+  position: relative;
+  transition: box-shadow var(--dur-fast) var(--ease-smooth);
+}
+
+[data-theme='dark'] .article-reader-view.a4-sheet,
+[data-theme='dark'] .a4-sheet {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 1px 5px rgba(0, 0, 0, 0.25);
+}
+
+/* Separador y Salto de Hoja A4 */
+.a4-sheet-break {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 210mm;
+  margin: -10px auto;
+  position: relative;
+  user-select: none;
+}
+
+.a4-sheet-break::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed var(--border-subtle);
+  z-index: 1;
+}
+
+.a4-sheet-break-label {
+  position: relative;
+  z-index: 2;
+  background: var(--bg-app);
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+}
+
 /* Maquetación a 2 Columnas (Estilo Ficha Médica / Word) */
 .article-reader-view.layout-two-columns {
   columns: 2;
   column-gap: 2.25rem;
+  column-rule: 1px solid var(--border-subtle);
+}
+
+.article-reader-view.a4-sheet.layout-two-columns {
+  columns: 2;
+  column-gap: 2rem;
   column-rule: 1px solid var(--border-subtle);
 }
 
@@ -2516,10 +2596,26 @@ body {
 
 /* Adaptación en Pantallas Móviles */
 @media (max-width: 820px) {
+  .a4-sheet-container {
+    gap: 16px;
+  }
+
+  .article-reader-view.a4-sheet,
+  .a4-sheet {
+    max-width: 100%;
+    min-height: auto;
+    padding: 20px 16px;
+    border-radius: var(--radius-md);
+  }
+
+  .a4-sheet-break {
+    margin: -4px auto;
+  }
+
   .article-reader-view.layout-two-columns {
     columns: 1;
     column-rule: none;
-    padding: 24px 20px;
+    padding: 20px 16px;
   }
 }
 

@@ -82,6 +82,8 @@ El sistema SHALL serializar a Markdown el contenido copiado desde el editor, de 
 
 El sistema SHALL ofrecer una vista de lectura de cada artículo que renderice el Markdown completo (formato, tablas, listas, imágenes y esquemas mermaid) con tipografía optimizada para lectura médica y soporte de alineación justificada del texto (`text-align: justify`). Las imágenes médicas SHALL mostrarse centradas horizontalmente, adaptándose fluidamente al ancho de su columna tanto en vista de 1 como de 2 columnas o dentro de bloques multicolumna, sin desbordar los límites del contenedor y con protección contra cortes verticales entre columnas (`break-inside: avoid`). Las imágenes en modo lector SHALL ser estáticas y libres de pistas interactivas o modales de ampliación (zoom). Asimismo, el sistema SHALL proveer un control en la barra de herramientas del lector para alternar opcionalmente entre alineación justificada e izquierda, persistiendo dicha preferencia en el almacenamiento local. En pantallas estrechas, los esquemas mermaid anchos SHALL permitir zoom y desplazamiento. La presentación tipográfica SHALL aplicar un interlineado compacto de alta densidad informativa, y los encabezados de nivel 1 (h1) SHALL presentar el mismo estilo visual distintivo de los encabezados de nivel 2 (h2) (color de acento y subrayado temático), diferenciándose por una escala de tamaño superior.
 
+Asimismo, el sistema SHALL estructurar y renderizar el contenido en el modo vista dentro de hojas con formato y proporción estándar tamaño A4 (ancho nominal base de 210mm / ~794px a 96 DPI, márgenes de página físicos de 20-25mm, sombras perimetrales suaves simulando papel elevado y separación visual clara entre páginas consecutivas). En dispositivos de escritorio y tablets, las hojas A4 SHALL presentarse centradas en el lienzo de lectura; en pantallas móviles o ventanas estrechas, las hojas SHALL adaptarse elásticamente al 100% del ancho del viewport sin provocar scroll horizontal forzado. El diseño en hoja A4 SHALL mantener compatibilidad total con la maquetación a 2 columnas y con la alineación justificada.
+
 #### Scenario: Consulta en el hospital desde el móvil
 
 - **WHEN** el usuario abre un artículo con un algoritmo mermaid ancho en el móvil
@@ -116,6 +118,21 @@ El sistema SHALL ofrecer una vista de lectura de cada artículo que renderice el
 
 - **WHEN** el usuario visualiza una imagen médica en el modo lector
 - **THEN** la imagen no presenta mensajes de ampliación ("🔍 Toca para ampliar"), no responde con aperturas de modal al hacer clic y mantiene el cursor estándar de lectura.
+
+#### Scenario: Renderizado del artículo en hoja tamaño A4 en pantalla de escritorio
+
+- **WHEN** el usuario accede al modo Vista (Lector) en un artículo médico desde una pantalla de escritorio
+- **THEN** el contenido se renderiza dentro de una hoja centrada de ancho A4 (~210mm / 794px), con márgenes tipográficos de 20-25mm, fondo blanco/card y sombra perimetral de papel sobre el fondo del lienzo.
+
+#### Scenario: Separación visual entre páginas u hojas de lectura
+
+- **WHEN** el artículo cuenta con múltiples divisiones de página o un volumen extenso de notas
+- **THEN** el lector presenta una separación visual nítida (brecha y delimitación de bordes/sombras) entre las hojas A4 consecutivas.
+
+#### Scenario: Adaptación responsiva de hoja A4 en pantallas móviles
+
+- **WHEN** el usuario abre el modo Vista en un teléfono inteligente o pantalla con ancho menor a 794px
+- **THEN** la hoja A4 se expande fluidamente ocupando el ancho del dispositivo con márgenes móviles adaptados (12-16px) sin desbordamiento horizontal.
 
 ### Requirement: Micro-interacciones en lectura, edición e importación
 

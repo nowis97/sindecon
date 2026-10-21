@@ -385,6 +385,24 @@ export function parseMarkdownBlocks(md: string): Block[] {
   return blocks
 }
 
+/**
+ * Agrupa los bloques en hojas continuas estilo A4.
+ * Cada regla horizontal (Block.type === 'hr') actúa como delimitador de salto de página.
+ */
+export function partitionBlocksIntoSheets(blocks: Block[]): Block[][] {
+  if (blocks.length === 0) return [[]]
+  const sheets: Block[][] = [[]]
+  for (const block of blocks) {
+    if (block.type === 'hr') {
+      sheets.push([])
+    } else {
+      sheets[sheets.length - 1].push(block)
+    }
+  }
+  const filtered = sheets.filter((sheet, idx) => sheet.length > 0 || idx === 0)
+  return filtered.length > 0 ? filtered : [[]]
+}
+
 function renderFormattedInline(
   text: string,
   onWikiLinkClick: (uuid: string) => void
@@ -685,6 +703,7 @@ export function ArticleReader({
     [blocks],
   )
   const alignmentClass = isJustified ? 'text-justified' : 'text-left'
+  const sheets = useMemo(() => partitionBlocksIntoSheets(blocks), [blocks])
 
   return (
     <div
@@ -727,19 +746,45 @@ export function ArticleReader({
         </div>
       )}
 
-      {!markdown.trim() ? (
-        <div className={isPrintView ? `print-reader-view empty ${alignmentClass}` : `article-reader-view empty ${alignmentClass}`}>
-          <p className="muted empty-reader">Este artículo está vacío. Toca "Editar" para redactar contenido.</p>
+      {isPrintView ? (
+        !markdown.trim() ? (
+          <div className={`print-reader-view empty ${alignmentClass}`}>
+            <p className="muted empty-reader">Este artículo está vacío. Toca "Editar" para redactar contenido.</p>
+          </div>
+        ) : (
+          <div className={`print-reader-view ${alignmentClass}`}>
+            {blocks.map((block, idx) => renderBlock(block, idx, onWikiLinkClick, articleTitle, isPrintView))}
+          </div>
+        )
+      ) : isPdfArticle ? (
+        <div className="article-reader-view pdf-mode">
+          {blocks.map((block, idx) => renderBlock(block, idx, onWikiLinkClick, articleTitle, isPrintView))}
+        </div>
+      ) : !markdown.trim() ? (
+        <div className="a4-sheet-container">
+          <div className={`article-reader-view a4-sheet empty ${alignmentClass}`}>
+            <p className="muted empty-reader">Este artículo está vacío. Toca "Editar" para redactar contenido.</p>
+          </div>
         </div>
       ) : (
-        <div
-          className={
-            isPrintView
-              ? `print-reader-view ${alignmentClass}`
-              : `article-reader-view ${isPdfArticle ? 'pdf-mode' : isTwoColumns ? 'layout-two-columns' : 'layout-single-column'} ${isPdfArticle ? '' : alignmentClass}`
-          }
-        >
-          {blocks.map((block, idx) => renderBlock(block, idx, onWikiLinkClick, articleTitle, isPrintView))}
+        <div className="a4-sheet-container">
+          {sheets.map((sheetBlocks, sheetIdx) => (
+            <React.Fragment key={sheetIdx}>
+              {sheetIdx > 0 && (
+                <div className="a4-sheet-break" role="separator" aria-label={`Página ${sheetIdx + 1}`}>
+                  <span className="a4-sheet-break-label">Página {sheetIdx + 1}</span>
+                </div>
+              )}
+              <div
+                className={`article-reader-view a4-sheet ${isTwoColumns ? 'layout-two-columns' : 'layout-single-column'} ${alignmentClass}`}
+                data-sheet-index={sheetIdx}
+              >
+                {sheetBlocks.map((block, blockIdx) =>
+                  renderBlock(block, `s${sheetIdx}-${blockIdx}`, onWikiLinkClick, articleTitle, isPrintView)
+                )}
+              </div>
+            </React.Fragment>
+          ))}
         </div>
       )}
     </div>
