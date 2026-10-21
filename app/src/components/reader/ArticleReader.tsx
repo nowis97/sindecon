@@ -413,36 +413,39 @@ export function estimateBlockHeight(block: Block): number {
       if (block.level === 2) return 42
       return 32
     case 'paragraph': {
-      const lines = Math.max(1, Math.ceil(block.text.length / 45))
+      const lines = Math.max(1, Math.ceil(block.text.length / 42))
       return lines * 20 + 8
     }
     case 'blockquote': {
-      const lines = Math.max(1, Math.ceil(block.text.length / 42))
+      const lines = Math.max(1, Math.ceil(block.text.length / 38))
       return lines * 20 + 16
     }
     case 'list': {
       const countItems = (items: typeof block.items): number =>
-        items.reduce((acc, item) => acc + 1 + countItems(item.children), 0)
-      const count = countItems(block.items)
-      return count * 22 + 12
+        items.reduce((acc, item) => {
+          const lines = Math.max(1, Math.ceil((item.text?.length || 20) / 38))
+          const itemH = lines * 20 + 4
+          return acc + itemH + countItems(item.children)
+        }, 0)
+      return countItems(block.items) + 12
     }
     case 'callout': {
-      const titleLines = Math.max(1, Math.ceil(block.title.length / 40))
-      const textLines = Math.max(1, Math.ceil(block.text.length / 40))
+      const titleLines = Math.max(1, Math.ceil(block.title.length / 38))
+      const textLines = Math.max(1, Math.ceil(block.text.length / 38))
       return (titleLines + textLines) * 20 + 28
     }
     case 'table': {
       const rowsCount = block.rows.length + 1
-      return rowsCount * 28 + 16
+      return rowsCount * 34 + 18
     }
     case 'code': {
       const lines = block.code.split('\n').length
       return lines * 19 + 24
     }
     case 'mermaid':
-      return 220
+      return 360
     case 'image':
-      return 200
+      return 300
     case 'pdf':
       return 350
     case 'columns': {
@@ -459,7 +462,7 @@ export function estimateBlockHeight(block: Block): number {
   }
 }
 
-export const A4_TWO_COLUMN_CAPACITY_PX = 2000
+export const A4_TWO_COLUMN_CAPACITY_PX = 1750
 
 /**
  * Pagina los bloques en hojas discretas estilo A4 para el modo a dos columnas.

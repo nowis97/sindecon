@@ -414,12 +414,12 @@ describe('estimateBlockHeight', () => {
     const shortP = { type: 'paragraph' as const, text: 'Corto' }
     const longP = { type: 'paragraph' as const, text: 'A'.repeat(180) }
     expect(estimateBlockHeight(shortP)).toBe(28)
-    expect(estimateBlockHeight(longP)).toBe(88)
+    expect(estimateBlockHeight(longP)).toBe(108)
   })
 
   it('calcula alturas de elementos especiales (mermaid, imágenes, tablas, hr)', () => {
-    expect(estimateBlockHeight({ type: 'mermaid', code: 'graph TD' })).toBe(220)
-    expect(estimateBlockHeight({ type: 'image', src: 'img.png', alt: '' })).toBe(200)
+    expect(estimateBlockHeight({ type: 'mermaid', code: 'graph TD' })).toBe(360)
+    expect(estimateBlockHeight({ type: 'image', src: 'img.png', alt: '' })).toBe(300)
     expect(estimateBlockHeight({ type: 'hr' })).toBe(0)
     expect(
       estimateBlockHeight({
@@ -427,7 +427,7 @@ describe('estimateBlockHeight', () => {
         headers: ['A', 'B'],
         rows: [['1', '2'], ['3', '4']],
       })
-    ).toBe(3 * 28 + 16)
+    ).toBe(3 * 34 + 18)
   })
 })
 

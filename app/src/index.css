@@ -2405,21 +2405,18 @@ body {
   columns: unset;
   padding: 7mm 10.5mm 12mm 10.5mm;
   line-height: 1.2;
-  height: 297mm;
   min-height: 297mm;
-  max-height: 297mm;
+  height: auto;
   box-sizing: border-box;
-  overflow: hidden;
   position: relative;
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content {
-  height: 100%;
   columns: 2;
   column-count: 2;
   column-gap: 1.5rem;
   column-rule: 1px solid var(--border-subtle);
-  column-fill: auto;
+  column-fill: balance;
   box-sizing: border-box;
 }
 
