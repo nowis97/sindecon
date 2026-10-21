@@ -82,7 +82,7 @@ El sistema SHALL serializar a Markdown el contenido copiado desde el editor, de 
 
 El sistema SHALL ofrecer una vista de lectura de cada artículo que renderice el Markdown completo (formato, tablas, listas, imágenes y esquemas mermaid) con tipografía optimizada para lectura médica y soporte de alineación justificada del texto (`text-align: justify`). Las imágenes médicas SHALL mostrarse centradas horizontalmente, adaptándose fluidamente al ancho de su columna tanto en vista de 1 como de 2 columnas o dentro de bloques multicolumna, sin desbordar los límites del contenedor y con protección contra cortes verticales entre columnas (`break-inside: avoid`). Las imágenes en modo lector SHALL ser estáticas y libres de pistas interactivas o modales de ampliación (zoom). Asimismo, el sistema SHALL proveer un control en la barra de herramientas del lector para alternar opcionalmente entre alineación justificada e izquierda, persistiendo dicha preferencia en el almacenamiento local. En pantallas estrechas, los esquemas mermaid anchos SHALL permitir zoom y desplazamiento. La presentación tipográfica SHALL aplicar un interlineado compacto de alta densidad informativa, y los encabezados de nivel 1 (h1) SHALL presentar el mismo estilo visual distintivo de los encabezados de nivel 2 (h2) (color de acento y subrayado temático), diferenciándose por una escala de tamaño superior.
 
-Asimismo, el sistema SHALL estructurar y renderizar el contenido en el modo vista dentro de hojas con formato y proporción estándar tamaño A4 (ancho nominal base de 210mm / ~794px a 96 DPI, márgenes de página físicos de 20-25mm, sombras perimetrales suaves simulando papel elevado y separación visual clara entre páginas consecutivas). En dispositivos de escritorio y tablets, las hojas A4 SHALL presentarse centradas en el lienzo de lectura; en pantallas móviles o ventanas estrechas, las hojas SHALL adaptarse elásticamente al 100% del ancho del viewport sin provocar scroll horizontal forzado. El diseño en hoja A4 SHALL mantener compatibilidad total con la maquetación a 2 columnas y con la alineación justificada.
+Asimismo, el sistema SHALL estructurar y renderizar el contenido en el modo vista dentro de hojas con formato y proporción estándar tamaño A4 (ancho nominal base de 210mm / ~794px a 96 DPI, altura estándar de 297mm por página en modo de dos columnas, sombras perimetrales suaves simulando papel elevado y separación física clara entre páginas consecutivas). En el modo de visualización a dos columnas (`layout-two-columns`), el sistema SHALL distribuir el contenido paginado secuencialmente en hojas A4 independientes (llenando la primera columna y luego la segunda columna de cada página física antes de continuar en la siguiente hoja), aplicando márgenes acotados idénticos a los de la exportación a PDF (`padding: 7mm 10.5mm`), interlineado compacto (~1.15) y una separación física visible entre cada hoja. En dispositivos de escritorio y tablets, las hojas A4 SHALL presentarse centradas en el lienzo de lectura; en pantallas móviles o ventanas estrechas (< 820px), las hojas SHALL adaptarse elásticamente al 100% del ancho del viewport a 1 columna sin provocar scroll horizontal forzado.
 
 #### Scenario: Consulta en el hospital desde el móvil
 
@@ -92,7 +92,7 @@ Asimismo, el sistema SHALL estructurar y renderizar el contenido en el modo vist
 #### Scenario: Interlineado compacto en lectura de notas clínicas
 
 - **WHEN** el usuario visualiza artículos médicos en modo lector o editor
-- **THEN** el texto, párrafos y listas se renderizan con un interlineado denso y cómodo (~1.48) que maximiza el contenido visible por pantalla
+- **THEN** el texto, párrafos y listas se renderizan con un interlineado denso y cómodo (~1.48 en 1 columna, ~1.15 en 2 columnas) que maximiza el contenido visible por pantalla
 
 #### Scenario: Estilo unificado de Heading 1 respecto a Heading 2
 
@@ -122,7 +122,7 @@ Asimismo, el sistema SHALL estructurar y renderizar el contenido en el modo vist
 #### Scenario: Renderizado del artículo en hoja tamaño A4 en pantalla de escritorio
 
 - **WHEN** el usuario accede al modo Vista (Lector) en un artículo médico desde una pantalla de escritorio
-- **THEN** el contenido se renderiza dentro de una hoja centrada de ancho A4 (~210mm / 794px), con márgenes tipográficos de 20-25mm, fondo blanco/card y sombra perimetral de papel sobre el fondo del lienzo.
+- **THEN** el contenido se renderiza dentro de una hoja centrada de ancho A4 (~210mm / 794px), con fondo blanco/card y sombra perimetral de papel sobre el fondo del lienzo.
 
 #### Scenario: Separación visual entre páginas u hojas de lectura
 
@@ -131,8 +131,23 @@ Asimismo, el sistema SHALL estructurar y renderizar el contenido en el modo vist
 
 #### Scenario: Adaptación responsiva de hoja A4 en pantallas móviles
 
-- **WHEN** el usuario abre el modo Vista en un teléfono inteligente o pantalla con ancho menor a 794px
-- **THEN** la hoja A4 se expande fluidamente ocupando el ancho del dispositivo con márgenes móviles adaptados (12-16px) sin desbordamiento horizontal.
+- **WHEN** el usuario abre el modo Vista en un teléfono inteligente o pantalla con ancho menor a 820px
+- **THEN** la hoja A4 se expande fluidamente ocupando el ancho del dispositivo a una sola columna con márgenes móviles adaptados sin desbordamiento horizontal.
+
+#### Scenario: Paginación secuencial en hojas A4 en modo 2 columnas
+
+- **WHEN** el usuario activa la vista a dos columnas en un artículo extenso
+- **THEN** el contenido se pagina secuencialmente en hojas A4 independientes (llenando la columna 1 y luego la columna 2 antes de continuar en la siguiente hoja física).
+
+#### Scenario: Márgenes acotados idénticos a exportación en modo 2 columnas
+
+- **WHEN** el usuario visualiza un artículo en modo 2 columnas
+- **THEN** cada hoja A4 aplica márgenes compactos de `7mm` vertical y `10.5mm` lateral idénticos a la configuración de exportación a PDF, aprovechando al máximo el área útil de la página.
+
+#### Scenario: Separación física visible entre páginas sucesivas a dos columnas
+
+- **WHEN** el artículo en modo 2 columnas se extiende a través de dos o más páginas
+- **THEN** el lector presenta una separación física nítida (espacio inter-hojas, sombra de papel y etiqueta de número de página) entre cada hoja A4 consecutiva.
 
 ### Requirement: Micro-interacciones en lectura, edición e importación
 

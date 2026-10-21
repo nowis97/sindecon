@@ -2299,7 +2299,7 @@ body {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  gap: 28px;
+  gap: 32px;
   margin: 0 auto;
 }
 
@@ -2327,7 +2327,7 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm, 4px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
   margin: 0 auto;
   line-height: 1.48;
   font-size: 1rem;
@@ -2337,7 +2337,7 @@ body {
 
 [data-theme='dark'] .article-reader-view.a4-sheet,
 [data-theme='dark'] .a4-sheet {
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 1px 5px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.42), 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 /* Separador y Salto de Hoja A4 */
@@ -2376,6 +2376,24 @@ body {
   border: 1px solid var(--border-subtle);
 }
 
+/* Pie de Página para Hoja A4 */
+.a4-sheet-page-footer {
+  position: absolute;
+  bottom: 3.5mm;
+  right: 10.5mm;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.article-reader-view.a4-sheet.layout-single-column .a4-sheet-page-footer {
+  right: 20mm;
+  bottom: 8mm;
+}
+
 /* Maquetación a 2 Columnas (Estilo Ficha Médica / Word) */
 .article-reader-view.layout-two-columns {
   columns: 2;
@@ -2384,9 +2402,69 @@ body {
 }
 
 .article-reader-view.a4-sheet.layout-two-columns {
+  columns: unset;
+  padding: 7mm 10.5mm 12mm 10.5mm;
+  line-height: 1.2;
+  height: 297mm;
+  min-height: 297mm;
+  max-height: 297mm;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content {
+  height: 100%;
   columns: 2;
-  column-gap: 2rem;
+  column-count: 2;
+  column-gap: 1.5rem;
   column-rule: 1px solid var(--border-subtle);
+  column-fill: auto;
+  box-sizing: border-box;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .reader-paragraph {
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .reader-heading.h1 {
+  margin-top: 2px;
+  margin-bottom: 8px;
+  font-size: 1.35rem;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .reader-heading.h2 {
+  margin-top: 10px;
+  margin-bottom: 4px;
+  font-size: 1.12rem;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .reader-heading.h3 {
+  margin-top: 8px;
+  margin-bottom: 3px;
+  font-size: 1rem;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .reader-list {
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .reader-blockquote {
+  margin: 6px 0;
+  padding: 4px 10px;
+  line-height: 1.2;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .callout-card {
+  margin: 6px 0;
+  padding: 8px 10px;
+  line-height: 1.2;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .reader-image-figure {
+  margin: 8px auto;
 }
 
 .article-reader-view.layout-two-columns .reader-heading.h1 {
@@ -2608,6 +2686,20 @@ body {
     border-radius: var(--radius-md);
   }
 
+  .article-reader-view.a4-sheet.layout-two-columns {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 20px 16px;
+  }
+
+  .article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content {
+    columns: 1 !important;
+    column-rule: none !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
   .a4-sheet-break {
     margin: -4px auto;
   }
@@ -2616,6 +2708,15 @@ body {
     columns: 1;
     column-rule: none;
     padding: 20px 16px;
+  }
+
+  .a4-sheet-page-footer {
+    position: static;
+    margin-top: 14px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    justify-content: flex-end;
   }
 }
 

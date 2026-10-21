@@ -403,6 +403,108 @@ export function partitionBlocksIntoSheets(blocks: Block[]): Block[][] {
   return filtered.length > 0 ? filtered : [[]]
 }
 
+/**
+ * Estima la altura visual aproximada (en píxeles) de un bloque en 2 columnas en formato A4.
+ */
+export function estimateBlockHeight(block: Block): number {
+  switch (block.type) {
+    case 'header':
+      if (block.level === 1) return 55
+      if (block.level === 2) return 42
+      return 32
+    case 'paragraph': {
+      const lines = Math.max(1, Math.ceil(block.text.length / 45))
+      return lines * 20 + 8
+    }
+    case 'blockquote': {
+      const lines = Math.max(1, Math.ceil(block.text.length / 42))
+      return lines * 20 + 16
+    }
+    case 'list': {
+      const countItems = (items: typeof block.items): number =>
+        items.reduce((acc, item) => acc + 1 + countItems(item.children), 0)
+      const count = countItems(block.items)
+      return count * 22 + 12
+    }
+    case 'callout': {
+      const titleLines = Math.max(1, Math.ceil(block.title.length / 40))
+      const textLines = Math.max(1, Math.ceil(block.text.length / 40))
+      return (titleLines + textLines) * 20 + 28
+    }
+    case 'table': {
+      const rowsCount = block.rows.length + 1
+      return rowsCount * 28 + 16
+    }
+    case 'code': {
+      const lines = block.code.split('\n').length
+      return lines * 19 + 24
+    }
+    case 'mermaid':
+      return 220
+    case 'image':
+      return 200
+    case 'pdf':
+      return 350
+    case 'columns': {
+      const maxColHeight = block.columns.reduce((max, col) => {
+        const colH = col.reduce((sum, b) => sum + estimateBlockHeight(b), 0)
+        return Math.max(max, colH)
+      }, 0)
+      return maxColHeight + 16
+    }
+    case 'hr':
+      return 0
+    default:
+      return 24
+  }
+}
+
+export const A4_TWO_COLUMN_CAPACITY_PX = 2000
+
+/**
+ * Pagina los bloques en hojas discretas estilo A4 para el modo a dos columnas.
+ * Cada página física almacena contenido hasta llenar las 2 columnas (~2000px equivalentes)
+ * o hasta encontrar un salto de página explícito (hr).
+ */
+export function paginateTwoColumnBlocks(
+  blocks: Block[],
+  capacityPx = A4_TWO_COLUMN_CAPACITY_PX,
+): Block[][] {
+  if (blocks.length === 0) return [[]]
+
+  const sheets: Block[][] = []
+  let currentSheet: Block[] = []
+  let currentSheetHeight = 0
+
+  for (const block of blocks) {
+    if (block.type === 'hr') {
+      if (currentSheet.length > 0) {
+        sheets.push(currentSheet)
+        currentSheet = []
+        currentSheetHeight = 0
+      }
+      continue
+    }
+
+    const blockHeight = estimateBlockHeight(block)
+
+    if (currentSheet.length === 0 || currentSheetHeight + blockHeight <= capacityPx) {
+      currentSheet.push(block)
+      currentSheetHeight += blockHeight
+    } else {
+      sheets.push(currentSheet)
+      currentSheet = [block]
+      currentSheetHeight = blockHeight
+    }
+  }
+
+  if (currentSheet.length > 0 || sheets.length === 0) {
+    sheets.push(currentSheet)
+  }
+
+  return sheets
+}
+
 function renderFormattedInline(
   text: string,
   onWikiLinkClick: (uuid: string) => void
@@ -703,7 +805,12 @@ export function ArticleReader({
     [blocks],
   )
   const alignmentClass = isJustified ? 'text-justified' : 'text-left'
-  const sheets = useMemo(() => partitionBlocksIntoSheets(blocks), [blocks])
+  const sheets = useMemo(() => {
+    if (isTwoColumns) {
+      return paginateTwoColumnBlocks(blocks)
+    }
+    return partitionBlocksIntoSheets(blocks)
+  }, [blocks, isTwoColumns])
 
   return (
     <div
@@ -779,9 +886,16 @@ export function ArticleReader({
                 className={`article-reader-view a4-sheet ${isTwoColumns ? 'layout-two-columns' : 'layout-single-column'} ${alignmentClass}`}
                 data-sheet-index={sheetIdx}
               >
-                {sheetBlocks.map((block, blockIdx) =>
-                  renderBlock(block, `s${sheetIdx}-${blockIdx}`, onWikiLinkClick, articleTitle, isPrintView)
-                )}
+                <div className="a4-sheet-content">
+                  {sheetBlocks.map((block, blockIdx) =>
+                    renderBlock(block, `s${sheetIdx}-${blockIdx}`, onWikiLinkClick, articleTitle, isPrintView)
+                  )}
+                </div>
+                <footer className="a4-sheet-page-footer">
+                  <span className="a4-sheet-page-number">
+                    {sheets.length > 1 ? `Página ${sheetIdx + 1} de ${sheets.length}` : 'Página 1'}
+                  </span>
+                </footer>
               </div>
             </React.Fragment>
           ))}

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { parseMarkdownBlocks, partitionBlocksIntoSheets } from './ArticleReader'
+import {
+  parseMarkdownBlocks,
+  partitionBlocksIntoSheets,
+  estimateBlockHeight,
+  paginateTwoColumnBlocks,
+  A4_TWO_COLUMN_CAPACITY_PX,
+} from './ArticleReader'
 
 describe('parseMarkdownBlocks - Bloques Multicolumna (:::columns)', () => {
   it('parsea correctamente un bloque de 2 columnas con encabezados y listas', () => {
@@ -394,6 +400,116 @@ Párrafo único.
 
     expect(sheets.length).toBe(1)
     expect(sheets[0].length).toBe(2)
+  })
+})
+
+describe('estimateBlockHeight', () => {
+  it('calcula alturas estimadas acordes a la jerarquía de encabezados', () => {
+    expect(estimateBlockHeight({ type: 'header', level: 1, text: 'H1' })).toBe(55)
+    expect(estimateBlockHeight({ type: 'header', level: 2, text: 'H2' })).toBe(42)
+    expect(estimateBlockHeight({ type: 'header', level: 3, text: 'H3' })).toBe(32)
+  })
+
+  it('calcula la altura de párrafos y citas en base a su longitud', () => {
+    const shortP = { type: 'paragraph' as const, text: 'Corto' }
+    const longP = { type: 'paragraph' as const, text: 'A'.repeat(180) }
+    expect(estimateBlockHeight(shortP)).toBe(28)
+    expect(estimateBlockHeight(longP)).toBe(88)
+  })
+
+  it('calcula alturas de elementos especiales (mermaid, imágenes, tablas, hr)', () => {
+    expect(estimateBlockHeight({ type: 'mermaid', code: 'graph TD' })).toBe(220)
+    expect(estimateBlockHeight({ type: 'image', src: 'img.png', alt: '' })).toBe(200)
+    expect(estimateBlockHeight({ type: 'hr' })).toBe(0)
+    expect(
+      estimateBlockHeight({
+        type: 'table',
+        headers: ['A', 'B'],
+        rows: [['1', '2'], ['3', '4']],
+      })
+    ).toBe(3 * 28 + 16)
+  })
+})
+
+describe('paginateTwoColumnBlocks - Paginación A4 a Dos Columnas', () => {
+  it('retorna [[]] para una lista de bloques vacía', () => {
+    expect(paginateTwoColumnBlocks([])).toEqual([[]])
+  })
+
+  it('mantiene todos los bloques en una sola hoja si su altura total no supera la capacidad A4', () => {
+    const md = `
+# Diagnóstico Clínico
+Paciente femenino de 45 años con cefalea tensional.
+Se indica reposo e hidratación.
+`.trim()
+    const blocks = parseMarkdownBlocks(md)
+    const sheets = paginateTwoColumnBlocks(blocks)
+    expect(sheets.length).toBe(1)
+    expect(sheets[0].length).toBe(blocks.length)
+  })
+
+  it('pagina secuencialmente en múltiples hojas A4 cuando el contenido excede la capacidad de dos columnas', () => {
+    const paragraphs = Array.from(
+      { length: 40 },
+      (_, i) => `Párrafo ${i}: Observación clínica detallada con sintomatología persistente y evolución favorable del paciente.`
+    ).join('\n\n')
+
+    const md = `# Historia Clínica Completa\n\n${paragraphs}`
+    const blocks = parseMarkdownBlocks(md)
+    const sheets = paginateTwoColumnBlocks(blocks, A4_TWO_COLUMN_CAPACITY_PX)
+
+    expect(sheets.length).toBeGreaterThanOrEqual(2)
+    const totalBlocks = sheets.reduce((acc, s) => acc + s.length, 0)
+    expect(totalBlocks).toBe(blocks.length)
+    expect(sheets[0][0]).toEqual(blocks[0])
+  })
+
+  it('respeta saltos de página explícitos con reglas horizontales (---)', () => {
+    const md = `
+# Hoja Uno
+Contenido de la primera hoja.
+
+---
+
+# Hoja Dos
+Contenido forzado a la segunda hoja.
+`.trim()
+    const blocks = parseMarkdownBlocks(md)
+    const sheets = paginateTwoColumnBlocks(blocks)
+
+    expect(sheets.length).toBe(2)
+    expect(sheets[0][0]).toEqual({ type: 'header', level: 1, text: 'Hoja Uno' })
+    expect(sheets[1][0]).toEqual({ type: 'header', level: 1, text: 'Hoja Dos' })
+  })
+
+  it('no genera hojas vacías si el documento termina con ---', () => {
+    const md = `
+# Título
+Texto de prueba.
+
+---
+`.trim()
+    const blocks = parseMarkdownBlocks(md)
+    const sheets = paginateTwoColumnBlocks(blocks)
+
+    expect(sheets.length).toBe(1)
+    expect(sheets[0].length).toBe(2)
+  })
+
+  it('asigna un bloque individual excesivamente alto a su propia hoja sin causar bucles infinitos', () => {
+    const hugeBlock = {
+      type: 'paragraph' as const,
+      text: 'A'.repeat(5000),
+    }
+    const normalBlock = {
+      type: 'paragraph' as const,
+      text: 'Párrafo posterior normal.',
+    }
+    const sheets = paginateTwoColumnBlocks([hugeBlock, normalBlock], 2000)
+
+    expect(sheets.length).toBe(2)
+    expect(sheets[0]).toEqual([hugeBlock])
+    expect(sheets[1]).toEqual([normalBlock])
   })
 })
 
