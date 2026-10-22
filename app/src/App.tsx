@@ -64,6 +64,10 @@ import {
   fillTitlePlaceholder,
   seedTemplatesIfNeeded,
 } from './db/templates'
+import {
+  preloadMermaidInArticles,
+  waitForPrintReady,
+} from './utils/printUtils'
 
 type PromptState =
   | {
@@ -277,7 +281,7 @@ function App() {
     }
   }, [selected])
 
-  const handleConfirmExportPdf = (options: ExportPdfOptions) => {
+  const handleConfirmExportPdf = async (options: ExportPdfOptions) => {
     setPrintOptions(options)
     setIsExportPdfOpen(false)
 
@@ -290,6 +294,9 @@ function App() {
         }
       } catch {}
     }
+
+    // Precargar esquemas mermaid del artículo antes de imprimir
+    await preloadMermaidInArticles([currentBody])
 
     const previousTitle = document.title
     const cleanArticleTitle = (selected?.title || 'Artículo').replace(/[\\/:*?"<>|]/g, '-').trim()
@@ -310,11 +317,12 @@ function App() {
 
     window.addEventListener('afterprint', cleanupPrint)
 
-    setTimeout(() => {
-      document.title = cleanArticleTitle
-      window.print()
-      setTimeout(cleanupPrint, 800)
-    }, 150)
+    // Esperar de forma determinista a que el documento y sus diagramas estén listos
+    await waitForPrintReady('print-article-document')
+
+    document.title = cleanArticleTitle
+    window.print()
+    setTimeout(cleanupPrint, 800)
   }
 
   const handleOpenBulkExportPdf = (folderId?: string | null) => {
@@ -335,6 +343,11 @@ function App() {
       const selectedNodes = nodes.filter((n) => selectedNodeIds.includes(n.id))
       const items = selectedNodes.map((node) => ({ node, article: articleMap.get(node.id) }))
 
+      // 1. Precargar y renderizar en caché todos los diagramas mermaid de los artículos
+      const markdowns = items.map((it) => it.article?.body_md || '')
+      await preloadMermaidInArticles(markdowns)
+
+      // 2. Montar el contenedor de impresión masiva en el DOM
       setBulkPrintState({ active: true, items, options })
 
       const previousTitle = document.title
@@ -366,11 +379,12 @@ function App() {
 
       window.addEventListener('afterprint', cleanupPrint)
 
-      setTimeout(() => {
-        document.title = cleanTitle
-        window.print()
-        setTimeout(cleanupPrint, 1000)
-      }, 250)
+      // 3. Esperar de forma determinista a que todos los esquemas, fuentes e imágenes estén listos
+      await waitForPrintReady('print-bulk-document')
+
+      document.title = cleanTitle
+      window.print()
+      setTimeout(cleanupPrint, 1000)
     } catch (err) {
       console.error('Error preparando compendio PDF:', err)
       setToastMessage('⚠️ Ocurrió un error al preparar los artículos para exportar a PDF')
