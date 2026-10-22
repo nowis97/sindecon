@@ -6,12 +6,31 @@
 import type { AiConfig } from '../db/db'
 
 export const AI_CONFIG_FILE_NAME = 'ai-config.json'
+export const DEFAULT_RESUMABLE_CHUNK_SIZE = 2 * 1024 * 1024 // 2 MB (múltiplo de 256 KB)
+
+const RESUMABLE_SESSION_KEY_PREFIX = 'cuaderno-gdrive-resumable-session:'
+const RESUMABLE_SESSION_TTL_MS = 24 * 60 * 60 * 1000 // 24 horas
 
 export interface GoogleDriveFile {
   id: string
   name: string
   mimeType: string
   modifiedTime?: string
+}
+
+export interface UploadAppDataOptions {
+  onUploadProgress?: (uploadedBytes: number, totalBytes: number) => void
+  chunkSize?: number
+  maxRetries?: number
+  retryDelayMs?: number
+}
+
+interface StoredResumableSession {
+  sessionUri: string
+  name: string
+  existingFileId?: string
+  totalBytes: number
+  createdAt: number
 }
 
 export interface SyncManifest {
@@ -195,8 +214,177 @@ export async function downloadAppDataFile(token: string, fileId: string): Promis
   return await res.blob()
 }
 
+function getResumableSessionStorageKey(name: string): string {
+  return `${RESUMABLE_SESSION_KEY_PREFIX}${name}`
+}
+
+export function getCachedResumableSession(
+  name: string,
+  existingFileId: string | undefined,
+  totalBytes: number,
+): string | null {
+  try {
+    const raw = localStorage.getItem(getResumableSessionStorageKey(name))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as StoredResumableSession
+    if (
+      parsed.sessionUri &&
+      parsed.name === name &&
+      parsed.existingFileId === existingFileId &&
+      parsed.totalBytes === totalBytes &&
+      Date.now() - parsed.createdAt < RESUMABLE_SESSION_TTL_MS
+    ) {
+      return parsed.sessionUri
+    }
+    localStorage.removeItem(getResumableSessionStorageKey(name))
+  } catch {
+    // Ignorar errores de parseo
+  }
+  return null
+}
+
+function setCachedResumableSession(
+  name: string,
+  existingFileId: string | undefined,
+  totalBytes: number,
+  sessionUri: string,
+): void {
+  try {
+    const session: StoredResumableSession = {
+      sessionUri,
+      name,
+      existingFileId,
+      totalBytes,
+      createdAt: Date.now(),
+    }
+    localStorage.setItem(getResumableSessionStorageKey(name), JSON.stringify(session))
+  } catch {
+    // Ignorar si localStorage no está disponible
+  }
+}
+
+export function clearCachedResumableSession(name: string): void {
+  try {
+    localStorage.removeItem(getResumableSessionStorageKey(name))
+  } catch {
+    // Ignorar
+  }
+}
+
 /**
- * Sube o actualiza un archivo en `appDataFolder` usando multipart/related.
+ * Extrae el siguiente offset de bytes a partir de la cabecera `Range: bytes=0-12345`.
+ * Retorna `upperBound + 1`, o `null` si la cabecera no está presente o no coincide.
+ */
+function parseRangeNextOffset(rangeHeader: string | null): number | null {
+  if (!rangeHeader) return null
+  const match = /bytes=\d+-(\d+)/i.exec(rangeHeader)
+  if (!match) return null
+  const upperBound = Number.parseInt(match[1], 10)
+  return Number.isNaN(upperBound) ? null : upperBound + 1
+}
+
+function sleep(ms: number): Promise<void> {
+  if (ms <= 0) return Promise.resolve()
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Inicia una sesión de subida resumable (`uploadType=resumable`) en Google Drive AppData
+ * y devuelve la URI de sesión (`Location`).
+ */
+async function initiateResumableUploadSession(
+  token: string,
+  name: string,
+  mimeType: string,
+  totalBytes: number,
+  existingFileId?: string,
+): Promise<string> {
+  const metadata: { name: string; mimeType: string; parents?: string[] } = {
+    name,
+    mimeType,
+  }
+  if (!existingFileId) {
+    metadata.parents = ['appDataFolder']
+  }
+
+  const url = existingFileId
+    ? `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=resumable`
+    : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable'
+
+  const res = await fetch(url, {
+    method: existingFileId ? 'PATCH' : 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json; charset=UTF-8',
+      'X-Upload-Content-Type': mimeType,
+      'X-Upload-Content-Length': totalBytes.toString(),
+    },
+    body: JSON.stringify(metadata),
+  })
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      clearStoredToken()
+      throw new Error('Sesión de Google Drive expirada')
+    }
+    throw new Error(`Error iniciando subida resumable a Google Drive: ${res.statusText}`)
+  }
+
+  const sessionUri = res.headers.get('Location') || res.headers.get('location')
+  if (!sessionUri) {
+    throw new Error('Google Drive no devolvió URI de sesión resumable (Location)')
+  }
+
+  setCachedResumableSession(name, existingFileId, totalBytes, sessionUri)
+  return sessionUri
+}
+
+/**
+ * Consulta a Google Drive cuántos bytes se han recibido realmente en una sesión resumable activa.
+ */
+async function queryResumableUploadStatus(
+  sessionUri: string,
+  totalBytes: number,
+): Promise<
+  | { status: 'incomplete'; offset: number }
+  | { status: 'completed'; file: GoogleDriveFile }
+  | { status: 'expired' }
+> {
+  const res = await fetch(sessionUri, {
+    method: 'PUT',
+    headers: {
+      'Content-Length': '0',
+      'Content-Range': `bytes */${totalBytes}`,
+    },
+  })
+
+  if (res.status === 308) {
+    const rangeHeader = res.headers.get('Range') || res.headers.get('range')
+    const nextOffset = parseRangeNextOffset(rangeHeader) ?? 0
+    return { status: 'incomplete', offset: nextOffset }
+  }
+
+  if (res.status === 200 || res.status === 201) {
+    const file = (await res.json()) as GoogleDriveFile
+    return { status: 'completed', file }
+  }
+
+  if (res.status === 404 || res.status === 410) {
+    return { status: 'expired' }
+  }
+
+  if (res.status === 401) {
+    clearStoredToken()
+    throw new Error('Sesión de Google Drive expirada')
+  }
+
+  throw new Error(`Error consultando estado de sesión resumable: ${res.statusText}`)
+}
+
+/**
+ * Sube o actualiza un archivo en `appDataFolder` usando el protocolo Resumable Upload
+ * por bloques (`uploadType=resumable`), con reanudación automática ante cortes de red
+ * y reporte de progreso en tiempo real.
  */
 export async function uploadAppDataFile(
   token: string,
@@ -204,59 +392,171 @@ export async function uploadAppDataFile(
   mimeType: string,
   content: Blob | string,
   existingFileId?: string,
+  options?: UploadAppDataOptions,
 ): Promise<GoogleDriveFile> {
-  const metadata = {
-    name,
-    mimeType,
-    parents: existingFileId ? undefined : ['appDataFolder'],
+  const fileBody =
+    typeof content === 'string' ? new Blob([content], { type: mimeType }) : content
+  const totalBytes = fileBody.size
+  const chunkSize = options?.chunkSize ?? DEFAULT_RESUMABLE_CHUNK_SIZE
+  const maxRetries = options?.maxRetries ?? 3
+  const retryDelayMs = options?.retryDelayMs ?? 250
+
+  let sessionUri = getCachedResumableSession(name, existingFileId, totalBytes)
+  let offset = 0
+
+  // Si existe una sesión previa en caché, consultar en qué byte quedó
+  if (sessionUri) {
+    try {
+      const status = await queryResumableUploadStatus(sessionUri, totalBytes)
+      if (status.status === 'completed') {
+        clearCachedResumableSession(name)
+        options?.onUploadProgress?.(totalBytes, totalBytes)
+        return status.file
+      }
+      if (status.status === 'incomplete') {
+        offset = status.offset
+        options?.onUploadProgress?.(offset, totalBytes)
+      } else {
+        clearCachedResumableSession(name)
+        sessionUri = null
+      }
+    } catch {
+      clearCachedResumableSession(name)
+      sessionUri = null
+    }
   }
 
-  const boundary = '-------314159265358979323846'
-  const delimiter = `\r\n--${boundary}\r\n`
-  const closeDelimiter = `\r\n--${boundary}--`
-
-  let fileBody: Blob
-  if (typeof content === 'string') {
-    fileBody = new Blob([content], { type: mimeType })
-  } else {
-    fileBody = content
+  if (!sessionUri) {
+    sessionUri = await initiateResumableUploadSession(
+      token,
+      name,
+      mimeType,
+      totalBytes,
+      existingFileId,
+    )
+    options?.onUploadProgress?.(0, totalBytes)
   }
 
-  const metadataBlob = new Blob([JSON.stringify(metadata)], {
-    type: 'application/json; charset=UTF-8',
-  })
-
-  const multipartBody = new Blob(
-    [
-      delimiter,
-      'Content-Type: application/json; charset=UTF-8\r\n\r\n',
-      metadataBlob,
-      delimiter,
-      `Content-Type: ${mimeType}\r\n\r\n`,
-      fileBody,
-      closeDelimiter,
-    ],
-    { type: `multipart/related; boundary=${boundary}` },
-  )
-
-  const url = existingFileId
-    ? `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=multipart`
-    : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'
-
-  const res = await fetch(url, {
-    method: existingFileId ? 'PATCH' : 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': `multipart/related; boundary=${boundary}`,
-    },
-    body: multipartBody,
-  })
-
-  if (!res.ok) {
-    throw new Error(`Error subiendo archivo a Google Drive: ${res.statusText}`)
+  // Caso especial: archivo vacío (0 bytes)
+  if (totalBytes === 0) {
+    const res = await fetch(sessionUri, {
+      method: 'PUT',
+      headers: {
+        'Content-Length': '0',
+        'Content-Range': 'bytes */0',
+      },
+    })
+    if (!res.ok) {
+      clearCachedResumableSession(name)
+      throw new Error(`Error subiendo archivo vacío a Google Drive: ${res.statusText}`)
+    }
+    clearCachedResumableSession(name)
+    options?.onUploadProgress?.(0, 0)
+    return (await res.json()) as GoogleDriveFile
   }
 
-  return (await res.json()) as GoogleDriveFile
+  let consecutiveFailures = 0
+  let sessionRestarts = 0
+
+  while (offset < totalBytes) {
+    const endExclusive = Math.min(offset + chunkSize, totalBytes)
+    const chunkBlob = fileBody.slice(offset, endExclusive)
+    const currentChunkLength = endExclusive - offset
+
+    try {
+      const res = await fetch(sessionUri, {
+        method: 'PUT',
+        headers: {
+          'Content-Length': currentChunkLength.toString(),
+          'Content-Range': `bytes ${offset}-${endExclusive - 1}/${totalBytes}`,
+        },
+        body: chunkBlob,
+      })
+
+      if (res.status === 308) {
+        consecutiveFailures = 0
+        const rangeHeader = res.headers.get('Range') || res.headers.get('range')
+        const confirmedOffset = parseRangeNextOffset(rangeHeader)
+        offset = confirmedOffset !== null ? confirmedOffset : endExclusive
+        options?.onUploadProgress?.(offset, totalBytes)
+        continue
+      }
+
+      if (res.status === 200 || res.status === 201) {
+        clearCachedResumableSession(name)
+        options?.onUploadProgress?.(totalBytes, totalBytes)
+        return (await res.json()) as GoogleDriveFile
+      }
+
+      if (res.status === 404 || res.status === 410) {
+        clearCachedResumableSession(name)
+        if (sessionRestarts >= 1) {
+          throw new Error('La sesión de subida resumable expiró repetidamente')
+        }
+        sessionRestarts++
+        sessionUri = await initiateResumableUploadSession(
+          token,
+          name,
+          mimeType,
+          totalBytes,
+          existingFileId,
+        )
+        offset = 0
+        consecutiveFailures = 0
+        options?.onUploadProgress?.(0, totalBytes)
+        continue
+      }
+
+      if (res.status === 401) {
+        clearStoredToken()
+        throw new Error('Sesión de Google Drive expirada')
+      }
+
+      // Cualquier error 5xx u otro código no exitoso activa el flujo de recuperación
+      throw new Error(`Error subiendo bloque a Google Drive (${res.status}): ${res.statusText}`)
+    } catch (err) {
+      if ((err as Error).message === 'Sesión de Google Drive expirada' || (err as Error).message === 'La sesión de subida resumable expiró repetidamente') {
+        throw err
+      }
+
+      consecutiveFailures++
+      if (consecutiveFailures > maxRetries) {
+        throw err
+      }
+
+      await sleep(retryDelayMs * Math.pow(2, consecutiveFailures - 1))
+
+      // Consultar a Google Drive el último byte recibido antes de reintentar
+      const status = await queryResumableUploadStatus(sessionUri, totalBytes)
+      if (status.status === 'completed') {
+        clearCachedResumableSession(name)
+        options?.onUploadProgress?.(totalBytes, totalBytes)
+        return status.file
+      }
+      if (status.status === 'expired') {
+        clearCachedResumableSession(name)
+        if (sessionRestarts >= 1) {
+          throw new Error('La sesión de subida resumable expiró repetidamente')
+        }
+        sessionRestarts++
+        sessionUri = await initiateResumableUploadSession(
+          token,
+          name,
+          mimeType,
+          totalBytes,
+          existingFileId,
+        )
+        offset = 0
+        options?.onUploadProgress?.(0, totalBytes)
+        continue
+      }
+
+      offset = status.offset
+      options?.onUploadProgress?.(offset, totalBytes)
+    }
+  }
+
+  throw new Error('La subida resumable terminó sin respuesta de confirmación final')
 }
 
 /**

@@ -62,6 +62,37 @@ export async function getLocalMaxTimestamp(): Promise<number> {
 }
 
 /**
+ * Formatea los bytes transferidos y totales en MB (o KB para archivos pequeños).
+ */
+export function formatTransferSize(uploadedBytes: number, totalBytes: number): string {
+  const mb = 1024 * 1024
+  if (totalBytes >= 100 * 1024) {
+    return `${(uploadedBytes / mb).toFixed(1)} MB / ${(totalBytes / mb).toFixed(1)} MB`
+  }
+  const kb = 1024
+  return `${Math.round(uploadedBytes / kb)} KB / ${Math.max(1, Math.round(totalBytes / kb))} KB`
+}
+
+function createUploadProgressHandler(
+  onProgress: SyncProgressCallback | undefined,
+  startPercent: number,
+  endPercent: number,
+  baseLabel: string,
+): (uploadedBytes: number, totalBytes: number) => void {
+  return (uploadedBytes: number, totalBytes: number) => {
+    if (!onProgress) return
+    const ratio = totalBytes > 0 ? Math.min(1, Math.max(0, uploadedBytes / totalBytes)) : 1
+    const interpolated = Math.round(startPercent + ratio * (endPercent - startPercent))
+    const sizeText = totalBytes > 0 ? ` (${formatTransferSize(uploadedBytes, totalBytes)})` : ''
+    onProgress({
+      phase: 'transferring',
+      percent: interpolated,
+      message: `${baseLabel}${sizeText}…`,
+    })
+  }
+}
+
+/**
  * Sincroniza la configuración de IA con Google Drive usando estrategia Last-Write-Wins (LWW).
  */
 export async function syncAiConfigWithDrive(token: string): Promise<{ synced: boolean; action?: 'uploaded' | 'downloaded' | 'none' }> {
@@ -162,6 +193,14 @@ export async function performGoogleDriveSync(
       'application/zip',
       zipBlob,
       backupZipFile?.id,
+      {
+        onUploadProgress: createUploadProgressHandler(
+          onProgress,
+          50,
+          82,
+          'Subiendo a Google Drive',
+        ),
+      },
     )
 
     onProgress?.({
@@ -248,7 +287,7 @@ export async function performGoogleDriveSync(
 
       onProgress?.({
         phase: 'transferring',
-        percent: 85,
+        percent: 80,
         message: 'Subiendo cambios fusionados a Google Drive…',
       })
 
@@ -258,6 +297,14 @@ export async function performGoogleDriveSync(
         'application/zip',
         mergedZip,
         backupZipFile.id,
+        {
+          onUploadProgress: createUploadProgressHandler(
+            onProgress,
+            80,
+            93,
+            'Subiendo cambios fusionados a Google Drive',
+          ),
+        },
       )
 
       onProgress?.({
@@ -327,7 +374,7 @@ export async function performGoogleDriveSync(
 
     onProgress?.({
       phase: 'transferring',
-      percent: 60,
+      percent: 45,
       message: 'Subiendo notas actualizadas a Google Drive…',
     })
 
@@ -337,6 +384,14 @@ export async function performGoogleDriveSync(
       'application/zip',
       zipBlob,
       backupZipFile.id,
+      {
+        onUploadProgress: createUploadProgressHandler(
+          onProgress,
+          45,
+          82,
+          'Subiendo a Google Drive',
+        ),
+      },
     )
 
     onProgress?.({
