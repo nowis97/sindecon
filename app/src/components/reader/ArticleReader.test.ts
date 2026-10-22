@@ -405,21 +405,21 @@ Párrafo único.
 
 describe('estimateBlockHeight', () => {
   it('calcula alturas estimadas acordes a la jerarquía de encabezados', () => {
-    expect(estimateBlockHeight({ type: 'header', level: 1, text: 'H1' })).toBe(55)
-    expect(estimateBlockHeight({ type: 'header', level: 2, text: 'H2' })).toBe(42)
-    expect(estimateBlockHeight({ type: 'header', level: 3, text: 'H3' })).toBe(32)
+    expect(estimateBlockHeight({ type: 'header', level: 1, text: 'H1' })).toBe(46)
+    expect(estimateBlockHeight({ type: 'header', level: 2, text: 'H2' })).toBe(36)
+    expect(estimateBlockHeight({ type: 'header', level: 3, text: 'H3' })).toBe(28)
   })
 
   it('calcula la altura de párrafos y citas en base a su longitud', () => {
     const shortP = { type: 'paragraph' as const, text: 'Corto' }
     const longP = { type: 'paragraph' as const, text: 'A'.repeat(180) }
-    expect(estimateBlockHeight(shortP)).toBe(28)
-    expect(estimateBlockHeight(longP)).toBe(108)
+    expect(estimateBlockHeight(shortP)).toBe(25)
+    expect(estimateBlockHeight(longP)).toBe(82)
   })
 
   it('calcula alturas de elementos especiales (mermaid, imágenes, tablas, hr)', () => {
-    expect(estimateBlockHeight({ type: 'mermaid', code: 'graph TD' })).toBe(360)
-    expect(estimateBlockHeight({ type: 'image', src: 'img.png', alt: '' })).toBe(300)
+    expect(estimateBlockHeight({ type: 'mermaid', code: 'graph TD' })).toBe(240)
+    expect(estimateBlockHeight({ type: 'image', src: 'img.png', alt: '' })).toBe(200)
     expect(estimateBlockHeight({ type: 'hr' })).toBe(0)
     expect(
       estimateBlockHeight({
@@ -427,7 +427,7 @@ describe('estimateBlockHeight', () => {
         headers: ['A', 'B'],
         rows: [['1', '2'], ['3', '4']],
       })
-    ).toBe(3 * 34 + 18)
+    ).toBe(3 * 28 + 14)
   })
 })
 
@@ -499,7 +499,7 @@ Texto de prueba.
   it('asigna un bloque individual excesivamente alto a su propia hoja sin causar bucles infinitos', () => {
     const hugeBlock = {
       type: 'paragraph' as const,
-      text: 'A'.repeat(5000),
+      text: 'A'.repeat(7000),
     }
     const normalBlock = {
       type: 'paragraph' as const,

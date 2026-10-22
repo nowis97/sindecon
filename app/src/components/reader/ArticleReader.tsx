@@ -409,43 +409,43 @@ export function partitionBlocksIntoSheets(blocks: Block[]): Block[][] {
 export function estimateBlockHeight(block: Block): number {
   switch (block.type) {
     case 'header':
-      if (block.level === 1) return 55
-      if (block.level === 2) return 42
-      return 32
+      if (block.level === 1) return 46
+      if (block.level === 2) return 36
+      return 28
     case 'paragraph': {
-      const lines = Math.max(1, Math.ceil(block.text.length / 42))
-      return lines * 20 + 8
+      const lines = Math.max(1, Math.ceil(block.text.length / 50))
+      return lines * 19 + 6
     }
     case 'blockquote': {
-      const lines = Math.max(1, Math.ceil(block.text.length / 38))
-      return lines * 20 + 16
+      const lines = Math.max(1, Math.ceil(block.text.length / 46))
+      return lines * 19 + 12
     }
     case 'list': {
       const countItems = (items: typeof block.items): number =>
         items.reduce((acc, item) => {
-          const lines = Math.max(1, Math.ceil((item.text?.length || 20) / 38))
-          const itemH = lines * 20 + 4
+          const lines = Math.max(1, Math.ceil((item.text?.length || 20) / 46))
+          const itemH = lines * 19 + 4
           return acc + itemH + countItems(item.children)
         }, 0)
-      return countItems(block.items) + 12
+      return countItems(block.items) + 8
     }
     case 'callout': {
-      const titleLines = Math.max(1, Math.ceil(block.title.length / 38))
-      const textLines = Math.max(1, Math.ceil(block.text.length / 38))
-      return (titleLines + textLines) * 20 + 28
+      const titleLines = Math.max(1, Math.ceil(block.title.length / 46))
+      const textLines = Math.max(1, Math.ceil(block.text.length / 46))
+      return (titleLines + textLines) * 19 + 24
     }
     case 'table': {
       const rowsCount = block.rows.length + 1
-      return rowsCount * 34 + 18
+      return rowsCount * 28 + 14
     }
     case 'code': {
       const lines = block.code.split('\n').length
-      return lines * 19 + 24
+      return lines * 19 + 20
     }
     case 'mermaid':
-      return 360
+      return 240
     case 'image':
-      return 300
+      return 200
     case 'pdf':
       return 350
     case 'columns': {
@@ -462,7 +462,7 @@ export function estimateBlockHeight(block: Block): number {
   }
 }
 
-export const A4_TWO_COLUMN_CAPACITY_PX = 1750
+export const A4_TWO_COLUMN_CAPACITY_PX = 2100
 
 /**
  * Pagina los bloques en hojas discretas estilo A4 para el modo a dos columnas.
