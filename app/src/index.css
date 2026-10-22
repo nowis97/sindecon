@@ -4966,6 +4966,12 @@ select.dialog-input {
     margin-bottom: 24pt !important;
   }
 
+  /* En compendio con salto de página, no dejar margen inferior innecesario antes del salto */
+  .print-break-between .print-bulk-article-item {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
   /* Salto de página entre artículos si la opción de compendio está activa */
   .print-break-between .print-bulk-article-item + .print-bulk-article-item {
     break-before: page !important;
@@ -5055,6 +5061,7 @@ select.dialog-input {
     columns: 2 !important;
     column-gap: 1.5rem !important;
     column-rule: 1px solid #e2e8f0 !important;
+    column-fill: auto !important;
     font-size: 9pt !important;
     line-height: 1.15 !important;
   }
@@ -5069,12 +5076,28 @@ select.dialog-input {
     column-span: none !important;
   }
 
+  .print-article-body,
+  .print-reader-container {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
   .print-reader-view,
   .article-reader-view {
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
     background: transparent !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   .print-reader-view > *:first-child,

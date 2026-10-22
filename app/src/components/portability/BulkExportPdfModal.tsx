@@ -93,8 +93,13 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
   // Filtrar notas activas y carpetas válidas
   const liveNodes = useMemo(() => nodes.filter((n) => n.deleted_at === null), [nodes])
   const articleNodes = useMemo(
-    () => liveNodes.filter((n) => n.kind === 'article'),
-    [liveNodes],
+    () =>
+      liveNodes.filter(
+        (n) =>
+          n.kind === 'article' &&
+          (initialFolderId === 'sys-folder-templates' || n.system !== 'templates'),
+      ),
+    [liveNodes, initialFolderId],
   )
   const folderNodes = useMemo(
     () => liveNodes.filter((n) => n.kind === 'folder' && n.system !== 'templates'),

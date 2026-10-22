@@ -118,5 +118,28 @@ describe('BulkExportPdfModal Logic & Helpers', () => {
       const subIds = getInitialSelectedArticleIds(mockNodes, articles, 'folder-sub')
       expect(subIds).toEqual(['art-2'])
     })
+
+    it('excluye artículos protegidos del sistema (plantillas maestras) si se abre a nivel raíz', () => {
+      const nodesWithTemplates: NodeRow[] = [
+        ...mockNodes,
+        {
+          id: 'tpl-1',
+          parent_id: 'sys-folder-templates',
+          kind: 'article',
+          title: 'Patología / Enfermedad',
+          order: 1,
+          system: 'templates',
+          created_at: 1000,
+          updated_at: 1000,
+          deleted_at: null,
+        },
+      ]
+      const nonTemplateArticles = nodesWithTemplates.filter(
+        (n) => n.kind === 'article' && n.system !== 'templates'
+      )
+      const ids = getInitialSelectedArticleIds(nodesWithTemplates, nonTemplateArticles, null)
+      expect(ids).toEqual(['art-1', 'art-2', 'art-3'])
+      expect(ids).not.toContain('tpl-1')
+    })
   })
 })
