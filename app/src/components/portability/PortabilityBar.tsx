@@ -8,6 +8,7 @@ interface PortabilityBarProps {
   onInstallPwa?: () => void
   canInstallPwa?: boolean
   onBulkImportMarkdown?: () => void
+  onBulkExportPdf?: () => void
 }
 
 /** Export a zip / import con fusión (spec data-portability) + acceso a nube e instalación PWA. */
@@ -16,6 +17,7 @@ export function PortabilityBar({
   onInstallPwa,
   canInstallPwa,
   onBulkImportMarkdown,
+  onBulkExportPdf,
 }: PortabilityBarProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -77,6 +79,16 @@ export function PortabilityBar({
             title="Importación masiva de archivos Markdown (.md) y carpetas"
           >
             📥 Importar .md
+          </button>
+        )}
+        {onBulkExportPdf && (
+          <button
+            type="button"
+            onClick={onBulkExportPdf}
+            disabled={busy}
+            title="Exportar múltiples artículos clínicos seleccionados a documento PDF"
+          >
+            🖨️ Exportar PDF
           </button>
         )}
         {onOpenGoogleDriveSync && (

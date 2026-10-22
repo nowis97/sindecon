@@ -10,6 +10,7 @@ export interface FolderExplorerViewProps {
   onCreateSubfolder: (folderId: string) => void
   onSmartImport: (folderId: string) => void
   onBulkImport?: (folderId: string) => void
+  onBulkExportPdf?: (folderId: string) => void
   onUploadPdf?: (folderId: string) => void
   onSortFolderAlphabetically?: (folderId: string) => void
   onToggleFavorite?: (id: string) => void
@@ -26,6 +27,7 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
   onCreateSubfolder,
   onSmartImport,
   onBulkImport,
+  onBulkExportPdf,
   onUploadPdf,
   onSortFolderAlphabetically,
   onToggleFavorite,
@@ -123,6 +125,18 @@ export const FolderExplorerView: React.FC<FolderExplorerViewProps> = ({
             >
               <span>📄</span>
               <span>Subir PDFs</span>
+            </button>
+          )}
+
+          {onBulkExportPdf && (
+            <button
+              type="button"
+              className="btn-folder-action secondary"
+              onClick={() => onBulkExportPdf(folderNode.id)}
+              title="Exportar compendio PDF con las notas de esta carpeta"
+            >
+              <span>🖨️</span>
+              <span>Exportar PDF</span>
             </button>
           )}
 

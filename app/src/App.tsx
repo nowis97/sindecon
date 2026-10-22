@@ -26,12 +26,13 @@ import { StudyModal } from './components/flashcards/StudyModal'
 import { ArticleFlashcardsModal } from './components/flashcards/ArticleFlashcardsModal'
 import { AiSettingsModal } from './components/settings/AiSettingsModal'
 import { getDueFlashcards, getAllFlashcards } from './db/flashcards'
-import type { FlashcardRow } from './db/db'
+import type { FlashcardRow, NodeRow, ArticleRow } from './db/db'
 import { PortabilityBar } from './components/portability/PortabilityBar'
 import { SyncIndicator } from './components/portability/SyncIndicator'
 import { GoogleDriveModal } from './components/portability/GoogleDriveModal'
 import { IosInstallModal } from './components/portability/IosInstallModal'
 import { ExportPdfModal, type ExportPdfOptions } from './components/portability/ExportPdfModal'
+import { BulkExportPdfModal, type BulkExportPdfOptions } from './components/portability/BulkExportPdfModal'
 import { UpdateToast } from './components/pwa/UpdateToast'
 import { SearchBox } from './components/search/SearchBox'
 import { CommandPalette } from './components/search/CommandPalette'
@@ -141,6 +142,13 @@ function App() {
     includeHeader: true,
     includeTags: true,
   })
+  const [isBulkExportPdfOpen, setIsBulkExportPdfOpen] = useState(false)
+  const [bulkExportPdfFolderId, setBulkExportPdfFolderId] = useState<string | null>(null)
+  const [bulkPrintState, setBulkPrintState] = useState<{
+    active: boolean
+    items: Array<{ node: NodeRow; article?: ArticleRow }>
+    options: BulkExportPdfOptions
+  } | null>(null)
 
   // Visibilidad de Carpeta de Plantillas y Colapso de Barra Lateral en Escritorio
   const [showTemplatesFolder, setShowTemplatesFolder] = useState<boolean>(
@@ -307,6 +315,66 @@ function App() {
       window.print()
       setTimeout(cleanupPrint, 800)
     }, 150)
+  }
+
+  const handleOpenBulkExportPdf = (folderId?: string | null) => {
+    setBulkExportPdfFolderId(folderId !== undefined ? folderId : null)
+    setIsBulkExportPdfOpen(true)
+  }
+
+  const handleConfirmBulkExportPdf = async (
+    selectedNodeIds: string[],
+    options: BulkExportPdfOptions,
+  ) => {
+    setIsBulkExportPdfOpen(false)
+    if (selectedNodeIds.length === 0) return
+
+    try {
+      const articles = await db.articles.where('node_id').anyOf(selectedNodeIds).toArray()
+      const articleMap = new Map(articles.map((a) => [a.node_id, a]))
+      const selectedNodes = nodes.filter((n) => selectedNodeIds.includes(n.id))
+      const items = selectedNodes.map((node) => ({ node, article: articleMap.get(node.id) }))
+
+      setBulkPrintState({ active: true, items, options })
+
+      const previousTitle = document.title
+      const cleanTitle = (options.compilationTitle || 'Compendio Medico - SINDECON')
+        .replace(/[\\/:*?"<>|]/g, '-')
+        .trim()
+      document.title = cleanTitle
+
+      document.body.classList.remove('print-columns-1', 'print-columns-2', 'print-break-between')
+      document.body.classList.add(
+        'printing-active',
+        options.columns === '2' ? 'print-columns-2' : 'print-columns-1',
+      )
+      if (options.pageBreakBetween) {
+        document.body.classList.add('print-break-between')
+      }
+
+      const cleanupPrint = () => {
+        document.body.classList.remove(
+          'printing-active',
+          'print-columns-1',
+          'print-columns-2',
+          'print-break-between',
+        )
+        document.title = previousTitle
+        setBulkPrintState(null)
+        window.removeEventListener('afterprint', cleanupPrint)
+      }
+
+      window.addEventListener('afterprint', cleanupPrint)
+
+      setTimeout(() => {
+        document.title = cleanTitle
+        window.print()
+        setTimeout(cleanupPrint, 1000)
+      }, 250)
+    } catch (err) {
+      console.error('Error preparando compendio PDF:', err)
+      setToastMessage('⚠️ Ocurrió un error al preparar los artículos para exportar a PDF')
+    }
   }
 
   // Búsqueda de carpeta Inbox y cálculo de conteo de pendientes
@@ -769,6 +837,7 @@ function App() {
             onInstallPwa={triggerInstallPwa}
             canInstallPwa={canInstallPwa}
             onBulkImportMarkdown={() => handleOpenBulkImport(null)}
+            onBulkExportPdf={() => handleOpenBulkExportPdf(null)}
           />
 
           <TreeView
@@ -793,6 +862,7 @@ function App() {
             }
             onSmartImport={(folderId) => handleOpenSmartImport(folderId)}
             onBulkImport={(folderId) => handleOpenBulkImport(folderId)}
+            onBulkExportPdf={(folderId) => handleOpenBulkExportPdf(folderId)}
             onUploadPdf={(folderId) => handleOpenUploadPdf(folderId)}
             onSortFolderAlphabetically={handleSortFolderAlphabetically}
             favoriteIds={favoriteIds}
@@ -848,6 +918,7 @@ function App() {
                   onCreateSubfolder={(folderId) => handleOpenCreatePrompt('folder', folderId)}
                   onSmartImport={(folderId) => handleOpenSmartImport(folderId)}
                   onBulkImport={(folderId) => handleOpenBulkImport(folderId)}
+                  onBulkExportPdf={(folderId) => handleOpenBulkExportPdf(folderId)}
                   onUploadPdf={(folderId) => handleOpenUploadPdf(folderId)}
                   onSortFolderAlphabetically={handleSortFolderAlphabetically}
                   onToggleFavorite={toggleFavorite}
@@ -1281,6 +1352,71 @@ function App() {
           tags={article?.node_id === selected.id ? (article?.tags ?? []) : []}
           onConfirmExport={handleConfirmExportPdf}
         />
+      )}
+
+      {/* Modal de Exportación Masiva a PDF (Compendio) */}
+      <BulkExportPdfModal
+        isOpen={isBulkExportPdfOpen}
+        onClose={() => {
+          setIsBulkExportPdfOpen(false)
+          setBulkExportPdfFolderId(null)
+        }}
+        nodes={nodes}
+        initialFolderId={bulkExportPdfFolderId}
+        onConfirmExport={handleConfirmBulkExportPdf}
+      />
+
+      {/* Documento Exclusivo para Impresión Masiva (Compendio Multidocumento) */}
+      {bulkPrintState?.active && (
+        <div
+          id="print-bulk-document"
+          className={`print-bulk-document print-layout-${bulkPrintState.options.columns === '2' ? 'two-columns' : 'single'} ${bulkPrintState.options.pageBreakBetween ? 'print-break-between' : ''}`}
+          aria-hidden="true"
+        >
+          {bulkPrintState.items.map(({ node, article: artItem }) => (
+            <div key={node.id} className="print-bulk-article-item">
+              {bulkPrintState.options.includeHeader && (
+                <div className="print-article-header">
+                  <div className="print-header-top">
+                    <span className="print-brand-tag">SINDECON • Cuaderno Médico</span>
+                    <span className="print-date-tag">
+                      {new Date(node.updated_at).toLocaleDateString('es-ES', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                  <h1 className="print-article-title">{node.title}</h1>
+                  {pathTo(nodes, node.id).length > 1 && (
+                    <div className="print-breadcrumb-path">
+                      📁 {pathTo(nodes, node.id).map((n) => n.title).join(' › ')}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {bulkPrintState.options.includeTags && (artItem?.tags ?? []).length > 0 && (
+                <div className="print-tags-row">
+                  {(artItem?.tags ?? []).map((t: string) => (
+                    <span key={t} className="print-tag-pill">
+                      #{t}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="print-article-body">
+                <ArticleReader
+                  articleTitle={node.title}
+                  markdown={artItem?.body_md ?? ''}
+                  onWikiLinkClick={() => {}}
+                  isPrintView={true}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Documento Exclusivo para Impresión / Guardar como PDF */}

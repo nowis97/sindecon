@@ -4885,7 +4885,9 @@ select.dialog-input {
    Contenedor Exclusivo de Impresión (Pantalla vs Papel)
    ========================================================================== */
 #print-article-document,
-.print-article-document {
+.print-article-document,
+#print-bulk-document,
+.print-bulk-document {
   display: none;
 }
 
@@ -4944,7 +4946,9 @@ select.dialog-input {
 
   /* 3. Mostrar y expandir el contenedor de impresión */
   #print-article-document,
-  .print-article-document {
+  .print-article-document,
+  #print-bulk-document,
+  .print-bulk-document {
     display: block !important;
     visibility: visible !important;
     position: static !important;
@@ -4954,6 +4958,20 @@ select.dialog-input {
     padding: 0 !important;
     overflow: visible !important;
     background: #ffffff !important;
+  }
+
+  .print-bulk-article-item {
+    width: 100% !important;
+    display: block !important;
+    margin-bottom: 24pt !important;
+  }
+
+  /* Salto de página entre artículos si la opción de compendio está activa */
+  .print-break-between .print-bulk-article-item + .print-bulk-article-item {
+    break-before: page !important;
+    page-break-before: always !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
 
   /* 4. Encabezado Médico del Documento */
@@ -5030,7 +5048,9 @@ select.dialog-input {
   .print-layout-two-columns .print-reader-view,
   .print-layout-two-columns .article-reader-view,
   body.print-columns-2 #print-article-document .print-reader-view,
-  body.print-columns-2 #print-article-document .article-reader-view {
+  body.print-columns-2 #print-article-document .article-reader-view,
+  body.print-columns-2 #print-bulk-document .print-reader-view,
+  body.print-columns-2 #print-bulk-document .article-reader-view {
     column-count: 2 !important;
     columns: 2 !important;
     column-gap: 1.5rem !important;
@@ -5043,7 +5063,9 @@ select.dialog-input {
   .print-layout-two-columns,
   .print-layout-two-columns *,
   body.print-columns-2 #print-article-document,
-  body.print-columns-2 #print-article-document * {
+  body.print-columns-2 #print-article-document *,
+  body.print-columns-2 #print-bulk-document,
+  body.print-columns-2 #print-bulk-document * {
     column-span: none !important;
   }
 
