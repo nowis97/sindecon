@@ -1,9 +1,10 @@
-import type { SyncState } from '../../pwa/syncEngine'
+import type { SyncState, SyncProgress } from '../../pwa/syncEngine'
 
 interface SyncIndicatorProps {
   isConnected: boolean
   isSessionExpired?: boolean
   syncState: SyncState
+  syncProgress?: SyncProgress | null
   lastSyncedAt: Date | null
   onClick: () => void
 }
@@ -12,6 +13,7 @@ export function SyncIndicator({
   isConnected,
   isSessionExpired = false,
   syncState,
+  syncProgress,
   lastSyncedAt,
   onClick,
 }: SyncIndicatorProps) {
@@ -34,12 +36,16 @@ export function SyncIndicator({
 
     switch (syncState) {
       case 'syncing':
-      case 'checking':
+      case 'checking': {
+        const percent = syncProgress?.percent !== undefined ? Math.round(syncProgress.percent) : null
         return {
           status: 'syncing',
-          label: 'Sincronizando…',
-          title: 'Sincronizando cambios en segundo plano con Google Drive…',
+          label: percent !== null ? `Sync ${percent}%` : 'Sincronizando…',
+          title: syncProgress?.message
+            ? `${syncProgress.message} (${percent ?? 0}%)`
+            : 'Sincronizando cambios en segundo plano con Google Drive…',
         }
+      }
       case 'offline':
         return {
           status: 'offline',
@@ -93,6 +99,12 @@ export function SyncIndicator({
       </svg>
       <span className={`sync-status-dot dot-${status}`} />
       <span className="sync-status-label">{label}</span>
+      {status === 'syncing' && syncProgress && (
+        <span
+          className="sync-chip-progress-bar"
+          style={{ width: `${Math.max(5, Math.min(100, syncProgress.percent))}%` }}
+        />
+      )}
     </button>
   )
 }

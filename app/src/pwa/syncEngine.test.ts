@@ -181,4 +181,30 @@ describe('syncEngine (Google Drive Local-First Sync)', () => {
     expect(gdrive.isGoogleSyncEnabled()).toBe(false)
     expect(gdrive.getStoredEmail()).toBe(null)
   })
+
+  it('emite secuencialmente eventos de progreso con fases y porcentajes ascendentes', async () => {
+    vi.mocked(gdrive.getAppDataFileByName).mockResolvedValue(null)
+    vi.mocked(gdrive.uploadAppDataFile).mockResolvedValue({
+      id: 'file-123',
+      name: 'cuaderno-backup.zip',
+      mimeType: 'application/zip',
+    })
+
+    const progressEvents: Array<{ phase: string; percent: number; message: string }> = []
+    const onProgress = vi.fn((p) => {
+      progressEvents.push(p)
+    })
+
+    const res = await performGoogleDriveSync('mock-token', onProgress)
+    expect(res.action).toBe('uploaded')
+    expect(onProgress).toHaveBeenCalled()
+    expect(progressEvents.length).toBeGreaterThanOrEqual(3)
+
+    // Verificar que los porcentajes son ascendentes y terminan en 100
+    for (let i = 1; i < progressEvents.length; i++) {
+      expect(progressEvents[i].percent).toBeGreaterThanOrEqual(progressEvents[i - 1].percent)
+    }
+    expect(progressEvents[progressEvents.length - 1].percent).toBe(100)
+    expect(progressEvents[progressEvents.length - 1].phase).toBe('finalizing')
+  })
 })

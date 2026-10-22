@@ -97,6 +97,7 @@ function App() {
     isConnected: isGoogleConnected,
     isSessionExpired: isGoogleSessionExpired,
     syncState: googleSyncState,
+    syncProgress: googleSyncProgress,
     lastSyncedAt: googleLastSyncedAt,
     errorMessage: googleErrorMessage,
     userEmail: googleUserEmail,
@@ -593,6 +594,7 @@ function App() {
           isConnected={isGoogleConnected}
           isSessionExpired={isGoogleSessionExpired}
           syncState={googleSyncState}
+          syncProgress={googleSyncProgress}
           lastSyncedAt={googleLastSyncedAt}
           onClick={() => setIsGoogleModalOpen(true)}
         />
@@ -630,6 +632,7 @@ function App() {
                   isConnected={isGoogleConnected}
                   isSessionExpired={isGoogleSessionExpired}
                   syncState={googleSyncState}
+                  syncProgress={googleSyncProgress}
                   lastSyncedAt={googleLastSyncedAt}
                   onClick={() => setIsGoogleModalOpen(true)}
                 />
@@ -1126,6 +1129,7 @@ function App() {
         isConnected={isGoogleConnected}
         isSessionExpired={isGoogleSessionExpired}
         syncState={googleSyncState}
+        syncProgress={googleSyncProgress}
         lastSyncedAt={googleLastSyncedAt}
         userEmail={googleUserEmail}
         errorMessage={googleErrorMessage}

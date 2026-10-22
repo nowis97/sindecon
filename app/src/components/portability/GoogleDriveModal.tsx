@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { SyncState } from '../../pwa/syncEngine'
+import type { SyncState, SyncProgress } from '../../pwa/syncEngine'
 import {
   getStoredClientId,
   setStoredClientId,
@@ -11,6 +11,7 @@ interface GoogleDriveModalProps {
   isConnected: boolean
   isSessionExpired?: boolean
   syncState: SyncState
+  syncProgress?: SyncProgress | null
   lastSyncedAt: Date | null
   userEmail: string | null
   errorMessage: string | null
@@ -26,6 +27,7 @@ export function GoogleDriveModal({
   isConnected,
   isSessionExpired = false,
   syncState,
+  syncProgress,
   lastSyncedAt,
   userEmail,
   errorMessage,
@@ -121,6 +123,24 @@ export function GoogleDriveModal({
                             : '🟢 Al día y sincronizado'}
                   </strong>
                 </div>
+                {syncState === 'syncing' && (
+                  <div className="sync-progress-box">
+                    <div className="sync-progress-track">
+                      <div
+                        className="sync-progress-fill"
+                        style={{ width: `${Math.max(5, Math.min(100, syncProgress?.percent ?? 10))}%` }}
+                      />
+                    </div>
+                    <div className="sync-progress-meta">
+                      <span className="sync-progress-phase-label">
+                        {syncProgress?.message || 'Sincronizando notas con Google Drive…'}
+                      </span>
+                      <span className="sync-progress-percent">
+                        {Math.round(syncProgress?.percent ?? 10)}%
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <div className="sync-detail-row">
                   <span>Última sincronización:</span>
                   <span>

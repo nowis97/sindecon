@@ -13,12 +13,14 @@ import {
   performGoogleDriveSync,
   getLastSyncTime,
   type SyncState,
+  type SyncProgress,
 } from '../pwa/syncEngine'
 
 export function useGoogleSync() {
   const [token, setToken] = useState<string | null>(() => getStoredToken())
   const [userEmail, setUserEmail] = useState<string | null>(() => getStoredEmail())
   const [syncState, setSyncState] = useState<SyncState>('idle')
+  const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null)
   const [lastSyncedTime, setLastSyncedTime] = useState<number>(() => getLastSyncTime())
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -42,10 +44,15 @@ export function useGoogleSync() {
       // Ejecutar sincronización inicial inmediata
       try {
         setSyncState('syncing')
-        const res = await performGoogleDriveSync(newToken)
+        setSyncProgress({ phase: 'checking', percent: 5, message: 'Iniciando sincronización…' })
+        const res = await performGoogleDriveSync(newToken, (p) => setSyncProgress(p))
         setLastSyncedTime(res.timestamp)
-        setSyncState('idle')
+        setTimeout(() => {
+          setSyncProgress(null)
+          setSyncState('idle')
+        }, 500)
       } catch (e) {
+        setSyncProgress(null)
         setSyncState('error')
         setErrorMessage((e as Error).message)
       }
@@ -65,11 +72,16 @@ export function useGoogleSync() {
 
     try {
       setSyncState('syncing')
+      setSyncProgress({ phase: 'checking', percent: 5, message: 'Iniciando sincronización…' })
       setErrorMessage(null)
-      const res = await performGoogleDriveSync(currentToken)
+      const res = await performGoogleDriveSync(currentToken, (p) => setSyncProgress(p))
       setLastSyncedTime(res.timestamp)
-      setSyncState('idle')
+      setTimeout(() => {
+        setSyncProgress(null)
+        setSyncState('idle')
+      }, 500)
     } catch (e) {
+      setSyncProgress(null)
       const msg = (e as Error).message
       // Si el token caducó (401), invalidar token localmente sin borrar configuración ni abrir ventanas invasivas
       if (msg.includes('expirada') || msg.includes('401')) {
@@ -88,6 +100,7 @@ export function useGoogleSync() {
     clearStoredToken(true) // Desconexión explícita
     setToken(null)
     setUserEmail(null)
+    setSyncProgress(null)
     setSyncState('idle')
     setErrorMessage(null)
   }, [])
@@ -184,6 +197,7 @@ export function useGoogleSync() {
     isConnected,
     isSessionExpired,
     syncState,
+    syncProgress,
     lastSyncedAt: lastSyncedTime ? new Date(lastSyncedTime) : null,
     errorMessage,
     userEmail,
