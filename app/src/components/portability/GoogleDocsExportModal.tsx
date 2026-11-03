@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { generateClinicalDocxBlob } from '../../domain/gdocs/clinicalDocxGenerator'
 import { uploadDocxAsGoogleDoc } from '../../pwa/googleDocsUpload'
 import {
@@ -30,6 +30,8 @@ export interface GoogleDocsExportModalProps {
   onInitiateOAuth?: () => void
 }
 
+const EMPTY_TAGS: string[] = []
+
 /**
  * Sanitiza el título para nombres de archivos y documentos,
  * reemplazando caracteres prohibidos en sistemas de archivos y URLs por guiones.
@@ -47,14 +49,36 @@ export function sanitizeDocTitle(rawTitle?: string | null): string {
 }
 
 /**
+ * Genera el nombre de archivo con extensión .docx a partir del título limpio.
+ */
+export function getFallbackDocxFileName(rawTitle: string): string {
+  const cleanTitle = sanitizeDocTitle(rawTitle)
+  return `${cleanTitle}.docx`
+}
+
+/**
+ * Determina si un error reportado por Google Drive corresponde a sesión expirada / 401.
+ */
+export function isSessionExpiredError(msg?: string | null): boolean {
+  if (!msg) return false
+  const lower = msg.toLowerCase()
+  return (
+    msg.includes('401') ||
+    lower.includes('expir') ||
+    lower.includes('invalid_token') ||
+    lower.includes('unauthorized')
+  )
+}
+
+/**
  * Dispara la descarga local en el navegador del Blob DOCX generado.
  */
 function triggerBrowserDownload(blob: Blob, rawTitle: string): void {
-  const cleanTitle = sanitizeDocTitle(rawTitle)
+  const fileName = getFallbackDocxFileName(rawTitle)
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${cleanTitle}.docx`
+  a.download = fileName
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
@@ -67,7 +91,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
   title,
   markdown,
   folderPath,
-  tags = [],
+  tags = EMPTY_TAGS,
   dateStr,
   token: propToken,
   onInitiateOAuth,
@@ -75,15 +99,18 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
   const [status, setStatus] = useState<GoogleDocsExportStatus>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [docUrl, setDocUrl] = useState<string | null>(null)
-  const [docxBlob, setDocxBlob] = useState<Blob | null>(null)
+  const [, setDocxBlob] = useState<Blob | null>(null)
   const [isDownloading, setIsDownloading] = useState<boolean>(false)
+
+  const hasStartedRef = useRef(false)
+  const docxBlobRef = useRef<Blob | null>(null)
 
   const cleanTitle = sanitizeDocTitle(title)
 
   const handleDownloadDocx = useCallback(async () => {
     try {
       setIsDownloading(true)
-      let blob = docxBlob
+      let blob = docxBlobRef.current
       if (!blob) {
         blob = await generateClinicalDocxBlob(markdown, {
           title: cleanTitle,
@@ -91,6 +118,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
           tags,
           dateStr,
         })
+        docxBlobRef.current = blob
         setDocxBlob(blob)
       }
       triggerBrowserDownload(blob, title)
@@ -101,20 +129,24 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
     } finally {
       setIsDownloading(false)
     }
-  }, [docxBlob, markdown, cleanTitle, folderPath, tags, dateStr, title])
+  }, [markdown, cleanTitle, folderPath, tags, dateStr, title])
 
   const executeExport = useCallback(
     async (activeToken: string) => {
       if (!navigator.onLine) {
         try {
           setStatus('rendering')
-          const blob = await generateClinicalDocxBlob(markdown, {
-            title: cleanTitle,
-            folderPath,
-            tags,
-            dateStr,
-          })
-          setDocxBlob(blob)
+          let blob = docxBlobRef.current
+          if (!blob) {
+            blob = await generateClinicalDocxBlob(markdown, {
+              title: cleanTitle,
+              folderPath,
+              tags,
+              dateStr,
+            })
+            docxBlobRef.current = blob
+            setDocxBlob(blob)
+          }
           setStatus('offline')
         } catch (err) {
           setStatus('error')
@@ -128,7 +160,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
         setStatus('rendering')
 
         // 1. Renderizar DOCX con maquetación clínica y diagramas Mermaid
-        let blob = docxBlob
+        let blob = docxBlobRef.current
         if (!blob) {
           blob = await generateClinicalDocxBlob(markdown, {
             title: cleanTitle,
@@ -136,6 +168,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
             tags,
             dateStr,
           })
+          docxBlobRef.current = blob
           setDocxBlob(blob)
         }
 
@@ -146,11 +179,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
         setStatus('success')
       } catch (err) {
         const msg = (err as Error).message || 'Error durante la exportación a Google Docs'
-        if (
-          msg.includes('401') ||
-          msg.toLowerCase().includes('expirad') ||
-          msg.toLowerCase().includes('invalid_token')
-        ) {
+        if (isSessionExpiredError(msg)) {
           clearStoredToken(false)
           setStatus('error')
           setErrorMessage(
@@ -162,7 +191,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
         }
       }
     },
-    [markdown, cleanTitle, folderPath, tags, dateStr, docxBlob]
+    [markdown, cleanTitle, folderPath, tags, dateStr]
   )
 
   const handleOAuthConnect = useCallback(() => {
@@ -226,12 +255,17 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
   // Inicializar estado cuando se abre el modal
   useEffect(() => {
     if (!isOpen) {
+      hasStartedRef.current = false
+      docxBlobRef.current = null
       setStatus('idle')
       setErrorMessage(null)
       setDocUrl(null)
       setDocxBlob(null)
       return
     }
+
+    if (hasStartedRef.current) return
+    hasStartedRef.current = true
 
     if (!navigator.onLine) {
       setStatus('offline')
