@@ -1,5 +1,3 @@
-import mermaid from 'mermaid'
-
 export interface RasterizeOptions {
   mockRasterize?: (
     svg: string,
@@ -7,18 +5,21 @@ export interface RasterizeOptions {
   ) => Promise<{ buffer: ArrayBuffer; width: number; height: number }>
 }
 
-let mermaidInitialized = false
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mermaidInstance: any = null
 
-function ensureMermaidInit() {
-  if (!mermaidInitialized) {
-    mermaid.initialize({
+async function getMermaid() {
+  if (!mermaidInstance) {
+    const m = await import('mermaid')
+    mermaidInstance = m.default || m
+    mermaidInstance.initialize({
       startOnLoad: false,
       theme: 'neutral',
       fontFamily: 'Inter, sans-serif',
       securityLevel: 'loose',
     })
-    mermaidInitialized = true
   }
+  return mermaidInstance
 }
 
 export async function renderMermaidToPngBuffer(
@@ -26,9 +27,8 @@ export async function renderMermaidToPngBuffer(
   scale: number = 2.5,
   options?: RasterizeOptions
 ): Promise<{ buffer: ArrayBuffer; width: number; height: number } | null> {
-  ensureMermaidInit()
-
   try {
+    const mermaid = await getMermaid()
     const id = `mermaid-gdocs-${Date.now()}-${Math.floor(Math.random() * 10000)}`
     const { svg } = await mermaid.render(id, mermaidCode)
 

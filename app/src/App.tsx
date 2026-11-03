@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo, lazy, Suspense } from 'react'
 import {
   useAllNodes,
   useArticle,
@@ -33,7 +33,6 @@ import { GoogleDriveModal } from './components/portability/GoogleDriveModal'
 import { IosInstallModal } from './components/portability/IosInstallModal'
 import { ExportPdfModal, type ExportPdfOptions } from './components/portability/ExportPdfModal'
 import { BulkExportPdfModal, type BulkExportPdfOptions } from './components/portability/BulkExportPdfModal'
-import { GoogleDocsExportModal } from './components/portability/GoogleDocsExportModal'
 import { UpdateToast } from './components/pwa/UpdateToast'
 import { SearchBox } from './components/search/SearchBox'
 import { CommandPalette } from './components/search/CommandPalette'
@@ -93,6 +92,12 @@ type DeleteState = {
   title: string
   isFolder: boolean
 } | null
+
+const GoogleDocsExportModal = lazy(() =>
+  import('./components/portability/GoogleDocsExportModal').then((m) => ({
+    default: m.GoogleDocsExportModal,
+  }))
+)
 
 function App() {
   const nodes = useAllNodes()
@@ -1417,17 +1422,18 @@ function App() {
       />
 
       {/* Modal de Exportación a Google Docs */}
-      <GoogleDocsExportModal
-        isOpen={googleDocsExportState.isOpen}
-        onClose={() =>
-          setGoogleDocsExportState((prev) => ({ ...prev, isOpen: false }))
-        }
-        title={googleDocsExportState.title}
-        markdown={googleDocsExportState.markdown}
-        folderPath={googleDocsExportState.folderPath}
-        tags={googleDocsExportState.tags}
-        onInitiateOAuth={initiateGoogleOAuth}
-      />
+      <Suspense fallback={null}>
+        <GoogleDocsExportModal
+          isOpen={googleDocsExportState.isOpen}
+          onClose={() =>
+            setGoogleDocsExportState((prev) => ({ ...prev, isOpen: false }))
+          }
+          title={googleDocsExportState.title}
+          markdown={googleDocsExportState.markdown}
+          folderPath={googleDocsExportState.folderPath}
+          tags={googleDocsExportState.tags}
+        />
+      </Suspense>
 
       {/* Documento Exclusivo para Impresión Masiva (Compendio Multidocumento) */}
       {bulkPrintState?.active && (

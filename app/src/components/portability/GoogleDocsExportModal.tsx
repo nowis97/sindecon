@@ -102,8 +102,16 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
   const [, setDocxBlob] = useState<Blob | null>(null)
   const [isDownloading, setIsDownloading] = useState<boolean>(false)
 
+  const isMountedRef = useRef(true)
   const hasStartedRef = useRef(false)
   const docxBlobRef = useRef<Blob | null>(null)
+
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   const cleanTitle = sanitizeDocTitle(title)
 
@@ -118,16 +126,20 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
           tags,
           dateStr,
         })
+        if (!isMountedRef.current) return
         docxBlobRef.current = blob
         setDocxBlob(blob)
       }
       triggerBrowserDownload(blob, title)
     } catch (err) {
+      if (!isMountedRef.current) return
       setErrorMessage(
         `Error al preparar la descarga local: ${(err as Error).message || 'Error desconocido'}`
       )
     } finally {
-      setIsDownloading(false)
+      if (isMountedRef.current) {
+        setIsDownloading(false)
+      }
     }
   }, [markdown, cleanTitle, folderPath, tags, dateStr, title])
 
@@ -135,6 +147,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
     async (activeToken: string) => {
       if (!navigator.onLine) {
         try {
+          if (!isMountedRef.current) return
           setStatus('rendering')
           let blob = docxBlobRef.current
           if (!blob) {
@@ -144,11 +157,14 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
               tags,
               dateStr,
             })
+            if (!isMountedRef.current) return
             docxBlobRef.current = blob
             setDocxBlob(blob)
           }
+          if (!isMountedRef.current) return
           setStatus('offline')
         } catch (err) {
+          if (!isMountedRef.current) return
           setStatus('error')
           setErrorMessage((err as Error).message || 'Error al generar el documento DOCX')
         }
@@ -156,6 +172,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
       }
 
       try {
+        if (!isMountedRef.current) return
         setErrorMessage(null)
         setStatus('rendering')
 
@@ -168,16 +185,20 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
             tags,
             dateStr,
           })
+          if (!isMountedRef.current) return
           docxBlobRef.current = blob
           setDocxBlob(blob)
         }
 
         // 2. Subir a Google Drive con conversión a Google Docs nativo
+        if (!isMountedRef.current) return
         setStatus('uploading')
         const uploadResult = await uploadDocxAsGoogleDoc(blob, cleanTitle, activeToken)
+        if (!isMountedRef.current) return
         setDocUrl(uploadResult.url)
         setStatus('success')
       } catch (err) {
+        if (!isMountedRef.current) return
         const msg = (err as Error).message || 'Error durante la exportación a Google Docs'
         if (isSessionExpiredError(msg)) {
           clearStoredToken(false)
@@ -216,6 +237,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
 
     const clientId = getStoredClientId()
     if (!clientId) {
+      if (!isMountedRef.current) return
       setStatus('error')
       setErrorMessage(
         'No hay Client ID de Google configurado. Puedes descargar el archivo .docx directamente o configurar tu Client ID en Ajustes.'
@@ -224,6 +246,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
     }
 
     if (!win.google?.accounts?.oauth2) {
+      if (!isMountedRef.current) return
       setStatus('error')
       setErrorMessage(
         'Google Identity Services no está listo en el navegador. Por favor verifica tu conexión o descarga el archivo .docx.'
@@ -236,6 +259,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
         client_id: clientId,
         scope: GOOGLE_DRIVE_SCOPES,
         callback: (response) => {
+          if (!isMountedRef.current) return
           if (response.access_token) {
             setStoredToken(response.access_token, response.expires_in || 3600)
             void executeExport(response.access_token)
@@ -247,6 +271,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
       })
       client.requestAccessToken({ prompt: '' })
     } catch (e) {
+      if (!isMountedRef.current) return
       setStatus('error')
       setErrorMessage((e as Error).message || 'Error al iniciar sesión con Google')
     }

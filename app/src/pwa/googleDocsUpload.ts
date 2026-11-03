@@ -9,6 +9,7 @@ export async function uploadDocxAsGoogleDoc(
   accessToken: string
 ): Promise<GoogleDocUploadResult> {
   const boundary = `-------sindecon_gdocs_${Date.now()}`
+  const openingDelimiter = `--${boundary}\r\n`
   const delimiter = `\r\n--${boundary}\r\n`
   const closeDelimiter = `\r\n--${boundary}--`
 
@@ -30,7 +31,7 @@ export async function uploadDocxAsGoogleDoc(
 
   // Armar el payload multipart combinando metadatos y binario
   const encoder = new TextEncoder()
-  const part1 = encoder.encode(delimiter + metadataPart + delimiter + mediaHeader)
+  const part1 = encoder.encode(openingDelimiter + metadataPart + delimiter + mediaHeader)
   const part3 = encoder.encode(closeDelimiter)
 
   const fullPayload = new Uint8Array(part1.length + docxBytes.length + part3.length)
