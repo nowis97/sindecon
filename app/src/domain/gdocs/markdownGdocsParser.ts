@@ -112,8 +112,12 @@ export function parseMarkdownToClinicalBlocks(markdown: string): ClinicalBlock[]
         // tableLines[1] es típicamente |---|---|
         const rows = tableLines.slice(2).map(splitRow)
         blocks.push({ kind: 'table', headers, rows })
-        continue
+      } else {
+        for (const tl of tableLines) {
+          blocks.push({ kind: 'paragraph', text: tl })
+        }
       }
+      continue
     }
 
     // 6. Listas (viñetas o numeradas)

@@ -105,4 +105,25 @@ describe('markdownGdocsParser', () => {
       },
     ])
   })
+
+  it('emite líneas con pipes aisladas (< 2 líneas) como párrafos sin perder contenido subsiguiente', () => {
+    const md = '| Texto aislado |\n\nSiguiente párrafo.'
+    const blocks = parseMarkdownToClinicalBlocks(md)
+
+    expect(blocks).toEqual([
+      { kind: 'paragraph', text: '| Texto aislado |' },
+      { kind: 'paragraph', text: 'Siguiente párrafo.' },
+    ])
+  })
+
+  it('soporta saltos de línea Windows CRLF (\\r\\n)', () => {
+    const md = '# Título\r\n\r\n> [!NOTE]\r\n> Nota con CRLF.\r\n\r\n- Item 1\r\n- Item 2\r\n'
+    const blocks = parseMarkdownToClinicalBlocks(md)
+
+    expect(blocks).toEqual([
+      { kind: 'heading', level: 1, text: 'Título' },
+      { kind: 'callout', calloutType: 'note', title: 'NOTA CLÍNICA', text: 'Nota con CRLF.' },
+      { kind: 'list', ordered: false, items: ['Item 1', 'Item 2'] },
+    ])
+  })
 })
