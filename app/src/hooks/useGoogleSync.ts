@@ -8,6 +8,7 @@ import {
   getStoredClientId,
   isGoogleSyncEnabled,
   isTokenExpired,
+  GOOGLE_DRIVE_SCOPES,
 } from '../pwa/googleDrive'
 import {
   performGoogleDriveSync,
@@ -177,7 +178,7 @@ export function useGoogleSync() {
     if (win.google?.accounts?.oauth2) {
       const client = win.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/drive.appdata',
+        scope: GOOGLE_DRIVE_SCOPES,
         callback: (response) => {
           if (response.access_token) {
             void connectWithToken(response.access_token, response.expires_in || 3600)

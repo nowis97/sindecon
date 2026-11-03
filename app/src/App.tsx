@@ -33,6 +33,7 @@ import { GoogleDriveModal } from './components/portability/GoogleDriveModal'
 import { IosInstallModal } from './components/portability/IosInstallModal'
 import { ExportPdfModal, type ExportPdfOptions } from './components/portability/ExportPdfModal'
 import { BulkExportPdfModal, type BulkExportPdfOptions } from './components/portability/BulkExportPdfModal'
+import { GoogleDocsExportModal } from './components/portability/GoogleDocsExportModal'
 import { UpdateToast } from './components/pwa/UpdateToast'
 import { SearchBox } from './components/search/SearchBox'
 import { CommandPalette } from './components/search/CommandPalette'
@@ -153,6 +154,19 @@ function App() {
     items: Array<{ node: NodeRow; article?: ArticleRow }>
     options: BulkExportPdfOptions
   } | null>(null)
+
+  // Estado de Exportación a Google Docs
+  const [googleDocsExportState, setGoogleDocsExportState] = useState<{
+    isOpen: boolean
+    title: string
+    markdown: string
+    folderPath?: string
+    tags?: string[]
+  }>({
+    isOpen: false,
+    title: '',
+    markdown: '',
+  })
 
   // Visibilidad de Carpeta de Plantillas y Colapso de Barra Lateral en Escritorio
   const [showTemplatesFolder, setShowTemplatesFolder] = useState<boolean>(
@@ -1087,6 +1101,21 @@ function App() {
                           markdown={currentBody}
                           onWikiLinkClick={selectArticle}
                           onOpenExportPdf={() => setIsExportPdfOpen(true)}
+                          onOpenExportGoogleDocs={() => {
+                            const folderPathString = pathTo(nodes, selected.id)
+                              .slice(0, -1)
+                              .map((n) => n.title)
+                              .join(' / ')
+                            const currentTags =
+                              article?.node_id === selected.id ? (article?.tags ?? []) : []
+                            setGoogleDocsExportState({
+                              isOpen: true,
+                              title: selected.title,
+                              markdown: currentBody,
+                              folderPath: folderPathString,
+                              tags: currentTags,
+                            })
+                          }}
                         />
                       )}
 
@@ -1181,6 +1210,13 @@ function App() {
         onReplaceCurrentArticle={handleReplaceCurrentArticle}
         onCreateNewArticle={handleCreateNewArticle}
         onSaveToInbox={handleSaveToInbox}
+        onExportToGoogleDocs={(title, md) =>
+          setGoogleDocsExportState({
+            isOpen: true,
+            title,
+            markdown: md,
+          })
+        }
       />
 
       {/* Modal de Importación Masiva de Archivos Markdown y Carpetas */}
@@ -1378,6 +1414,19 @@ function App() {
         nodes={nodes}
         initialFolderId={bulkExportPdfFolderId}
         onConfirmExport={handleConfirmBulkExportPdf}
+      />
+
+      {/* Modal de Exportación a Google Docs */}
+      <GoogleDocsExportModal
+        isOpen={googleDocsExportState.isOpen}
+        onClose={() =>
+          setGoogleDocsExportState((prev) => ({ ...prev, isOpen: false }))
+        }
+        title={googleDocsExportState.title}
+        markdown={googleDocsExportState.markdown}
+        folderPath={googleDocsExportState.folderPath}
+        tags={googleDocsExportState.tags}
+        onInitiateOAuth={initiateGoogleOAuth}
       />
 
       {/* Documento Exclusivo para Impresión Masiva (Compendio Multidocumento) */}

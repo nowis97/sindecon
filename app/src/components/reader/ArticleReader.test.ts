@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
+  ArticleReader,
   parseMarkdownBlocks,
   partitionBlocksIntoSheets,
   estimateBlockHeight,
   paginateTwoColumnBlocks,
   A4_TWO_COLUMN_CAPACITY_PX,
+  type ArticleReaderProps,
 } from './ArticleReader'
 
 describe('parseMarkdownBlocks - Bloques Multicolumna (:::columns)', () => {
@@ -510,6 +512,21 @@ Texto de prueba.
     expect(sheets.length).toBe(2)
     expect(sheets[0]).toEqual([hugeBlock])
     expect(sheets[1]).toEqual([normalBlock])
+  })
+})
+
+describe('ArticleReader - Google Docs Export Prop & Contract', () => {
+  it('exporta ArticleReader y soporta el callback onOpenExportGoogleDocs en su interfaz de props', () => {
+    expect(typeof ArticleReader).toBe('function')
+
+    // Verificación de contrato de tipos en tiempo de compilación/ejecución
+    const dummyProps: ArticleReaderProps = {
+      markdown: '# Test',
+      onWikiLinkClick: () => {},
+      onOpenExportGoogleDocs: () => {},
+      onOpenExportPdf: () => {},
+    }
+    expect(typeof dummyProps.onOpenExportGoogleDocs).toBe('function')
   })
 })
 

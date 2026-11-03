@@ -4707,7 +4707,8 @@ select.dialog-input {
   box-shadow: var(--shadow-subtle);
 }
 
-.btn-reader-export-pdf {
+.btn-reader-export-pdf,
+.btn-export-gdocs {
   background: var(--bg-panel);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
@@ -4719,7 +4720,8 @@ select.dialog-input {
   transition: all var(--dur-fast) var(--ease-smooth);
 }
 
-.btn-reader-export-pdf:hover {
+.btn-reader-export-pdf:hover,
+.btn-export-gdocs:hover {
   background: var(--bg-card-hover);
   color: var(--text-primary);
   border-color: var(--border-strong);

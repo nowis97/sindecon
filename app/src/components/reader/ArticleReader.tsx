@@ -4,10 +4,11 @@ import { AssetImage } from './AssetImage'
 import { PdfDocumentViewer } from './PdfDocumentViewer'
 import { WIKI_LINK_REGEX } from '../../domain/wikiLinks'
 
-interface ArticleReaderProps {
+export interface ArticleReaderProps {
   markdown: string
   onWikiLinkClick: (uuid: string) => void
   onOpenExportPdf?: () => void
+  onOpenExportGoogleDocs?: () => void
   isPrintView?: boolean
   articleTitle?: string
 }
@@ -761,6 +762,7 @@ export function ArticleReader({
   markdown,
   onWikiLinkClick,
   onOpenExportPdf,
+  onOpenExportGoogleDocs,
   isPrintView = false,
   articleTitle,
 }: ArticleReaderProps) {
@@ -851,6 +853,17 @@ export function ArticleReader({
               title="Exportar este artículo a PDF o Imprimir"
             >
               🖨️ Exportar PDF
+            </button>
+          )}
+
+          {onOpenExportGoogleDocs && (
+            <button
+              type="button"
+              className="btn-toolbar-action btn-export-gdocs"
+              onClick={onOpenExportGoogleDocs}
+              title="Exportar a Google Docs con diseño clínico y Mermaid"
+            >
+              📄 Google Docs
             </button>
           )}
         </div>

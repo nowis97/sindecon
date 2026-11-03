@@ -21,6 +21,7 @@ export interface SmartImportModalProps {
   onReplaceCurrentArticle: (articleId: string, newMarkdown: string) => Promise<void>
   onCreateNewArticle: (title: string, markdown: string, parentId: string | null) => Promise<void>
   onSaveToInbox: (title: string, markdown: string) => Promise<void>
+  onExportToGoogleDocs?: (title: string, markdown: string) => void
 }
 
 export function SmartImportModal({
@@ -33,12 +34,13 @@ export function SmartImportModal({
   onReplaceCurrentArticle,
   onCreateNewArticle,
   onSaveToInbox,
+  onExportToGoogleDocs,
 }: SmartImportModalProps) {
   const [inputText, setInputText] = useState('')
   const [activeTab, setActiveTab] = useState<'paste' | 'file'>('paste')
   const [enrichCallouts, setEnrichCallouts] = useState(true)
   const [destination, setDestination] = useState<
-    'append' | 'replace' | 'new-article' | 'inbox'
+    'append' | 'replace' | 'new-article' | 'inbox' | 'gdocs'
   >(currentArticle ? 'append' : 'new-article')
   const [targetFolderId, setTargetFolderId] = useState<string | null>(
     currentFolderId ?? null,
@@ -135,6 +137,9 @@ export function SmartImportModal({
       } else if (destination === 'inbox') {
         const finalTitle = effectiveTitle.trim() || suggestedTitle || 'Captura Importada'
         await onSaveToInbox(finalTitle, processedMarkdown)
+      } else if (destination === 'gdocs') {
+        const finalTitle = effectiveTitle.trim() || suggestedTitle || 'Nota ChatGPT'
+        onExportToGoogleDocs?.(finalTitle, processedMarkdown)
       }
       onClose()
     } catch (e) {
@@ -292,6 +297,20 @@ export function SmartImportModal({
                   <span>Para clasificar y revisar después</span>
                 </div>
               </label>
+
+              <label className={`dest-card ${destination === 'gdocs' ? 'active' : ''}`}>
+                <input
+                  type="radio"
+                  name="import-dest"
+                  value="gdocs"
+                  checked={destination === 'gdocs'}
+                  onChange={() => setDestination('gdocs')}
+                />
+                <div className="dest-card-info">
+                  <strong>📄 Exportar a Google Docs</strong>
+                  <span>Crear Google Doc con formato clínico</span>
+                </div>
+              </label>
             </div>
 
             {destination === 'new-article' && (
@@ -320,6 +339,21 @@ export function SmartImportModal({
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+            )}
+
+            {destination === 'gdocs' && (
+              <div className="new-article-meta-row">
+                <div className="field-group">
+                  <label className="dialog-label">Título del documento:</label>
+                  <input
+                    type="text"
+                    className="dialog-input"
+                    value={customTitle !== null ? customTitle : suggestedTitle}
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                    placeholder={suggestedTitle || 'Nota ChatGPT'}
+                  />
                 </div>
               </div>
             )}
@@ -381,7 +415,11 @@ export function SmartImportModal({
             onClick={handleApply}
             disabled={!processedMarkdown.trim() || isProcessing}
           >
-            {isProcessing ? 'Procesando…' : '🪄 Aplicar Importación'}
+            {isProcessing
+              ? 'Procesando…'
+              : destination === 'gdocs'
+                ? 'Exportar a Google Docs'
+                : '🪄 Aplicar Importación'}
           </button>
         </div>
       </div>
