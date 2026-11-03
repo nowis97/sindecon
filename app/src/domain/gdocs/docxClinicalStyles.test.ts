@@ -15,7 +15,12 @@ describe('docxClinicalStyles', () => {
 
   it('construye el encabezado médico con marca SINDECON y fecha', () => {
     const paragraphs = createClinicalHeader('Cefaleas Agudas', 'Urgencias/Neurología', ['urgente', 'neurologia'], '03/11/2026')
-    expect(paragraphs.length).toBeGreaterThanOrEqual(2)
+    expect(paragraphs.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('construye el encabezado sin ruta ni tags opcionales', () => {
+    const paragraphs = createClinicalHeader('Cefaleas Agudas')
+    expect(paragraphs.length).toBe(2)
   })
 
   it('construye títulos H1, H2, H3 con configuración de heading', () => {
@@ -27,8 +32,14 @@ describe('docxClinicalStyles', () => {
     expect(h3).toBeDefined()
   })
 
-  it('construye callouts clínicos como tablas con borde lateral de color', () => {
-    const callout = createClinicalCallout('Alerta Farmacológica', 'Suspender si QTc > 500ms', 'warning')
-    expect(callout).toBeDefined()
+  it('construye callouts clínicos como tablas con borde lateral de color para todas las variantes', () => {
+    const warning = createClinicalCallout('Alerta Farmacológica', 'Suspender si QTc > 500ms', 'warning')
+    const note = createClinicalCallout('Observación', 'Revaluar en 24h', 'note')
+    const dosage = createClinicalCallout('Posología', '500mg c/8h', 'dosage')
+    const important = createClinicalCallout('Importante', 'Alergia a penicilina', 'important')
+    expect(warning).toBeDefined()
+    expect(note).toBeDefined()
+    expect(dosage).toBeDefined()
+    expect(important).toBeDefined()
   })
 })

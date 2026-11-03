@@ -161,8 +161,8 @@ export function createClinicalCallout(
   text: string,
   type: 'note' | 'warning' | 'dosage' | 'important'
 ): Table {
-  let borderColor = CLINICAL_COLORS.noteBorder
-  let bgColor = CLINICAL_COLORS.noteBg
+  let borderColor: string = CLINICAL_COLORS.noteBorder
+  let bgColor: string = CLINICAL_COLORS.noteBg
   let icon = '💡'
 
   if (type === 'warning') {
