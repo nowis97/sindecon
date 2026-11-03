@@ -8,6 +8,9 @@ import type { AiConfig } from '../db/db'
 export const AI_CONFIG_FILE_NAME = 'ai-config.json'
 export const DEFAULT_RESUMABLE_CHUNK_SIZE = 2 * 1024 * 1024 // 2 MB (múltiplo de 256 KB)
 
+export const GOOGLE_DRIVE_SCOPES =
+  'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file'
+
 const RESUMABLE_SESSION_KEY_PREFIX = 'cuaderno-gdrive-resumable-session:'
 const RESUMABLE_SESSION_TTL_MS = 24 * 60 * 60 * 1000 // 24 horas
 
@@ -148,7 +151,7 @@ export function requestSilentAccessToken(
   try {
     const client = win.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
-      scope: 'https://www.googleapis.com/auth/drive.appdata',
+      scope: GOOGLE_DRIVE_SCOPES,
       prompt: '',
       callback: (response) => {
         if (response.access_token) {
