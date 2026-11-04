@@ -3,6 +3,7 @@ import { MermaidViewer } from './MermaidViewer'
 import { AssetImage } from './AssetImage'
 import { PdfDocumentViewer } from './PdfDocumentViewer'
 import { WIKI_LINK_REGEX } from '../../domain/wikiLinks'
+import { stripOuterMarkdownFence } from '../../domain/smartImport'
 
 export interface ArticleReaderProps {
   markdown: string
@@ -98,7 +99,8 @@ export function matchPdfBlock(trimmed: string): { src: string; title?: string } 
 export function parseMarkdownBlocks(md: string): Block[] {
   if (!md) return []
   // Normalizar tags <br /> / <br> generados por ProseMirror/Milkdown, espacios y caracteres escapados por Markdown serializer
-  const normalizedMd = md
+  const unwrapped = stripOuterMarkdownFence(md)
+  const normalizedMd = unwrapped
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/&nbsp;/gi, ' ')
     .replace(/\\+:/g, ':')

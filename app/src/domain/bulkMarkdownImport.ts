@@ -1,4 +1,5 @@
 import JSZip from 'jszip'
+import { stripOuterMarkdownFence } from './smartImport'
 
 export interface ParsedMarkdownArticle {
   title: string
@@ -38,13 +39,14 @@ export function extractFrontmatter(raw: string): {
   frontmatter: { title?: string; tags?: string[]; [key: string]: unknown }
   body: string
 } {
-  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/)
+  const unwrapped = stripOuterMarkdownFence(raw)
+  const match = unwrapped.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/)
   if (!match) {
-    return { frontmatter: {}, body: raw }
+    return { frontmatter: {}, body: unwrapped }
   }
 
   const yamlContent = match[1]
-  const body = raw.slice(match[0].length)
+  const body = unwrapped.slice(match[0].length)
   const frontmatter: { title?: string; tags?: string[]; [key: string]: unknown } = {}
 
   const lines = yamlContent.split(/\r?\n/)
@@ -111,7 +113,9 @@ export function parseMarkdownArticle(
   filename: string,
   relativePath?: string
 ): ParsedMarkdownArticle {
-  const { frontmatter, body } = extractFrontmatter(rawContent)
+  const unwrapped = stripOuterMarkdownFence(rawContent)
+  const { frontmatter, body } = extractFrontmatter(unwrapped)
+  const cleanBody = stripOuterMarkdownFence(body)
 
   // 1. Extraer título: Frontmatter > H1 > Nombre de archivo
   let title = ''
@@ -121,7 +125,7 @@ export function parseMarkdownArticle(
 
   if (!title) {
     // Buscar primer encabezado H1 en el cuerpo
-    const lines = body.split(/\r?\n/)
+    const lines = cleanBody.split(/\r?\n/)
     for (const l of lines) {
       const matchH1 = l.trim().match(/^#\s+(.+)$/)
       if (matchH1 && matchH1[1].trim()) {
@@ -156,7 +160,7 @@ export function parseMarkdownArticle(
   return {
     title,
     tags: Array.from(tagsSet),
-    body: body.trim(),
+    body: cleanBody.trim(),
     originalFilename: filename,
     relativePath,
   }

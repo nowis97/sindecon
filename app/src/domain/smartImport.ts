@@ -51,6 +51,37 @@ function createTurndownService(): TurndownService {
 }
 
 /**
+ * Detecta y elimina el cercado exterior de código Markdown (```markdown ... ``` o ``` ... ```)
+ * típicamente generado por LLMs (ChatGPT, Claude, Gemini) cuando entregan texto formateado.
+ * Preserva intactos los bloques de código y diagramas Mermaid internos.
+ */
+export function stripOuterMarkdownFence(text: string): string {
+  if (!text) return ''
+
+  const trimmed = text.trim()
+
+  // Comprobar si comienza con 3 o más comillas invertidas (con o sin tag de lenguaje como markdown, md, text, txt)
+  const fenceStartMatch = trimmed.match(/^(`{3,})(?:markdown|md|text|txt)?\s*[\r\n]+([\s\S]*)$/i)
+  if (!fenceStartMatch) {
+    return text
+  }
+
+  const fenceTicks = fenceStartMatch[1] // ej: '```'
+  let inner = fenceStartMatch[2]
+
+  // Si termina con un cierre de fence equivalente (o al menos 3 backticks al final)
+  const endRegex = new RegExp(`[\\r\\n]+${fenceTicks}\\s*$`)
+  if (endRegex.test(inner)) {
+    inner = inner.replace(endRegex, '')
+  } else {
+    // Si termina con ``` genérico en la última línea
+    inner = inner.replace(/[\r\n]+`{3,}\s*$/, '')
+  }
+
+  return inner.trim()
+}
+
+/**
  * Limpia fragmentos de HTML sucios copiados de Microsoft Word o páginas web y los transforma en Markdown.
  */
 export function cleanWordHtml(html: string): string {
@@ -164,7 +195,8 @@ export function enrichClinicalMarkdown(markdown: string): string {
 export function extractSuggestedTitle(content: string, fallback = 'Nuevo Artículo'): string {
   if (!content) return fallback
 
-  const lines = content.split('\n')
+  const cleaned = stripOuterMarkdownFence(content)
+  const lines = cleaned.split('\n')
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed) continue
@@ -224,6 +256,9 @@ export function processImportText(
   if (options.isHtml || isLikelyHtml(input)) {
     md = cleanWordHtml(input)
   }
+
+  // Desempaquetar cercado exterior ```markdown o ``` típico de respuestas de LLMs
+  md = stripOuterMarkdownFence(md)
 
   if (options.enrichCallouts !== false) {
     md = enrichClinicalMarkdown(md)

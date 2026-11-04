@@ -1931,6 +1931,14 @@ body {
   color: var(--accent-blue-text);
 }
 
+.action-card.action-bulk-import {
+  background: var(--accent-emerald-bg, rgba(16, 185, 129, 0.08));
+  border-color: var(--accent-emerald-border, rgba(16, 185, 129, 0.3));
+}
+.action-card.action-bulk-import .action-card-content strong {
+  color: #10b981;
+}
+
 .action-card.action-smart-import {
   background: var(--accent-purple-bg);
   border-color: var(--accent-purple-border);

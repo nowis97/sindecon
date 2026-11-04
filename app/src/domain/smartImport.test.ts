@@ -4,6 +4,7 @@ import {
   enrichClinicalMarkdown,
   extractSuggestedTitle,
   processImportText,
+  stripOuterMarkdownFence,
 } from './smartImport'
 
 describe('smartImport (Limpieza y Enriquecimiento Clínico)', () => {
@@ -93,5 +94,72 @@ DOSIS: Amoxicilina / Clavulánico 1g cada 8h VO.
     expect(processed).toContain('> [!WARNING]')
     expect(processed).toContain('> [!DOSIS]')
     expect(processed).toContain('| Criterio | Puntuación |')
+  })
+
+  describe('stripOuterMarkdownFence (desempaquetado de ```markdown inicial)', () => {
+    it('elimina el cercado exterior ```markdown y el cierre ```', () => {
+      const raw = '\`\`\`markdown\n# Agitación Psicomotora\nTexto explicativo.\n\`\`\`'
+      const stripped = stripOuterMarkdownFence(raw)
+      expect(stripped).toBe('# Agitación Psicomotora\nTexto explicativo.')
+    })
+
+    it('elimina el cercado exterior ```md o ``` sin lenguaje', () => {
+      const rawMd = '\`\`\`md\n# Título MD\nTexto.\n\`\`\`'
+      expect(stripOuterMarkdownFence(rawMd)).toBe('# Título MD\nTexto.')
+
+      const rawPlain = '\`\`\`\n# Título Plain\nTexto.\n\`\`\`'
+      expect(stripOuterMarkdownFence(rawPlain)).toBe('# Título Plain\nTexto.')
+    })
+
+    it('elimina la apertura ```markdown incluso si el usuario no copió el cierre final', () => {
+      const rawUnclosed = '\`\`\`markdown\n# Título Sin Cierre\nContenido clínico.'
+      expect(stripOuterMarkdownFence(rawUnclosed)).toBe('# Título Sin Cierre\nContenido clínico.')
+    })
+
+    it('preserva intactos bloques de código y diagramas Mermaid internos', () => {
+      const rawWithMermaid = [
+        '\`\`\`markdown',
+        '# Manejo de Agitación',
+        '',
+        'Texto previo.',
+        '',
+        '\`\`\`mermaid',
+        'flowchart TD',
+        '    A[Inicio] --> B[Fin]',
+        '\`\`\`',
+        '',
+        'Texto posterior.',
+        '\`\`\`',
+      ].join('\n')
+
+      const stripped = stripOuterMarkdownFence(rawWithMermaid)
+      expect(stripped).toContain('# Manejo de Agitación')
+      expect(stripped).toContain('\`\`\`mermaid\nflowchart TD\n    A[Inicio] --> B[Fin]\n\`\`\`')
+      expect(stripped).toContain('Texto posterior.')
+      expect(stripped.startsWith('\`\`\`markdown')).toBe(false)
+      expect(stripped.endsWith('\`\`\`\n\`\`\`')).toBe(false)
+    })
+
+    it('no elimina bloques de código con lenguajes reales como python o sql', () => {
+      const pythonSnippet = '\`\`\`python\ndef calc_dose(weight):\n    return weight * 0.1\n\`\`\`'
+      expect(stripOuterMarkdownFence(pythonSnippet)).toBe(pythonSnippet)
+    })
+
+    it('permite que processImportText reconozca títulos y aplique callouts cuando viene con ```markdown', () => {
+      const wrappedInput = [
+        '\`\`\`markdown',
+        '# Shock Anafiláctico',
+        '',
+        'ALERTA: Adrenalina IM inmediata.',
+        'DOSIS: 0.5 mg IM.',
+        '\`\`\`',
+      ].join('\n')
+
+      const processed = processImportText(wrappedInput)
+      expect(processed).toContain('# Shock Anafiláctico')
+      expect(processed).toContain('> [!WARNING]')
+      expect(processed).toContain('> [!DOSIS]')
+      expect(extractSuggestedTitle(wrappedInput)).toBe('Shock Anafiláctico')
+    })
   })
 })

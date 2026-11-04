@@ -103,6 +103,41 @@ Cuerpo...
       expect(parsed.tags).toContain('urgencias')
       expect(parsed.tags).toContain('pediatría')
     })
+
+    it('desempaqueta archivos con cercado exterior ```markdown y extrae título y cuerpo limpios', () => {
+      const raw = [
+        '\`\`\`markdown',
+        '# Intoxicación por Organofosforados',
+        '',
+        'Paciente con miosis, sialorrea y broncorrea.',
+        '\`\`\`',
+      ].join('\n')
+
+      const parsed = parseMarkdownArticle(raw, 'organofosforados.md')
+      expect(parsed.title).toBe('Intoxicación por Organofosforados')
+      expect(parsed.body).toBe('# Intoxicación por Organofosforados\n\nPaciente con miosis, sialorrea y broncorrea.')
+      expect(parsed.body.startsWith('\`\`\`')).toBe(false)
+      expect(parsed.body.endsWith('\`\`\`')).toBe(false)
+    })
+
+    it('desempaqueta archivos con frontmatter antes o dentro de ```markdown', () => {
+      const rawWithFrontmatter = [
+        '---',
+        'title: Delirium en Adulto Mayor',
+        'tags: [geriatría, neurología]',
+        '---',
+        '\`\`\`markdown',
+        '# Delirium en Adulto Mayor',
+        'Etiología multifactorial.',
+        '\`\`\`',
+      ].join('\n')
+
+      const parsed = parseMarkdownArticle(rawWithFrontmatter, 'delirium.md')
+      expect(parsed.title).toBe('Delirium en Adulto Mayor')
+      expect(parsed.tags).toEqual(['geriatría', 'neurología'])
+      expect(parsed.body).toBe('# Delirium en Adulto Mayor\nEtiología multifactorial.')
+      expect(parsed.body.startsWith('\`\`\`')).toBe(false)
+    })
   })
 
   describe('extractMarkdownZip y processFilesForBulkImport', () => {

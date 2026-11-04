@@ -515,6 +515,44 @@ Texto de prueba.
   })
 })
 
+describe('parseMarkdownBlocks - Desempaquetado de ```markdown inicial', () => {
+  it('desempaqueta ```markdown exterior permitiendo formatear encabezados, tablas y mermaid', () => {
+    const wrappedMd = [
+      '\`\`\`markdown',
+      '# Agitación Psicomotora',
+      '',
+      'Definición clínica de agitación.',
+      '',
+      '\`\`\`mermaid',
+      'flowchart TD',
+      '    A[Paciente agitado] --> B[Seguridad]',
+      '\`\`\`',
+      '',
+      'Fin del texto.',
+      '\`\`\`',
+    ].join('\n')
+
+    const blocks = parseMarkdownBlocks(wrappedMd)
+
+    // No debe ser un solo bloque de código 'code'
+    expect(blocks.some((b) => b.type === 'code' && b.lang === 'markdown')).toBe(false)
+
+    // Debe contener el header H1
+    expect(blocks.some((b) => b.type === 'header' && b.text === 'Agitación Psicomotora')).toBe(true)
+
+    // Debe contener el diagrama mermaid intacto
+    const mermaidBlock = blocks.find((b) => b.type === 'mermaid')
+    expect(mermaidBlock).toBeDefined()
+    if (mermaidBlock && mermaidBlock.type === 'mermaid') {
+      expect(mermaidBlock.code).toContain('flowchart TD')
+      expect(mermaidBlock.code).toContain('A[Paciente agitado] --> B[Seguridad]')
+    }
+
+    // Debe contener el párrafo final
+    expect(blocks.some((b) => b.type === 'paragraph' && b.text === 'Fin del texto.')).toBe(true)
+  })
+})
+
 describe('ArticleReader - Google Docs Export Prop & Contract', () => {
   it('exporta ArticleReader y soporta el callback onOpenExportGoogleDocs en su interfaz de props', () => {
     expect(typeof ArticleReader).toBe('function')
