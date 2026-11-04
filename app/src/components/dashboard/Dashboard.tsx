@@ -9,7 +9,6 @@ interface DashboardProps {
   onSelectArticle: (id: string) => void
   onOpenQuickCapture: () => void
   onOpenSmartImport?: () => void
-  onOpenBulkImport?: () => void
   onCreateNode: (kind: 'folder' | 'article') => void
   onCreateFromTemplate: (templateTitle: string) => void
   onInstallPwa?: () => void
@@ -26,7 +25,6 @@ export function Dashboard({
   onSelectArticle,
   onOpenQuickCapture,
   onOpenSmartImport,
-  onOpenBulkImport,
   onCreateNode,
   onCreateFromTemplate,
   onInstallPwa,
@@ -219,32 +217,17 @@ export function Dashboard({
             </div>
           </button>
 
-          {onOpenBulkImport && (
-            <button
-              type="button"
-              className="action-card action-bulk-import"
-              style={{ '--stagger-index': 8 } as React.CSSProperties}
-              onClick={onOpenBulkImport}
-            >
-              <div className="action-card-icon">📥</div>
-              <div className="action-card-content">
-                <strong>Importar Markdown (.md)</strong>
-                <span>Carga artículos, guías clínicas o carpetas ZIP</span>
-              </div>
-            </button>
-          )}
-
           {onOpenSmartImport && (
             <button
               type="button"
               className="action-card action-smart-import"
-              style={{ '--stagger-index': 9 } as React.CSSProperties}
+              style={{ '--stagger-index': 8 } as React.CSSProperties}
               onClick={onOpenSmartImport}
             >
-              <div className="action-card-icon">🪄</div>
+              <div className="action-card-icon">📋</div>
               <div className="action-card-content">
-                <strong>Importar de ChatGPT o Word</strong>
-                <span>Convierte tablas, callouts y resúmenes</span>
+                <strong>Importar Texto (Copiar y Pegar)</strong>
+                <span>Pega texto en Markdown, ChatGPT o Word</span>
               </div>
             </button>
           )}

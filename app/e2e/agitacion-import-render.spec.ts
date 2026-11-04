@@ -632,7 +632,7 @@ test.describe('Importación y Renderizado de Agitación Psicomotora con Mermaid'
     console.log('Captura guardada en test-results/mermaid-agitacion-rendered.png')
   })
 
-  test('muestra el botón de Importar Markdown (.md) en Acciones Rápidas de la página principal y abre el modal', async ({
+  test('muestra el botón de Importar Texto (Copiar y Pegar) en Acciones Rápidas, permite pegar Markdown con comillas iniciales y crea el artículo', async ({
     page,
   }) => {
     await page.goto('/')
@@ -644,24 +644,55 @@ test.describe('Importación y Renderizado de Agitación Psicomotora con Mermaid'
       await homeBtn.click()
     }
 
-    // Verificar que la tarjeta de acción rápida de importar está visible en el dashboard
-    const quickImportBtn = page.locator('.action-card.action-bulk-import')
+    // Verificar que la tarjeta de acción rápida de importar texto está visible en el dashboard
+    const quickImportBtn = page.locator('.action-card.action-smart-import')
     await expect(quickImportBtn).toBeVisible({ timeout: 10000 })
-    await expect(quickImportBtn).toContainText('Importar Markdown (.md)')
-    await expect(quickImportBtn).toContainText('Carga artículos, guías clínicas o carpetas ZIP')
+    await expect(quickImportBtn).toContainText('Importar Texto (Copiar y Pegar)')
+    await expect(quickImportBtn).toContainText('Pega texto en Markdown, ChatGPT o Word')
 
-    // Click en la opción rápida de importar
+    // Click en la opción rápida de importar texto
     await quickImportBtn.click()
 
-    // El modal de importación masiva debe abrirse
-    const modalDialog = page.locator('.dialog-modal.bulk-import-modal')
+    // El modal de importación de texto debe abrirse
+    const modalDialog = page.locator('.dialog-modal.smart-import-modal')
     await expect(modalDialog).toBeVisible({ timeout: 5000 })
-    await expect(modalDialog).toContainText('Importación Masiva de Archivos Markdown')
+    await expect(modalDialog).toContainText('Importar Texto Markdown (Copiar y Pegar)')
 
-    // Cerrar el modal
-    const closeBtn = modalDialog.locator('.dialog-btn-close')
-    await expect(closeBtn).toBeVisible()
-    await closeBtn.click()
-    await expect(modalDialog).not.toBeVisible()
+    // Pega contenido Markdown envuelto en ```markdown inicial (caso típico de ChatGPT)
+    const testPastedContent = [
+      '\`\`\`markdown',
+      '# Manejo de Crisis Miasténica',
+      '',
+      'ALERTA: Evaluar capacidad vital forzada y necesidad de ventilación mecánica.',
+      '',
+      '\`\`\`mermaid',
+      'flowchart TD',
+      '    A["Sospecha Crisis"] --> B["UCI y Plasmaféresis"]',
+      '\`\`\`',
+      '\`\`\`',
+    ].join('\n')
+
+    const textarea = modalDialog.locator('textarea.smart-import-textarea')
+    await expect(textarea).toBeVisible()
+    await textarea.fill(testPastedContent)
+
+    // El título sugerido debe detectarse automáticamente sin las comillas
+    const titleInput = modalDialog.locator('input[placeholder*="Crisis Miasténica"], input[value*="Crisis Miasténica"]')
+    await expect(titleInput).toBeVisible({ timeout: 5000 })
+
+    // El diagrama Mermaid en la vista previa del modal debe renderizarse
+    const previewMermaid = modalDialog.locator('.mermaid-viewer-card')
+    await expect(previewMermaid).toBeVisible({ timeout: 10000 })
+
+    // Click en "Aplicar Importación"
+    const applyBtn = modalDialog.locator('button.btn-dialog-primary')
+    await expect(applyBtn).toBeVisible()
+    await expect(applyBtn).toContainText('Aplicar Importación')
+    await applyBtn.click()
+
+    // El modal debe cerrarse y abrirse el artículo en modo lector
+    await expect(modalDialog).not.toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.article-reader-container')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.a4-sheet-container h1', { hasText: 'Manejo de Crisis Miasténica' })).toBeVisible({ timeout: 10000 })
   })
 })

@@ -161,7 +161,7 @@ export function SmartImportModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="dialog-header">
-          <h3>🪄 Asistente de Importación (ChatGPT, IA y Word)</h3>
+          <h3>📋 Importar Texto Markdown (Copiar y Pegar)</h3>
           <button
             type="button"
             className="dialog-btn-close"
@@ -179,7 +179,7 @@ export function SmartImportModal({
               className={`import-tab-btn ${activeTab === 'paste' ? 'active' : ''}`}
               onClick={() => setActiveTab('paste')}
             >
-              📋 Pegar Texto / ChatGPT
+              📋 Pegar Texto en Markdown / ChatGPT
             </button>
             <button
               type="button"
@@ -213,7 +213,7 @@ export function SmartImportModal({
             <div className="smart-import-input-area">
               <textarea
                 className="smart-import-textarea"
-                placeholder="Pega aquí el texto copiado de ChatGPT, Claude, Word o una página web…"
+                placeholder="Pega aquí tu texto en Markdown (admite ```markdown inicial), respuestas de ChatGPT, Claude o apuntes clínicos…"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 rows={7}

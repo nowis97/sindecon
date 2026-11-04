@@ -1152,7 +1152,6 @@ function App() {
               templates={templates}
               onSelectArticle={selectArticle}
               onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
-              onOpenBulkImport={() => handleOpenBulkImport(null)}
               onOpenSmartImport={() => handleOpenSmartImport(null)}
               onCreateNode={(kind) => handleOpenCreatePrompt(kind)}
               onCreateFromTemplate={(tplTitle) =>
