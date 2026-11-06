@@ -99,7 +99,10 @@ const GoogleDocsExportModal = lazy(() =>
   }))
 )
 
-function App() {
+import { V2App } from './v2/V2App'
+import { VersionSwitcher } from './v2/components/VersionSwitcher'
+
+function V1App({ onSwitchToV2 }: { onSwitchToV2: () => void }) {
   const nodes = useAllNodes()
   const templates = useTemplates()
   const { theme, toggleTheme } = useTheme()
@@ -691,6 +694,7 @@ function App() {
         <div className="topbar-search">
           <SearchBox onSelect={selectArticle} />
         </div>
+        <VersionSwitcher currentVersion="v1" onToggle={onSwitchToV2} />
         <SyncIndicator
           isConnected={isGoogleConnected}
           isSessionExpired={isGoogleSessionExpired}
@@ -729,6 +733,7 @@ function App() {
                 🩺 Cuaderno Médico
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <VersionSwitcher currentVersion="v1" onToggle={onSwitchToV2} />
                 <SyncIndicator
                   isConnected={isGoogleConnected}
                   isSessionExpired={isGoogleSessionExpired}
@@ -1538,6 +1543,24 @@ function App() {
       )}
     </div>
   )
+}
+
+export function App() {
+  const [uiVersion, setUiVersion] = useState<'v1' | 'v2'>(() => {
+    return (localStorage.getItem('sindecon_ui_version') as 'v1' | 'v2') || 'v2'
+  })
+
+  const toggleVersion = (target?: 'v1' | 'v2') => {
+    const next = target ?? (uiVersion === 'v1' ? 'v2' : 'v1')
+    setUiVersion(next)
+    localStorage.setItem('sindecon_ui_version', next)
+  }
+
+  if (uiVersion === 'v2') {
+    return <V2App onSwitchToV1={() => toggleVersion('v1')} />
+  }
+
+  return <V1App onSwitchToV2={() => toggleVersion('v2')} />
 }
 
 export default App
