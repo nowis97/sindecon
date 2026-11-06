@@ -462,6 +462,21 @@ describe('FolderDetailView and NoteContextMenu (Mockup Page 3)', () => {
     expect(onAction).toHaveBeenCalledWith('export_editor')
   })
 
+  it('clamps NoteContextMenu position to viewport and includes max-h-[85vh] overflow-y-auto', () => {
+    const { html } = render(
+      <NoteContextMenu
+        noteId="note-1"
+        noteTitle="Estenosis Aórtica Severa"
+        position={{ x: 1200, y: 900 }}
+        onAction={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+
+    expect(html).toContain('max-h-[85vh]')
+    expect(html).toContain('overflow-y-auto')
+  })
+
   it('opens context menu in FolderDetailView when clicking actions button (···)', async () => {
     render(
       <FolderDetailView
@@ -609,6 +624,31 @@ describe('FolderDetailView and NoteContextMenu (Mockup Page 3)', () => {
     await fireEvent.click(urgentMarker)
 
     // Check that marker is displayed
+    expect(screen.getByText(/▲/i)).toBeDefined()
+  })
+
+  it('does not erase existing marker when clicking Marcar header with undefined payload', async () => {
+    await db.meta.put({ key: 'marker:note-1', value: 'urgent' })
+
+    render(
+      <FolderDetailView
+        folderId="folder-1"
+        onBack={vi.fn()}
+        onOpenEditor={vi.fn()}
+        initialNodes={[mockFolder, ...mockNotes]}
+        initialArticles={mockArticles}
+      />
+    )
+
+    // Open context menu
+    const actionButtons = screen.getAllByText(/···/)
+    await fireEvent.click(actionButtons[0])
+
+    // Click Marcar header (which passes payload = undefined)
+    const markAction = screen.getByText(/marcar/i)
+    await fireEvent.click(markAction)
+
+    // Marker should still be present
     expect(screen.getByText(/▲/i)).toBeDefined()
   })
 

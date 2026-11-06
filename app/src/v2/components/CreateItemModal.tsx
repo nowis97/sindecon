@@ -244,7 +244,6 @@ export function CreateItemModal({
                 </button>
                 <button
                   type="submit"
-                  onClick={handleFolderSubmit}
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-500 text-white transition-colors shadow-sm cursor-pointer"
                 >
                   Crear Carpeta
@@ -313,7 +312,6 @@ export function CreateItemModal({
                 </button>
                 <button
                   type="submit"
-                  onClick={handleNoteSubmit}
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-500 text-white transition-colors shadow-sm cursor-pointer"
                 >
                   Crear Nota

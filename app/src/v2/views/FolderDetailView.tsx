@@ -223,9 +223,19 @@ export function FolderDetailView({
         })
         break
       case 'mark': {
-        const marker = payload as NoteStatusMarker
-        setNoteMarkers((prev) => ({ ...prev, [note.id]: marker }))
-        db.meta.put({ key: `marker:${note.id}`, value: marker }).catch(() => {})
+        if (payload === undefined) break
+        const marker = payload as NoteStatusMarker | 'none'
+        if (marker === null || marker === 'none') {
+          setNoteMarkers((prev) => {
+            const next = { ...prev }
+            delete next[note.id]
+            return next
+          })
+          db.meta.delete(`marker:${note.id}`).catch(() => {})
+        } else if (marker === 'urgent' || marker === 'pending' || marker === 'completed') {
+          setNoteMarkers((prev) => ({ ...prev, [note.id]: marker }))
+          db.meta.put({ key: `marker:${note.id}`, value: marker }).catch(() => {})
+        }
         break
       }
       default:

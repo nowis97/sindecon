@@ -48,7 +48,7 @@ export function NoteContextMenu({
   const menuStyle: React.CSSProperties = position
     ? {
         position: 'fixed',
-        top: `${position.y}px`,
+        top: `${Math.max(16, Math.min(position.y, (typeof window !== 'undefined' ? window.innerHeight : 800) - 360))}px`,
         left: `${Math.max(10, Math.min(position.x, typeof window !== 'undefined' ? window.innerWidth - 220 : position.x))}px`,
       }
     : {}
@@ -65,7 +65,7 @@ export function NoteContextMenu({
       {/* Menu dropdown */}
       <div
         style={menuStyle}
-        className={`relative z-50 w-56 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-1.5 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100 ${
+        className={`relative z-50 w-56 max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-1.5 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100 ${
           !position ? 'm-auto' : ''
         }`}
         role="menu"

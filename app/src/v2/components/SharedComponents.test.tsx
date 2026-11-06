@@ -131,7 +131,12 @@ const screen = {
     return {
       node: match,
       click: () => {
-        match.props?.onClick?.({ preventDefault: () => {} })
+        if (match.props?.onClick) {
+          match.props.onClick({ preventDefault: () => {} })
+        } else if (match.props?.type === 'submit') {
+          const form = all.find((el) => el.type === 'form')
+          form?.props?.onSubmit?.({ preventDefault: () => {} })
+        }
       },
       change: (e: any) => {
         match.props?.onChange?.(e)
@@ -162,7 +167,12 @@ const screen = {
     return {
       node: match,
       click: () => {
-        match.props?.onClick?.({ preventDefault: () => {} })
+        if (match.props?.onClick) {
+          match.props.onClick({ preventDefault: () => {} })
+        } else if (match.props?.type === 'submit') {
+          const form = all.find((el) => el.type === 'form')
+          form?.props?.onSubmit?.({ preventDefault: () => {} })
+        }
       },
       change: (e: any) => {
         match.props?.onChange?.(e)

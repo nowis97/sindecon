@@ -40,14 +40,24 @@ export function EditorWrapperView({
   const [title, setTitle] = useState(initialNode?.title ?? '')
   const [content, setContent] = useState(initialArticle?.body_md ?? '')
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved')
+  const [isLoaded, setIsLoaded] = useState(
+    Boolean(initialArticle || initialNode),
+  )
 
   // Timers for debouncing
   const saveDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const titleDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentTitleRef = useRef(title)
-  currentTitleRef.current = title
   const currentContentRef = useRef(content)
-  currentContentRef.current = content
+
+  // Keep refs in sync without mutating during render body
+  useEffect(() => {
+    currentTitleRef.current = title
+  }, [title])
+
+  useEffect(() => {
+    currentContentRef.current = content
+  }, [content])
 
   // Fetch node and article on mount / noteId change if not already loaded
   useEffect(() => {
@@ -60,15 +70,24 @@ export function EditorWrapperView({
         if (!isMounted) return
         if (n) {
           setFallbackNode(n)
-          setTitle((prev) => (prev ? prev : n.title))
+          setTitle((prev) => {
+            const next = prev ? prev : n.title
+            currentTitleRef.current = next
+            return next
+          })
         }
         if (a) {
           setFallbackArticle(a)
-          setContent((prev) => (prev ? prev : a.body_md))
+          setContent((prev) => {
+            const next = prev ? prev : a.body_md
+            currentContentRef.current = next
+            return next
+          })
         }
+        setIsLoaded(true)
       })
       .catch(() => {
-        // Ignore errors in test environment
+        if (isMounted) setIsLoaded(true)
       })
 
     return () => {
@@ -145,6 +164,7 @@ export function EditorWrapperView({
   // Article content change and auto-save
   const handleContentChange = (newMd: string) => {
     setContent(newMd)
+    currentContentRef.current = newMd
     setSaveStatus('saving')
 
     if (saveDebounceTimerRef.current) {
@@ -176,6 +196,11 @@ export function EditorWrapperView({
   }
 
   const handleBack = async () => {
+    if (titleDebounceTimerRef.current) {
+      clearTimeout(titleDebounceTimerRef.current)
+      titleDebounceTimerRef.current = null
+      await commitTitleRename(currentTitleRef.current)
+    }
     await flushSave()
     onBack()
   }
@@ -205,6 +230,9 @@ export function EditorWrapperView({
       typeof document === 'undefined' ||
       !window.document?.createElement ||
       (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test'))
+
+  const isArticleLoaded =
+    isLoaded || Boolean(initialArticle) || (article != null && article.node_id !== undefined)
 
   return (
     <div
@@ -281,7 +309,11 @@ export function EditorWrapperView({
       {/* Área del Editor Clínico */}
       <main className="flex-1 flex flex-col max-w-5xl mx-auto w-full p-4 sm:p-6 lg:p-8">
         <div className="flex-1 flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden">
-          {isTestOrNode ? (
+          {!isArticleLoaded ? (
+            <div className="flex-1 flex items-center justify-center p-8 text-slate-400">
+              <span className="text-sm">Cargando nota clínica...</span>
+            </div>
+          ) : isTestOrNode ? (
             <div className="flex-1 flex flex-col p-4">
               <label htmlFor="clinical-editor-fallback" className="sr-only">
                 Editor Clínico
@@ -299,9 +331,9 @@ export function EditorWrapperView({
           ) : (
             <div className="flex-1 p-4 overflow-y-auto">
               <MarkdownEditor
-                key={noteId}
+                key={`${noteId}-${article?.node_id ?? 'loaded'}`}
                 nodeId={noteId}
-                defaultValue={content}
+                defaultValue={content || article?.body_md || ''}
                 onChange={(_id, md) => handleContentChange(md)}
                 onWikiLinkClick={(_uuid) => {}}
               />

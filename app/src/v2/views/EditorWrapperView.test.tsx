@@ -429,4 +429,41 @@ describe('EditorWrapperView Component', () => {
 
     expect(handleSwitch).toHaveBeenCalled()
   })
+
+  it('flushes pending title rename when clicking back button before debounce expires', async () => {
+    const onBack = vi.fn()
+    const renameSpy = vi.spyOn(nodesDb, 'renameNode')
+
+    render(
+      <EditorWrapperView
+        noteId="note-dm2"
+        onBack={onBack}
+        initialNode={sampleNode}
+        initialArticle={sampleArticle}
+        useTextareaFallback={true}
+      />,
+    )
+
+    const titleInput = screen.getByLabelText(/Título de la nota/i)
+    fireEvent.change(titleInput, { target: { value: 'Título Modificado Inmediato' } })
+
+    const backBtn = screen.getByRole('button', { name: /Volver/i })
+    await fireEvent.click(backBtn)
+
+    expect(renameSpy).toHaveBeenCalledWith('note-dm2', 'Título Modificado Inmediato')
+    expect(onBack).toHaveBeenCalled()
+    renameSpy.mockRestore()
+  })
+
+  it('shows loading placeholder when article is not loaded', () => {
+    const { html } = render(
+      <EditorWrapperView
+        noteId="unloaded-note-id"
+        onBack={vi.fn()}
+        useTextareaFallback={false}
+      />,
+    )
+
+    expect(html).toContain('Cargando nota clínica...')
+  })
 })
