@@ -1,28 +1,136 @@
-import React from 'react'
+import React, { useState } from 'react'
 import './styles/v2.css'
-import { VersionSwitcher } from './components/VersionSwitcher'
-import { VitruvianLogo } from './components/VitruvianLogo'
+import { LandingView } from './views/LandingView'
+import { RepositoryView } from './views/RepositoryView'
+import { FolderDetailView } from './views/FolderDetailView'
+import { EditorWrapperView } from './views/EditorWrapperView'
+import type { NodeRow, ArticleRow } from '../db/db'
+
+export type V2ViewType = 'landing' | 'repository' | 'folder' | 'editor'
 
 export interface V2AppProps {
   onSwitchToV1: () => void
+  initialView?: V2ViewType
+  initialFolderId?: string | null
+  initialNoteId?: string | null
+  initialUserName?: string
+  initialNodes?: NodeRow[]
+  initialArticles?: ArticleRow[]
 }
 
-export function V2App({ onSwitchToV1 }: V2AppProps): React.JSX.Element {
+export function V2App({
+  onSwitchToV1,
+  initialView = 'landing',
+  initialFolderId = null,
+  initialNoteId = null,
+  initialUserName,
+  initialNodes,
+  initialArticles,
+}: V2AppProps): React.JSX.Element {
+  const [activeView, setActiveView] = useState<V2ViewType>(initialView)
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(initialFolderId)
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(initialNoteId)
+  const [userName, setUserName] = useState<string>(() => {
+    if (initialUserName) return initialUserName
+    try {
+      return localStorage.getItem('sindecon_user_name') || ''
+    } catch {
+      return ''
+    }
+  })
+
+  // Transición 1: Landing -> Repositorio
+  const handleEnterRepository = (name: string) => {
+    const finalName = name.trim() || 'Colega'
+    setUserName(finalName)
+    try {
+      localStorage.setItem('sindecon_user_name', finalName)
+    } catch {
+      // Ignore
+    }
+    setActiveView('repository')
+  }
+
+  // Transición 2: Repositorio -> Landing (Cerrar sesión)
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('sindecon_user_name')
+    } catch {
+      // Ignore
+    }
+    setUserName('')
+    setSelectedFolderId(null)
+    setSelectedNoteId(null)
+    setActiveView('landing')
+  }
+
+  // Transición 3: Repositorio -> Detalle de Carpeta
+  const handleSelectFolder = (folderId: string) => {
+    setSelectedFolderId(folderId)
+    setActiveView('folder')
+  }
+
+  // Transición 4: Detalle de Carpeta -> Repositorio
+  const handleBackToRepository = () => {
+    setSelectedFolderId(null)
+    setActiveView('repository')
+  }
+
+  // Transición 5: Detalle de Carpeta (o Repositorio) -> Editor Clínico
+  const handleOpenEditor = (noteId: string) => {
+    setSelectedNoteId(noteId)
+    setActiveView('editor')
+  }
+
+  // Transición 6: Editor Clínico -> Detalle de Carpeta (o Repositorio)
+  const handleBackFromEditor = () => {
+    setSelectedNoteId(null)
+    if (selectedFolderId) {
+      setActiveView('folder')
+    } else {
+      setActiveView('repository')
+    }
+  }
+
   return (
-    <div className="sindecon-v2 min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <VitruvianLogo size={32} className="text-teal-600 dark:text-teal-400" />
-          <h1 className="text-xl font-bold tracking-tight">SINDECON</h1>
-        </div>
-        <VersionSwitcher currentVersion="v2" onToggle={onSwitchToV1} />
-      </header>
-      <main className="flex-1 p-6 max-w-6xl mx-auto w-full">
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold">Bienvenido a SINDECON V2</h2>
-          <p className="text-slate-500 mt-2">Nueva interfaz en proceso de construcción.</p>
-        </div>
-      </main>
+    <div className="sindecon-v2 min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+      {activeView === 'landing' && (
+        <LandingView
+          onEnterRepository={handleEnterRepository}
+          onSwitchToV1={onSwitchToV1}
+        />
+      )}
+
+      {activeView === 'repository' && (
+        <RepositoryView
+          userName={userName || 'Colega'}
+          onSelectFolder={handleSelectFolder}
+          onLogout={handleLogout}
+          onSwitchToV1={onSwitchToV1}
+          initialNodes={initialNodes}
+        />
+      )}
+
+      {activeView === 'folder' && selectedFolderId && (
+        <FolderDetailView
+          folderId={selectedFolderId}
+          onBack={handleBackToRepository}
+          onOpenEditor={handleOpenEditor}
+          onSwitchToV1={onSwitchToV1}
+          initialNodes={initialNodes}
+          initialArticles={initialArticles}
+        />
+      )}
+
+      {activeView === 'editor' && selectedNoteId && (
+        <EditorWrapperView
+          noteId={selectedNoteId}
+          onBack={handleBackFromEditor}
+          onSwitchToV1={onSwitchToV1}
+          initialNode={initialNodes?.find((n) => n.id === selectedNoteId)}
+          initialArticle={initialArticles?.find((a) => a.node_id === selectedNoteId)}
+        />
+      )}
     </div>
   )
 }
