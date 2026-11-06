@@ -170,6 +170,57 @@ export function requestSilentAccessToken(
 /**
  * Busca un archivo por nombre dentro del espacio privado `appDataFolder`.
  */
+export function signInWithGoogle(
+  onSuccess: (token: string, email?: string) => void,
+  onError?: (err: string) => void,
+): void {
+  const win = typeof window !== 'undefined' ? (window as unknown as {
+    google?: {
+      accounts?: {
+        oauth2?: {
+          initTokenClient: (config: {
+            client_id: string
+            scope: string
+            prompt?: string
+            callback: (res: { access_token?: string; expires_in?: number; error?: string }) => void
+          }) => { requestAccessToken: (opts?: { prompt?: string }) => void }
+        }
+      }
+    }
+  }) : undefined
+
+  const clientId = getStoredClientId()
+  if (!clientId) {
+    onError?.('No hay Client ID de Google configurado')
+    return
+  }
+
+  if (!win?.google?.accounts?.oauth2) {
+    onError?.('Google Identity Services no está disponible en este navegador')
+    return
+  }
+
+  try {
+    const client = win.google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: GOOGLE_DRIVE_SCOPES,
+      prompt: 'select_account',
+      callback: async (response) => {
+        if (response.access_token) {
+          const email = (await fetchGoogleUserEmail(response.access_token)) || undefined
+          setStoredToken(response.access_token, response.expires_in || 3600, email)
+          onSuccess(response.access_token, email)
+        } else if (response.error) {
+          onError?.(response.error)
+        }
+      },
+    })
+    client.requestAccessToken({ prompt: 'select_account' })
+  } catch (err) {
+    onError?.((err as Error).message)
+  }
+}
+
 export async function getAppDataFileByName(
   token: string,
   name: string,
