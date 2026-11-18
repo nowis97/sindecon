@@ -605,27 +605,45 @@ describe('Plantilla Apuntes 5to-2 - Callouts naturales, bloques ancho completo y
     expect(blocks[1]).toMatchObject({ type: 'table', fullWidth: true })
   })
 
-  it('prepara el documento de plantilla Apuntes 5to-2 con título, subtítulo, ancho completo, caption y bibliografía', () => {
+  it('prepara el documento de plantilla Apuntes 5to-2 con todas las reglas Markdown explícitas (@SUBTÍTULO, ##/###/####, listas nivel 2, callouts, [!NOTA], *FIGURA:*, REF:)', () => {
     const md = [
-      '# TÍTULO DEL TEMA',
-      'Asignatura · Apuntes 5to-2',
+      '# {título}',
+      '@SUBTÍTULO: Neurología · Apuntes 5to-2',
       '',
-      '# INTRODUCCIÓN',
+      '## INTRODUCCIÓN',
       'Texto del apunte.',
       '',
-      '# TABLA O ALGORITMO A ANCHO COMPLETO',
-      'Este bloque está en una sola columna. Úsalo cuando una tabla sea ancha.',
+      '### SUBTÍTULO CLÍNICO',
+      '#### Hallazgo específico',
+      '- Elemento nivel 1',
+      '  - Elemento nivel 2',
+      '',
+      '1. Paso numerado 1',
+      '',
+      '> [!EJEMPLO]',
+      '> Caso clínico típico.',
+      '',
+      '> [!PERLA]',
+      '> Dato clave EUNACOM.',
+      '',
+      '> [!ADVERTENCIA]',
+      '> Red flag crítica.',
+      '',
+      '> [!DEFINICIÓN]',
+      '> Criterio formal.',
+      '',
+      '## TABLA O ALGORITMO A ANCHO COMPLETO',
+      '> [!NOTA]',
+      '> Nota secundaria en gris.',
       '',
       '| Situación | Hallazgo / criterio | Conducta |',
       '| --- | --- | --- |',
       '| Paciente estable | Sin criterios de gravedad | Manejo según contexto |',
       '',
-      'Tabla de ejemplo. Reemplázala según el tema.',
+      '*FIGURA:* Tabla de ejemplo.',
       '',
-      '## Bibliografía',
-      '1. Autor 1. Guía 1.',
-      '',
-      '2. Autor 2. Guía 2.',
+      'REF: Autor 1. Guía 1.',
+      'REF: Autor 2. Guía 2.',
     ].join('\n')
 
     const rawBlocks = parseMarkdownBlocks(md)
@@ -635,26 +653,37 @@ describe('Plantilla Apuntes 5to-2 - Callouts naturales, bloques ancho completo y
     expect(prepared.docSubtitle).toBe('Neurología · Apuntes 5to-2')
     expect(prepared.runningHeader).toBe('APUNTES 5TO-2  ·  NEUROLOGÍA')
 
-    const hIntro = prepared.bodyBlocks[0]
-    expect(hIntro).toMatchObject({ type: 'header', level: 1, text: 'INTRODUCCIÓN' })
-    expect('fullWidth' in hIntro ? hIntro.fullWidth : undefined).toBeUndefined()
+    const h1Sec = prepared.bodyBlocks[0]
+    expect(h1Sec).toMatchObject({ type: 'header', level: 2, text: 'INTRODUCCIÓN' })
+    expect('fullWidth' in h1Sec ? h1Sec.fullWidth : undefined).toBeUndefined()
+
+    expect(prepared.bodyBlocks.find((b) => b.type === 'header' && b.level === 3)).toMatchObject({ text: 'SUBTÍTULO CLÍNICO' })
+    expect(prepared.bodyBlocks.find((b) => b.type === 'header' && b.level === 4)).toMatchObject({ text: 'Hallazgo específico' })
+
+    const bulletList = prepared.bodyBlocks.find((b) => b.type === 'list' && !b.ordered)
+    expect(bulletList && bulletList.type === 'list' && bulletList.items[0].children).toHaveLength(1)
+
+    expect(prepared.bodyBlocks.find((b) => b.type === 'callout' && b.kind === 'example')).toMatchObject({ text: 'Caso clínico típico.' })
+    expect(prepared.bodyBlocks.find((b) => b.type === 'callout' && b.kind === 'tip')).toMatchObject({ text: 'Dato clave EUNACOM.' })
+    expect(prepared.bodyBlocks.find((b) => b.type === 'callout' && b.kind === 'warning')).toMatchObject({ text: 'Red flag crítica.' })
+    expect(prepared.bodyBlocks.find((b) => b.type === 'callout' && b.kind === 'definition')).toMatchObject({ text: 'Criterio formal.' })
 
     const hWide = prepared.bodyBlocks.find((b) => b.type === 'header' && b.text.includes('ANCHO COMPLETO'))
-    expect(hWide).toMatchObject({ fullWidth: true })
+    expect(hWide).toMatchObject({ level: 2, fullWidth: true })
 
     const secNote = prepared.bodyBlocks.find((b) => b.type === 'paragraph' && b.variant === 'secondary')
-    expect(secNote).toMatchObject({ fullWidth: true })
+    expect(secNote).toMatchObject({ text: 'Nota secundaria en gris.', fullWidth: true })
 
     const tableBlock = prepared.bodyBlocks.find((b) => b.type === 'table')
     expect(tableBlock).toMatchObject({ fullWidth: true })
 
     const captionBlock = prepared.bodyBlocks.find((b) => b.type === 'paragraph' && b.variant === 'caption')
-    expect(captionBlock).toMatchObject({ fullWidth: true })
+    expect(captionBlock).toMatchObject({ text: '*FIGURA:* Tabla de ejemplo.', fullWidth: true })
 
-    const bibLists = prepared.bodyBlocks.filter((b) => b.type === 'list' && b.isBibliography)
-    expect(bibLists).toHaveLength(2)
-    expect((bibLists[0] as Extract<typeof bibLists[number], { type: 'list' }>).startNumber).toBe(1)
-    expect((bibLists[1] as Extract<typeof bibLists[number], { type: 'list' }>).startNumber).toBe(2)
+    const bibRefs = prepared.bodyBlocks.filter((b) => b.type === 'paragraph' && b.variant === 'bibliography')
+    expect(bibRefs).toHaveLength(2)
+    expect(bibRefs[0]).toMatchObject({ text: 'Autor 1. Guía 1.' })
+    expect(bibRefs[1]).toMatchObject({ text: 'Autor 2. Guía 2.' })
   })
 })
 

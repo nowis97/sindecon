@@ -329,30 +329,39 @@ export const TEMPLATES: Template[] = [
     sections: [],
     rawMarkdown: [
       '# {título}',
-      'Asignatura · Apuntes 5to-2',
+      '@SUBTÍTULO: Asignatura · Apuntes 5to-2',
       '',
-      '# INTRODUCCIÓN',
+      '## INTRODUCCIÓN',
       'Texto del apunte.',
       '',
-      '## SUBTÍTULO CLÍNICO',
+      '### SUBTÍTULO CLÍNICO',
       'Usa Título 2 para apartados como clínica, diagnóstico, tratamiento, complicaciones o seguimiento. Reserva los punteos para enumeraciones que realmente mejoren la claridad.',
       '',
-      '### Hallazgo o concepto específico',
+      '#### Hallazgo o concepto específico',
       'Usa Título 3 para subdivisiones puntuales dentro de un apartado. Evita fragmentar demasiado el apunte.',
       '',
       '- Primer elemento de una lista breve',
+      '  - Sub-elemento nivel 2 de una lista breve',
       '- Segundo elemento de una lista breve',
       '',
-      'Ejemplo clínico: paciente con una presentación típica que ayuda a aplicar el concepto anterior.',
+      '1. Primer paso numerado del protocolo',
+      '2. Segundo paso numerado del protocolo',
       '',
-      'Perla clínica: utiliza este estilo para datos de alto rendimiento, decisiones prácticas o asociaciones particularmente útiles para internado y EUNACOM.',
+      '> [!EJEMPLO]',
+      '> paciente con una presentación típica que ayuda a aplicar el concepto anterior.',
       '',
-      'Advertencia: reserva este estilo para urgencias, contraindicaciones, errores graves o situaciones donde la conducta cambie de forma importante.',
+      '> [!PERLA]',
+      '> utiliza este estilo para datos de alto rendimiento, decisiones prácticas o asociaciones particularmente útiles para internado y EUNACOM.',
       '',
-      'Definición: utiliza este estilo cuando una definición formal sea importante para comprender o responder una evaluación.',
+      '> [!ADVERTENCIA]',
+      '> reserva este estilo para urgencias, contraindicaciones, errores graves o situaciones donde la conducta cambie de forma importante.',
       '',
-      '# TABLA O ALGORITMO A ANCHO COMPLETO',
-      'Este bloque está en una sola columna. Úsalo cuando una tabla, algoritmo o imagen sea demasiado ancha para las dos columnas.',
+      '> [!DEFINICIÓN]',
+      '> utiliza este estilo cuando una definición formal sea importante para comprender o responder una evaluación.',
+      '',
+      '## TABLA O ALGORITMO A ANCHO COMPLETO',
+      '> [!NOTA]',
+      '> Este bloque está en una sola columna. Úsalo cuando una tabla, algoritmo o imagen sea demasiado ancha para las dos columnas.',
       '',
       '| Situación | Hallazgo / criterio | Conducta |',
       '| --- | --- | --- |',
@@ -360,14 +369,14 @@ export const TEMPLATES: Template[] = [
       '| Paciente de riesgo | Hallazgos que modifican conducta | Ampliar estudio / vigilar |',
       '| Urgencia | Compromiso clínico importante | Actuar y derivar según corresponda |',
       '',
-      'Tabla de ejemplo. Reemplázala o elimínala según el tema.',
+      '*FIGURA:* Tabla de ejemplo. Reemplázala o elimínala según el tema.',
       '',
-      '# CONTINUACIÓN DEL APUNTE',
+      '## CONTINUACIÓN DEL APUNTE',
       'Después de un bloque ancho, la plantilla vuelve a dos columnas. Puedes conservar esta estructura o eliminar los bloques que no necesites.',
       '',
-      '## Bibliografía',
-      '1. Autor o institución. Título del documento o guía. Año.',
-      '2. Autor o institución. Título del texto de referencia. Edición.',
+      '### Bibliografía',
+      'REF: 1. Autor o institución. Título del documento o guía. Año.',
+      'REF: 2. Autor o institución. Título del texto de referencia. Edición.',
     ].join('\n'),
   },
 ]
@@ -422,7 +431,7 @@ export function getTemplateId(title: string): string {
   return `sys-tpl-${slug}`
 }
 
-const SEED_KEY = 'seeded_templates_v2_6'
+const SEED_KEY = 'seeded_templates_v2_8'
 
 /**
  * Siembra la carpeta "Plantillas" con los 12 formatos oficiales de forma determinista e idempotente.
@@ -497,6 +506,12 @@ export async function seedTemplatesIfNeeded(): Promise<boolean> {
           art.body_md.includes('## Qué es, grupo farmacológico y datos generales') ||
           art.body_md.includes('### Guías clínicas y consensos'))
       ) {
+        await db.articles.update(tplId, { body_md: buildTemplateBody(t) })
+        anySeeded = true
+      }
+    } else if (tplId === 'sys-tpl-apuntes-5to-2-eunacom-internado') {
+      const art = await db.articles.get(tplId)
+      if (art && !art.body_md.includes('@SUBTÍTULO:')) {
         await db.articles.update(tplId, { body_md: buildTemplateBody(t) })
         anySeeded = true
       }

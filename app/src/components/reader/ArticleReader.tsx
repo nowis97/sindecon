@@ -93,6 +93,28 @@ function parseCalloutType(typeStr: string): { kind: CalloutKind; defaultTitle: s
   return { kind: 'note', defaultTitle: 'Nota Clínica', icon: 'ℹ️' }
 }
 
+function isSecondaryNoteCalloutTag(typeStr: string): boolean {
+  const upper = typeStr.toUpperCase()
+  return ['NOTA', 'NOTA-SECUNDARIA', 'NOTA_SECUNDARIA', 'SECONDARY'].includes(upper)
+}
+
+function isFigureCaptionLine(trimmed: string): boolean {
+  return (
+    /^\*{1,2}FIGURA(?:\s+\d+)?\s*:\*{1,2}/i.test(trimmed) ||
+    /^\*{1,2}FIGURA(?:\s+\d+)?\*{1,2}\s*:/i.test(trimmed)
+  )
+}
+
+function extractSubtitleMarker(trimmed: string): string | null {
+  const m = trimmed.match(/^@SUBT[IÍ]TULO\s*:\s*(.*)$/i)
+  return m ? m[1].trim() : null
+}
+
+function extractRefMarker(trimmed: string): string | null {
+  const m = trimmed.match(/^(?:\*\*|\*)?REF(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i)
+  return m ? m[1].trim() : null
+}
+
 export function matchNaturalCallout(trimmed: string): Block | null {
   const patterns: Array<{ regex: RegExp; kind: CalloutKind }> = [
     {
@@ -137,14 +159,15 @@ export interface PreparedTemplateDocument {
 
 function isSubtitleParagraph(block: Block | undefined): block is Extract<Block, { type: 'paragraph' }> {
   if (!block || block.type !== 'paragraph') return false
+  if (block.variant === 'subtitle') return true
   return /(?:·|\|)\s*Apuntes\s+5to-2/i.test(block.text) || /^Asignatura\s*·/i.test(block.text.trim())
 }
 
 /**
  * Prepara los bloques parseados para el layout de la plantilla Apuntes 5to-2:
- * - Promueve título y subtítulo iniciales al bloque de cabecera a 1 columna.
+ * - Promueve título (#) y subtítulo (@SUBTÍTULO:) iniciales al bloque de cabecera a 1 columna.
  * - Marca automáticamente tablas >= 3 columnas, diagramas Mermaid y secciones de ancho completo.
- * - Clasifica notas secundarias, pies de tabla (Caption) y referencias de Bibliografía.
+ * - Clasifica notas secundarias (> [!NOTA]), pies de imagen (*FIGURA:*) y referencias (REF: / Bibliografía).
  */
 export function prepareTemplateDocument(
   blocks: Block[],
@@ -183,7 +206,7 @@ export function prepareTemplateDocument(
       first.text.trim(),
     )
 
-    if (matchesProp || isTemplatePlaceholder || hasSubtitleNext || (!articleTitle && !isSectionLikeTitle)) {
+    if (matchesProp || isTemplatePlaceholder || hasSubtitleNext || !isSectionLikeTitle) {
       docTitle =
         articleTitle?.trim() && isTemplatePlaceholder
           ? articleTitle.trim()
@@ -240,12 +263,21 @@ export function prepareTemplateDocument(
       const isAfterVisual =
         prev && (prev.type === 'table' || prev.type === 'mermaid' || prev.type === 'image')
       const looksLikeCaption =
+        block.variant === 'caption' ||
         /^(?:Tabla|Figura|Cuadro|Algoritmo|Esquema|Gr[aá]fico)\b/i.test(block.text.trim()) ||
         /^\*[^*]+\*$/.test(block.text.trim())
 
-      if (isAfterVisual && looksLikeCaption) {
+      if (block.variant === 'subtitle') {
+        if (subjectText && /^Asignatura\s*·/i.test(block.text.trim())) {
+          block.text = block.text.trim().replace(/^Asignatura/i, subjectText)
+        }
+      } else if (block.variant === 'bibliography') {
+        // Marcador explícito REF: preservado como bibliografía
+      } else if (block.variant === 'secondary') {
+        // Marcador explícito > [!NOTA] preservado como nota secundaria
+      } else if (block.variant === 'caption' || (isAfterVisual && looksLikeCaption)) {
         block.variant = 'caption'
-        if ('fullWidth' in prev && prev.fullWidth) {
+        if (isAfterVisual && 'fullWidth' in prev && prev.fullWidth) {
           block.fullWidth = true
         }
       } else if (
@@ -329,7 +361,7 @@ export function parseMarkdownBlocks(md: string): Block[] {
     .replace(/\\+\[/g, '[')
     .replace(/\\+\]/g, ']')
     .replace(/\\+(\r?\n)/g, '$1')
-    .replace(/\\+([>#\-*+])/g, '$1')
+    .replace(/\\+([>@#\-*+])/g, '$1')
   const rawLines = normalizedMd.split(/\r?\n/)
   const blocks: Block[] = []
   let i = 0
@@ -370,13 +402,25 @@ export function parseMarkdownBlocks(md: string): Block[] {
       continue
     }
 
-    // 3. Encabezados (# H1 - ###### H6)
+    // 3. Encabezados (# Título - #### Título 3)
     const headerMatch = trimmed.match(/^(#{1,6})\s+(.*)$/)
     if (headerMatch) {
       blocks.push({
         type: 'header',
         level: headerMatch[1].length,
         text: headerMatch[2],
+      })
+      i++
+      continue
+    }
+
+    // 3b. Marcador explícito de Subtítulo (@SUBTÍTULO: ...)
+    const subtitleMarker = extractSubtitleMarker(trimmed)
+    if (subtitleMarker !== null) {
+      blocks.push({
+        type: 'paragraph',
+        text: subtitleMarker,
+        variant: 'subtitle',
       })
       i++
       continue
@@ -410,23 +454,40 @@ export function parseMarkdownBlocks(md: string): Block[] {
     if (trimmed.startsWith('>')) {
       const quoteLines: string[] = []
       while (i < rawLines.length && rawLines[i].trim().startsWith('>')) {
+        if (quoteLines.length > 0 && /^>\s*\[!([\p{L}_-]+)\]/iu.test(rawLines[i].trim())) {
+          break
+        }
         quoteLines.push(rawLines[i].trim().replace(/^>\s?/, ''))
         i++
       }
       const fullQuote = quoteLines.join('\n')
-      const calloutMatch = fullQuote.match(/^\[!([A-Z_-]+)\](?:\s+(.*))?(\n[\s\S]*)?$/i)
+      const calloutMatch = fullQuote.match(/^\[!([\p{L}_-]+)\](?:\s+(.*))?(\n[\s\S]*)?$/iu)
 
       if (calloutMatch) {
-        const typeInfo = parseCalloutType(calloutMatch[1])
-        const customTitle = calloutMatch[2]
+        const tag = calloutMatch[1]
+        const customTitle = calloutMatch[2]?.trim()
         const bodyText = (calloutMatch[3] || '').trim()
 
-        blocks.push({
-          type: 'callout',
-          kind: typeInfo.kind,
-          title: customTitle || typeInfo.defaultTitle,
-          text: bodyText,
-        })
+        if (isSecondaryNoteCalloutTag(tag)) {
+          const noteContent = [customTitle, bodyText].filter(Boolean).join('\n')
+          for (const para of noteContent.split(/\n+/).map((s) => s.trim()).filter(Boolean)) {
+            blocks.push({
+              type: 'paragraph',
+              text: para,
+              variant: 'secondary',
+            })
+          }
+        } else {
+          const typeInfo = parseCalloutType(tag)
+          const resolvedTitle = bodyText ? customTitle || typeInfo.defaultTitle : typeInfo.defaultTitle
+          const resolvedText = bodyText || customTitle || ''
+          blocks.push({
+            type: 'callout',
+            kind: typeInfo.kind,
+            title: resolvedTitle,
+            text: resolvedText,
+          })
+        }
       } else {
         blocks.push({
           type: 'blockquote',
@@ -436,9 +497,10 @@ export function parseMarkdownBlocks(md: string): Block[] {
       continue
     }
 
-    const directCalloutMatch = trimmed.match(/^\[!([A-Z_-]+)\](?:\s+(.*))?$/i)
+    const directCalloutMatch = trimmed.match(/^\[!([\p{L}_-]+)\](?:\s+(.*))?$/iu)
     if (directCalloutMatch) {
-      const typeInfo = parseCalloutType(directCalloutMatch[1])
+      const tag = directCalloutMatch[1]
+      const typeInfo = parseCalloutType(tag)
       let customTitle = directCalloutMatch[2]?.trim() || ''
       const bodyLines: string[] = []
       i++
@@ -449,7 +511,7 @@ export function parseMarkdownBlocks(md: string): Block[] {
           i + 1 < rawLines.length &&
           (!rawLines[i + 1].trim() ||
             /^#{1,6}\s+/.test(rawLines[i + 1].trim()) ||
-            /^\[!([A-Z_-]+)\]/i.test(rawLines[i + 1].trim()) ||
+            /^\[!([\p{L}_-]+)\]/iu.test(rawLines[i + 1].trim()) ||
             rawLines[i + 1].trim().startsWith(':::') ||
             rawLines[i + 1].trim().startsWith('```') ||
             rawLines[i + 1].trim().startsWith('>'))
@@ -458,7 +520,7 @@ export function parseMarkdownBlocks(md: string): Block[] {
         }
         if (
           /^#{1,6}\s+/.test(nextTrimmed) ||
-          /^\[!([A-Z_-]+)\]/i.test(nextTrimmed) ||
+          /^\[!([\p{L}_-]+)\]/iu.test(nextTrimmed) ||
           nextTrimmed.startsWith(':::') ||
           nextTrimmed.startsWith('```') ||
           nextTrimmed.startsWith('---') ||
@@ -477,12 +539,23 @@ export function parseMarkdownBlocks(md: string): Block[] {
       }
 
       const bodyText = bodyLines.join('\n').trim()
-      blocks.push({
-        type: 'callout',
-        kind: typeInfo.kind,
-        title: customTitle || typeInfo.defaultTitle,
-        text: bodyText,
-      })
+      if (isSecondaryNoteCalloutTag(tag)) {
+        const noteContent = [customTitle, bodyText].filter(Boolean).join('\n')
+        for (const para of noteContent.split(/\n+/).map((s) => s.trim()).filter(Boolean)) {
+          blocks.push({
+            type: 'paragraph',
+            text: para,
+            variant: 'secondary',
+          })
+        }
+      } else {
+        blocks.push({
+          type: 'callout',
+          kind: typeInfo.kind,
+          title: customTitle || typeInfo.defaultTitle,
+          text: bodyText,
+        })
+      }
       continue
     }
 
@@ -648,6 +721,28 @@ export function parseMarkdownBlocks(md: string): Block[] {
     const naturalCallout = matchNaturalCallout(trimmed)
     if (naturalCallout) {
       blocks.push(naturalCallout)
+      i++
+      continue
+    }
+
+    // 9b. Pies de imagen explícitos (*FIGURA:* ...) y referencias explícitas (REF: ...)
+    if (isFigureCaptionLine(trimmed)) {
+      blocks.push({
+        type: 'paragraph',
+        text: trimmed,
+        variant: 'caption',
+      })
+      i++
+      continue
+    }
+
+    const refText = extractRefMarker(trimmed)
+    if (refText !== null) {
+      blocks.push({
+        type: 'paragraph',
+        text: refText,
+        variant: 'bibliography',
+      })
       i++
       continue
     }
@@ -863,16 +958,20 @@ function renderListItems(
   items: NestedListItem[],
   onWikiLinkClick: (uuid: string) => void
 ): React.ReactNode {
-  return items.map((item, idx) => (
-    <li key={idx} className="reader-list-item">
-      <span>{renderFormattedInline(item.text, onWikiLinkClick)}</span>
-      {item.children.length > 0 && (
-        <ul className="reader-list-nested">
-          {renderListItems(item.children, onWikiLinkClick)}
-        </ul>
-      )}
-    </li>
-  ))
+  return items.map((item, idx) => {
+    const childOrdered = item.children[0]?.ordered
+    const ChildTag = childOrdered ? 'ol' : 'ul'
+    return (
+      <li key={idx} className="reader-list-item">
+        <span>{renderFormattedInline(item.text, onWikiLinkClick)}</span>
+        {item.children.length > 0 && (
+          <ChildTag className="reader-list-nested">
+            {renderListItems(item.children, onWikiLinkClick)}
+          </ChildTag>
+        )}
+      </li>
+    )
+  })
 }
 
 function getCalloutIcon(kind: CalloutKind) {

@@ -1,7 +1,7 @@
 import type { ClinicalCalloutType } from './docxClinicalStyles'
 
 export type ClinicalBlock =
-  | { kind: 'heading'; level: 1 | 2 | 3; text: string; fullWidth?: boolean }
+  | { kind: 'heading'; level: 1 | 2 | 3 | 4; text: string; fullWidth?: boolean }
   | {
       kind: 'paragraph'
       text: string
@@ -17,7 +17,15 @@ export type ClinicalBlock =
       fullWidth?: boolean
     }
   | { kind: 'table'; headers: string[]; rows: string[][]; fullWidth?: boolean }
-  | { kind: 'list'; ordered: boolean; items: string[]; isBibliography?: boolean; startNumber?: number; fullWidth?: boolean }
+  | {
+      kind: 'list'
+      ordered: boolean
+      items: string[]
+      itemLevels?: number[]
+      isBibliography?: boolean
+      startNumber?: number
+      fullWidth?: boolean
+    }
   | { kind: 'code'; language: string; code: string; fullWidth?: boolean }
 
 function matchNaturalGdocsCallout(trimmed: string): ClinicalBlock | null {
@@ -113,22 +121,49 @@ export function parseMarkdownToClinicalBlocks(markdown: string): ClinicalBlock[]
       continue
     }
 
-    // 3. Encabezados (# H1, ## H2, ### H3)
-    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/)
+    // 3. Encabezados (# Título, ## Título 1, ### Título 2, #### Título 3)
+    const headingMatch = line.match(/^(#{1,4})\s+(.+)$/)
     if (headingMatch) {
-      const level = headingMatch[1].length as 1 | 2 | 3
+      const level = headingMatch[1].length as 1 | 2 | 3 | 4
       blocks.push({ kind: 'heading', level, text: headingMatch[2].trim() })
       i++
       continue
     }
 
-    // 4. Callouts médicos (> [!WARNING], > [!NOTE], > [!PERLA], > [!EJEMPLO], > [!DEFINICION], etc.)
+    // 3b. Marcador explícito @SUBTÍTULO:
+    const subtitleMatch = line.trim().match(/^@SUBT[IÍ]TULO\s*:\s*(.*)$/i)
+    if (subtitleMatch) {
+      blocks.push({ kind: 'paragraph', text: subtitleMatch[1].trim(), variant: 'subtitle' })
+      i++
+      continue
+    }
+
+    // 4. Callouts médicos (> [!EJEMPLO], > [!PERLA], > [!ADVERTENCIA], > [!DEFINICIÓN], > [!NOTA], > [!WARNING], > [!NOTE], etc.)
     const calloutMatch = line.match(
-      /^>\s*\[!(NOTE|WARNING|TIP|DOSAGE|DOSIS|IMPORTANT|PERLA|EJEMPLO|EXAMPLE|ADVERTENCIA|DEFINICION|DEFINICIÓN)\](?:\s+(.*))?$/i
+      /^>\s*\[!([\p{L}_-]+)\](?:\s+(.*))?$/iu
     )
     if (calloutMatch) {
       const typeRaw = calloutMatch[1].toLowerCase()
       const customTitle = calloutMatch[2]?.trim()
+
+      i++
+      const textLines: string[] = []
+      while (i < lines.length && lines[i].trim().startsWith('>')) {
+        if (/^>\s*\[!([\p{L}_-]+)\]/iu.test(lines[i].trim())) {
+          break
+        }
+        textLines.push(lines[i].replace(/^>\s?/, '').trim())
+        i++
+      }
+
+      if (['nota', 'nota-secundaria', 'nota_secundaria', 'secondary'].includes(typeRaw)) {
+        const noteText = [customTitle, ...textLines].filter(Boolean).join(' ').trim()
+        if (noteText) {
+          blocks.push({ kind: 'paragraph', text: noteText, variant: 'secondary' })
+        }
+        continue
+      }
+
       let calloutType: ClinicalCalloutType = 'note'
       let defaultTitle = 'NOTA CLÍNICA'
 
@@ -155,18 +190,12 @@ export function parseMarkdownToClinicalBlocks(markdown: string): ClinicalBlock[]
         defaultTitle = 'Definición:'
       }
 
-      i++
-      const textLines: string[] = []
-      while (i < lines.length && lines[i].trim().startsWith('>')) {
-        textLines.push(lines[i].replace(/^>\s?/, '').trim())
-        i++
-      }
-
+      const bodyJoined = textLines.join(' ').trim()
       blocks.push({
         kind: 'callout',
         calloutType,
-        title: customTitle || defaultTitle,
-        text: textLines.join(' ').trim(),
+        title: bodyJoined ? customTitle || defaultTitle : defaultTitle,
+        text: bodyJoined || customTitle || '',
       })
       continue
     }
@@ -211,43 +240,63 @@ export function parseMarkdownToClinicalBlocks(markdown: string): ClinicalBlock[]
       continue
     }
 
-    // 6. Listas (viñetas o numeradas)
-    const bulletMatch = line.match(/^[-*+]\s+(.+)$/)
-    const numberMatch = line.match(/^\d+\.\s+(.+)$/)
-    if (bulletMatch || numberMatch) {
-      const isOrdered = Boolean(numberMatch)
+    // 6. Listas (viñetas nivel 1/2 o numeradas)
+    const listMatch = line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/)
+    if (listMatch) {
+      const isOrdered = /^\d+\./.test(listMatch[2])
       const listItems: string[] = []
+      const itemLevels: number[] = []
 
       while (i < lines.length) {
         const currentLine = lines[i]
-        const bM = currentLine.match(/^[-*+]\s+(.+)$/)
-        const nM = currentLine.match(/^\d+\.\s+(.+)$/)
+        const currMatch = currentLine.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/)
+        if (!currMatch) break
+        const currOrdered = /^\d+\./.test(currMatch[2])
+        if (currOrdered !== isOrdered) break
 
-        if (isOrdered && nM) {
-          listItems.push(nM[1].trim())
-          i++
-        } else if (!isOrdered && bM) {
-          listItems.push(bM[1].trim())
-          i++
-        } else {
-          break
-        }
+        const level = Math.min(Math.floor(currMatch[1].length / 2), 2)
+        listItems.push(currMatch[3].trim())
+        itemLevels.push(level)
+        i++
       }
 
-      blocks.push({ kind: 'list', ordered: isOrdered, items: listItems })
+      const hasNested = itemLevels.some((l) => l > 0)
+      blocks.push(
+        hasNested
+          ? { kind: 'list', ordered: isOrdered, items: listItems, itemLevels }
+          : { kind: 'list', ordered: isOrdered, items: listItems },
+      )
       continue
     }
 
     // 7. Párrafos con estilo de callout natural (Ejemplo clínico:, Perla clínica:, Advertencia:, Definición:)
-    const naturalCallout = matchNaturalGdocsCallout(line.trim())
+    const trimmedLine = line.trim()
+    const naturalCallout = matchNaturalGdocsCallout(trimmedLine)
     if (naturalCallout) {
       blocks.push(naturalCallout)
       i++
       continue
     }
 
+    // 7b. Pies de imagen (*FIGURA:* ...) y referencias (REF: ...)
+    if (
+      /^\*{1,2}FIGURA(?:\s+\d+)?\s*:\*{1,2}/i.test(trimmedLine) ||
+      /^\*{1,2}FIGURA(?:\s+\d+)?\*{1,2}\s*:/i.test(trimmedLine)
+    ) {
+      blocks.push({ kind: 'paragraph', text: trimmedLine, variant: 'caption' })
+      i++
+      continue
+    }
+
+    const refMatch = trimmedLine.match(/^(?:\*\*|\*)?REF(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i)
+    if (refMatch) {
+      blocks.push({ kind: 'paragraph', text: refMatch[1].trim(), variant: 'bibliography' })
+      i++
+      continue
+    }
+
     // 8. Párrafo normal
-    blocks.push({ kind: 'paragraph', text: line.trim() })
+    blocks.push({ kind: 'paragraph', text: trimmedLine })
     i++
   }
 

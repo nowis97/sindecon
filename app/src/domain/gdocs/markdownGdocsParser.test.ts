@@ -149,4 +149,45 @@ describe('markdownGdocsParser', () => {
       { kind: 'table', headers: ['Col 1', 'Col 2'], rows: [['A', 'B']], fullWidth: true },
     ])
   })
+
+  it('soporta marcadores explícitos de plantilla (@SUBTÍTULO:, ####, listas nivel 2, [!EJEMPLO/PERLA/ADVERTENCIA/DEFINICIÓN/NOTA], *FIGURA:*, REF:)', () => {
+    const md = [
+      '# Tema Principal',
+      '@SUBTÍTULO: Medicina Interna · Apuntes 5to-2',
+      '## Título 1',
+      '### Título 2',
+      '#### Título 3',
+      '- Nivel 1',
+      '  - Nivel 2',
+      '> [!EJEMPLO]',
+      '> Caso ejemplo.',
+      '> [!PERLA]',
+      '> Perla clínica.',
+      '> [!ADVERTENCIA]',
+      '> Urgencia.',
+      '> [!DEFINICIÓN]',
+      '> Criterio.',
+      '> [!NOTA]',
+      '> Nota secundaria.',
+      '*FIGURA:* Pie de tabla.',
+      'REF: Autor. Guía clínica. 2026.',
+    ].join('\n')
+
+    const blocks = parseMarkdownToClinicalBlocks(md)
+    expect(blocks).toEqual([
+      { kind: 'heading', level: 1, text: 'Tema Principal' },
+      { kind: 'paragraph', text: 'Medicina Interna · Apuntes 5to-2', variant: 'subtitle' },
+      { kind: 'heading', level: 2, text: 'Título 1' },
+      { kind: 'heading', level: 3, text: 'Título 2' },
+      { kind: 'heading', level: 4, text: 'Título 3' },
+      { kind: 'list', ordered: false, items: ['Nivel 1', 'Nivel 2'], itemLevels: [0, 1] },
+      { kind: 'callout', calloutType: 'example', title: 'Ejemplo clínico:', text: 'Caso ejemplo.' },
+      { kind: 'callout', calloutType: 'pearl', title: 'Perla clínica:', text: 'Perla clínica.' },
+      { kind: 'callout', calloutType: 'warning', title: 'Advertencia:', text: 'Urgencia.' },
+      { kind: 'callout', calloutType: 'definition', title: 'Definición:', text: 'Criterio.' },
+      { kind: 'paragraph', text: 'Nota secundaria.', variant: 'secondary' },
+      { kind: 'paragraph', text: '*FIGURA:* Pie de tabla.', variant: 'caption' },
+      { kind: 'paragraph', text: 'Autor. Guía clínica. 2026.', variant: 'bibliography' },
+    ])
+  })
 })

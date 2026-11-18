@@ -61,6 +61,7 @@ interface EnrichedGdocsData {
 
 function isSubtitleBlock(block: ClinicalBlock | undefined): block is Extract<ClinicalBlock, { kind: 'paragraph' }> {
   if (!block || block.kind !== 'paragraph') return false
+  if (block.variant === 'subtitle') return true
   return /(?:·|\|)\s*Apuntes\s+5to-2/i.test(block.text) || /^Asignatura\s*·/i.test(block.text.trim())
 }
 
@@ -80,10 +81,13 @@ function prepareGdocsSections(
       first.text.trim().toUpperCase() === 'TÍTULO DEL TEMA' ||
       first.text.trim().toLowerCase() === '{título}' ||
       first.text.trim().toLowerCase() === '{titulo}'
-    if (firstNorm === titleNorm || isPlaceholder || isSubtitleBlock(blocks[1])) {
+    const isSectionLikeTitle = /^(?:introducci[oó]n|tabla\b|continuaci[oó]n\b|bibliograf[ií]a|resumen)\b/i.test(
+      first.text.trim(),
+    )
+    if (firstNorm === titleNorm || isPlaceholder || isSubtitleBlock(blocks[1]) || !isSectionLikeTitle) {
       if (isPlaceholder && metadata.title.trim()) {
         effectiveTitle = metadata.title
-      } else if (!metadata.title.trim()) {
+      } else {
         effectiveTitle = first.text.trim()
       }
       startIndex = 1
@@ -135,12 +139,21 @@ function prepareGdocsSections(
       const prev = enriched[enriched.length - 1]
       const isAfterVisual = prev && (prev.kind === 'table' || prev.kind === 'mermaid')
       const looksLikeCaption =
+        block.variant === 'caption' ||
         /^(?:Tabla|Figura|Cuadro|Algoritmo|Esquema|Gr[aá]fico)\b/i.test(block.text.trim()) ||
         /^\*[^*]+\*$/.test(block.text.trim())
 
-      if (isAfterVisual && looksLikeCaption) {
+      if (block.variant === 'subtitle') {
+        if (metadata.folderPath?.trim() && /^Asignatura\s*·/i.test(block.text.trim())) {
+          block.text = block.text.trim().replace(/^Asignatura/i, metadata.folderPath.trim())
+        }
+      } else if (block.variant === 'bibliography') {
+        // Marcador REF: preservado como bibliografía
+      } else if (block.variant === 'secondary') {
+        // Marcador > [!NOTA] preservado como nota secundaria
+      } else if (block.variant === 'caption' || (isAfterVisual && looksLikeCaption)) {
         block.variant = 'caption'
-        if (prev.fullWidth) {
+        if (isAfterVisual && prev.fullWidth) {
           block.fullWidth = true
         }
       } else if (
@@ -185,7 +198,17 @@ async function renderBlocksToDocElements(
     if (block.kind === 'heading') {
       docElements.push(createClinicalHeading(block.text, block.level))
     } else if (block.kind === 'paragraph') {
-      if (block.variant === 'caption') {
+      if (block.variant === 'subtitle') {
+        docElements.push(
+          new Paragraph({
+            spacing: { before: 0, after: 200, line: 240 },
+            children: parseInlineFormatting(block.text, {
+              size: 19, // 9.5pt
+              color: APUNTES_COLORS.mutedGray,
+            }),
+          })
+        )
+      } else if (block.variant === 'caption') {
         docElements.push(
           new Paragraph({
             alignment: AlignmentType.CENTER,
@@ -262,14 +285,15 @@ async function renderBlocksToDocElements(
           )
         })
       } else {
-        for (const item of block.items) {
+        block.items.forEach((item, idx) => {
+          const itemLevel = block.itemLevels?.[idx] ?? 0
           docElements.push(
             new Paragraph({
               alignment: AlignmentType.JUSTIFIED,
-              bullet: block.ordered ? undefined : { level: 0 },
-              numbering: block.ordered
-                ? { reference: 'clinical-numbering', level: 0 }
-                : undefined,
+              numbering: {
+                reference: block.ordered ? 'clinical-numbering' : 'clinical-bullets',
+                level: itemLevel,
+              },
               spacing: { before: 0, after: 60, line: 252 },
               children: parseInlineFormatting(item, {
                 size: 21,
@@ -277,7 +301,7 @@ async function renderBlocksToDocElements(
               }),
             })
           )
-        }
+        })
         docElements.push(new Paragraph({ spacing: { before: 0, after: 40 } }))
       }
     } else if (block.kind === 'table') {
@@ -502,6 +526,56 @@ export async function generateClinicalDocxBlob(
     numbering: {
       config: [
         {
+          reference: 'clinical-bullets',
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.BULLET,
+              text: '\u2022',
+              alignment: AlignmentType.LEFT,
+              style: {
+                paragraph: {
+                  indent: { left: 454, hanging: 227 },
+                },
+                run: {
+                  font: 'Roboto',
+                  size: 21,
+                },
+              },
+            },
+            {
+              level: 1,
+              format: LevelFormat.BULLET,
+              text: '\u25E6',
+              alignment: AlignmentType.LEFT,
+              style: {
+                paragraph: {
+                  indent: { left: 737, hanging: 227 },
+                },
+                run: {
+                  font: 'Roboto',
+                  size: 21,
+                },
+              },
+            },
+            {
+              level: 2,
+              format: LevelFormat.BULLET,
+              text: '\u25AA',
+              alignment: AlignmentType.LEFT,
+              style: {
+                paragraph: {
+                  indent: { left: 1020, hanging: 227 },
+                },
+                run: {
+                  font: 'Roboto',
+                  size: 21,
+                },
+              },
+            },
+          ],
+        },
+        {
           reference: 'clinical-numbering',
           levels: [
             {
@@ -512,6 +586,25 @@ export async function generateClinicalDocxBlob(
               style: {
                 paragraph: {
                   indent: { left: 454, hanging: 227 },
+                },
+                run: {
+                  font: 'Roboto',
+                  size: 21,
+                },
+              },
+            },
+            {
+              level: 1,
+              format: LevelFormat.LOWER_LETTER,
+              text: '%2.',
+              alignment: AlignmentType.LEFT,
+              style: {
+                paragraph: {
+                  indent: { left: 737, hanging: 227 },
+                },
+                run: {
+                  font: 'Roboto',
+                  size: 21,
                 },
               },
             },

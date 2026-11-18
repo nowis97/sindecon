@@ -114,37 +114,47 @@ graph LR
     expect(blob.size).toBeGreaterThan(500)
   })
 
-  it('genera DOCX con los estilos exactos de Plantilla Apuntes 5to-2 y secciones continuas 1/2 columnas', async () => {
+  it('genera DOCX con los estilos exactos y marcadores de Plantilla Apuntes 5to-2 y secciones continuas 1/2 columnas', async () => {
     const markdown = `
 # TÍTULO DEL TEMA
-Asignatura · Apuntes 5to-2
+@SUBTÍTULO: Cardiología · Apuntes 5to-2
 
-# INTRODUCCIÓN
+## INTRODUCCIÓN
 Texto del apunte.
 
-Ejemplo clínico: paciente típico.
+### SUBTÍTULO CLÍNICO
+#### Hallazgo específico
+- Elemento nivel 1
+  - Elemento nivel 2
+1. Paso numerado 1
 
-Perla clínica: dato de alto rendimiento.
+> [!EJEMPLO]
+> paciente típico.
 
-Advertencia: urgencia clínica.
+> [!PERLA]
+> dato de alto rendimiento.
 
-Definición: criterio formal.
+> [!ADVERTENCIA]
+> urgencia clínica.
 
-# TABLA O ALGORITMO A ANCHO COMPLETO
-Este bloque está en una sola columna.
+> [!DEFINICIÓN]
+> criterio formal.
+
+## TABLA O ALGORITMO A ANCHO COMPLETO
+> [!NOTA]
+> Este bloque está en una sola columna.
 
 | Situación | Hallazgo / criterio | Conducta |
 | --- | --- | --- |
 | Paciente estable | Sin criterios | Manejo habitual |
 | Paciente de riesgo | Con hallazgos | Vigilar |
 
-Tabla de ejemplo.
+*FIGURA:* Tabla de ejemplo.
 
-# CONTINUACIÓN DEL APUNTE
+## CONTINUACIÓN DEL APUNTE
 Vuelve a dos columnas.
 
-## Bibliografía
-1. Autor. Guía clínica. 2026.
+REF: Autor. Guía clínica. 2026.
 `
 
     const blob = await generateClinicalDocxBlob(markdown, {
@@ -156,11 +166,27 @@ Vuelve a dos columnas.
     const docXml = await zip.file('word/document.xml')?.async('string')
     const headerXml = await zip.file('word/header1.xml')?.async('string')
     const footerXml = await zip.file('word/footer1.xml')?.async('string')
+    const numberingXml = await zip.file('word/numbering.xml')?.async('string')
 
     expect(docXml).toBeDefined()
     expect(headerXml).toContain('APUNTES 5TO-2')
     expect(headerXml).toContain('CARDIOLOGÍA')
     expect(footerXml).toContain('Página')
+
+    // Jerarquía de tamaños Word en half-points: Título 18pt (36), H1 14.5pt (29), H2 12.5pt (25), H3 11pt (22)
+    expect(docXml).toContain('w:val="36"')
+    expect(docXml).toContain('w:val="29"')
+    expect(docXml).toContain('w:val="25"')
+    expect(docXml).toContain('w:val="22"')
+
+    // Viñetas nivel 1 y nivel 2 en numbering.xml y document.xml
+    expect(numberingXml).toBeDefined()
+    expect(docXml).toContain('w:ilvl w:val="1"')
+
+    // Marcadores limpios sin prefijos crudos ni pérdida de contenido
+    expect(docXml).not.toContain('@SUBTÍTULO:')
+    expect(docXml).not.toContain('REF:')
+    expect(docXml).toContain('Autor. Guía clínica. 2026.')
 
     // Colores exactos de la plantilla en document.xml
     expect(docXml).toContain('1F4E79')

@@ -39,13 +39,15 @@ describe('docxClinicalStyles', () => {
     expect(createApuntesFooter()).toBeDefined()
   })
 
-  it('construye títulos H1, H2, H3 con configuración de heading', () => {
-    const h1 = createClinicalHeading('Diagnóstico Diferencial', 1)
-    const h2 = createClinicalHeading('Criterios de Alarma', 2)
-    const h3 = createClinicalHeading('Conducta Inmediata', 3)
+  it('construye títulos H1..H4 (Título y Título 1..3) con configuración de heading', () => {
+    const h1 = createClinicalHeading('Título Principal', 1)
+    const h2 = createClinicalHeading('Diagnóstico Diferencial', 2)
+    const h3 = createClinicalHeading('Criterios de Alarma', 3)
+    const h4 = createClinicalHeading('Conducta Inmediata', 4)
     expect(h1).toBeDefined()
     expect(h2).toBeDefined()
     expect(h3).toBeDefined()
+    expect(h4).toBeDefined()
   })
 
   it('construye callouts clínicos como tablas con borde lateral de color para todas las variantes', () => {

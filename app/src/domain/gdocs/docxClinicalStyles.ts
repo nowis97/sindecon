@@ -195,8 +195,33 @@ export function createClinicalHeader(
   return result
 }
 
-export function createClinicalHeading(text: string, level: 1 | 2 | 3): Paragraph {
+export function createClinicalHeading(text: string, level: 1 | 2 | 3 | 4): Paragraph {
   if (level === 1) {
+    return new Paragraph({
+      keepNext: true,
+      keepLines: true,
+      spacing: { before: 160, after: 140, line: 240 },
+      border: {
+        bottom: {
+          color: APUNTES_COLORS.titleBorderBlue,
+          space: 4,
+          style: BorderStyle.SINGLE,
+          size: 8, // 1pt
+        },
+      },
+      children: [
+        new TextRun({
+          text,
+          font: 'Roboto',
+          bold: true,
+          size: 36, // 18pt (Estilo Word: Título)
+          color: APUNTES_COLORS.headingBlue,
+        }),
+      ],
+    })
+  }
+
+  if (level === 2) {
     return new Paragraph({
       heading: HeadingLevel.HEADING_1,
       keepNext: true,
@@ -207,14 +232,14 @@ export function createClinicalHeading(text: string, level: 1 | 2 | 3): Paragraph
           text,
           font: 'Roboto',
           bold: true,
-          size: 29, // 14.5pt
+          size: 29, // 14.5pt (Estilo Word: Título 1)
           color: APUNTES_COLORS.headingBlue,
         }),
       ],
     })
   }
 
-  if (level === 2) {
+  if (level === 3) {
     return new Paragraph({
       heading: HeadingLevel.HEADING_2,
       keepNext: true,
@@ -225,7 +250,7 @@ export function createClinicalHeading(text: string, level: 1 | 2 | 3): Paragraph
           text,
           font: 'Roboto',
           bold: true,
-          size: 25, // 12.5pt
+          size: 25, // 12.5pt (Estilo Word: Título 2)
           color: APUNTES_COLORS.headingBlue,
         }),
       ],
@@ -242,7 +267,7 @@ export function createClinicalHeading(text: string, level: 1 | 2 | 3): Paragraph
         text,
         font: 'Roboto',
         bold: true,
-        size: 22, // 11pt
+        size: 22, // 11pt (Estilo Word: Título 3)
         color: APUNTES_COLORS.bodyText,
       }),
     ],

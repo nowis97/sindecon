@@ -2560,18 +2560,24 @@ body {
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .reader-heading.h1 {
+  margin-top: 8pt;
+  margin-bottom: 7pt;
+  font-size: 18pt;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .reader-heading.h2 {
   margin-top: 12pt;
   margin-bottom: 5pt;
   font-size: 14.5pt;
 }
 
-.article-reader-view.a4-sheet.layout-two-columns .reader-heading.h2 {
+.article-reader-view.a4-sheet.layout-two-columns .reader-heading.h3 {
   margin-top: 9pt;
   margin-bottom: 4pt;
   font-size: 12.5pt;
 }
 
-.article-reader-view.a4-sheet.layout-two-columns .reader-heading.h3 {
+.article-reader-view.a4-sheet.layout-two-columns .reader-heading.h4 {
   margin-top: 6pt;
   margin-bottom: 2pt;
   font-size: 11pt;
@@ -2603,8 +2609,8 @@ body {
 }
 
 .article-reader-view.layout-two-columns .reader-heading.h1 {
-  margin-top: 12pt;
-  margin-bottom: 5pt;
+  margin-top: 8pt;
+  margin-bottom: 7pt;
 }
 
 .reader-heading {
@@ -2618,6 +2624,21 @@ body {
 
 .reader-heading.h1 {
   color: #1F4E79;
+  font-size: 18pt;
+  border-bottom: 1pt solid #4F81BD;
+  padding-bottom: 4pt;
+  margin-top: 8pt;
+  margin-bottom: 7pt;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  text-transform: none;
+  letter-spacing: 0.25pt;
+  line-height: 1.2;
+}
+
+.reader-heading.h2 {
+  color: #1F4E79;
   font-size: 14.5pt;
   border-bottom: none;
   padding-bottom: 0;
@@ -2626,11 +2647,9 @@ body {
   display: block;
   width: auto;
   max-width: 100%;
-  text-transform: none;
-  letter-spacing: 0;
 }
 
-.reader-heading.h2 {
+.reader-heading.h3 {
   color: #1F4E79;
   font-size: 12.5pt;
   margin-top: 9pt;
@@ -2640,7 +2659,7 @@ body {
   max-width: 100%;
 }
 
-.reader-heading.h3 {
+.reader-heading.h4 {
   color: #222222;
   font-size: 11pt;
   margin-top: 6pt;
@@ -2851,9 +2870,17 @@ ol.reader-list {
 }
 
 .reader-list-nested {
+  font-family: 'Roboto', sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.05;
+  color: #222222;
   margin: 2pt 0 3pt 0;
   padding-left: 5mm;
   list-style-type: circle;
+}
+
+ol.reader-list-nested {
+  list-style-type: lower-alpha;
 }
 
 .reader-list-nested .reader-list-nested {
@@ -3272,8 +3299,8 @@ ol.reader-list {
 
 .reader-table-wrapper.table-extra-wide .reader-table,
 .reader-table-container.table-extra-wide .reader-table {
-  font-size: 8.5pt;
-  line-height: 1.05;
+  font-size: 9.5pt;
+  line-height: 1.0;
 }
 
 .reader-table-wrapper.table-extra-wide .reader-table th,
@@ -3281,6 +3308,7 @@ ol.reader-list {
 .reader-table-container.table-extra-wide .reader-table th,
 .reader-table-container.table-extra-wide .reader-table td {
   padding: 2.5pt 3.5pt;
+  font-size: 9.5pt;
 }
 
 .editor-host .ProseMirror table {
@@ -5351,6 +5379,20 @@ select.dialog-input {
 
   .reader-heading.h1 {
     color: #1F4E79 !important;
+    font-size: 18pt !important;
+    border-bottom: 1pt solid #4F81BD !important;
+    padding-bottom: 4pt !important;
+    margin-top: 8pt !important;
+    margin-bottom: 7pt !important;
+    letter-spacing: 0.25pt !important;
+    line-height: 1.2 !important;
+    width: 100% !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  .reader-heading.h2 {
+    color: #1F4E79 !important;
     font-size: 14.5pt !important;
     border-bottom: none !important;
     padding-bottom: 0 !important;
@@ -5361,7 +5403,7 @@ select.dialog-input {
     page-break-after: avoid !important;
   }
 
-  .reader-heading.h2 {
+  .reader-heading.h3 {
     color: #1F4E79 !important;
     font-size: 12.5pt !important;
     margin-top: 9pt !important;
@@ -5371,7 +5413,7 @@ select.dialog-input {
     page-break-after: avoid !important;
   }
 
-  .reader-heading.h3 {
+  .reader-heading.h4 {
     color: #222222 !important;
     font-size: 11pt !important;
     margin-top: 6pt !important;
@@ -5690,11 +5732,11 @@ select.dialog-input {
     white-space: normal !important;
   }
 
-  /* Tablas muy anchas (>= 5 columnas): ajuste sutil para no desbordar */
+  /* Tablas muy anchas (>= 5 columnas): ajuste de padding conservando 9.5pt */
   .reader-table-wrapper.table-extra-wide .reader-table,
   .reader-table-container.table-extra-wide .reader-table {
-    font-size: 8.5pt !important;
-    line-height: 1.05 !important;
+    font-size: 9.5pt !important;
+    line-height: 1.0 !important;
   }
 
   .reader-table-wrapper.table-extra-wide .reader-table th,
@@ -5702,6 +5744,7 @@ select.dialog-input {
   .reader-table-container.table-extra-wide .reader-table th,
   .reader-table-container.table-extra-wide .reader-table td {
     padding: 2.5pt 3.5pt !important;
+    font-size: 9.5pt !important;
   }
 
   /* Listas con sangría y sub-viñetas */
@@ -5731,9 +5774,17 @@ select.dialog-input {
   }
 
   .reader-list-nested {
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 10.5pt !important;
+    line-height: 1.05 !important;
+    color: #222222 !important;
     margin: 2pt 0 3pt 0 !important;
     padding-left: 5mm !important;
     list-style-type: circle !important;
+  }
+
+  ol.reader-list-nested {
+    list-style-type: lower-alpha !important;
   }
 
   /* Bloques de Cita */
