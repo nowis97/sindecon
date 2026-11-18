@@ -1,16 +1,58 @@
+import type { ClinicalCalloutType } from './docxClinicalStyles'
+
 export type ClinicalBlock =
-  | { kind: 'heading'; level: 1 | 2 | 3; text: string }
-  | { kind: 'paragraph'; text: string }
-  | { kind: 'mermaid'; code: string }
+  | { kind: 'heading'; level: 1 | 2 | 3; text: string; fullWidth?: boolean }
+  | {
+      kind: 'paragraph'
+      text: string
+      variant?: 'normal' | 'secondary' | 'caption' | 'bibliography' | 'subtitle'
+      fullWidth?: boolean
+    }
+  | { kind: 'mermaid'; code: string; fullWidth?: boolean }
   | {
       kind: 'callout'
-      calloutType: 'note' | 'warning' | 'dosage' | 'important'
+      calloutType: ClinicalCalloutType
       title: string
       text: string
+      fullWidth?: boolean
     }
-  | { kind: 'table'; headers: string[]; rows: string[][] }
-  | { kind: 'list'; ordered: boolean; items: string[] }
-  | { kind: 'code'; language: string; code: string }
+  | { kind: 'table'; headers: string[]; rows: string[][]; fullWidth?: boolean }
+  | { kind: 'list'; ordered: boolean; items: string[]; isBibliography?: boolean; startNumber?: number; fullWidth?: boolean }
+  | { kind: 'code'; language: string; code: string; fullWidth?: boolean }
+
+function matchNaturalGdocsCallout(trimmed: string): ClinicalBlock | null {
+  const patterns: Array<{ regex: RegExp; calloutType: ClinicalCalloutType }> = [
+    {
+      regex: /^(?:\*\*|\*)?(Ejemplo\s+cl[ií]nico)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
+      calloutType: 'example',
+    },
+    {
+      regex: /^(?:\*\*|\*)?(Perla\s+cl[ií]nica)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
+      calloutType: 'pearl',
+    },
+    {
+      regex: /^(?:\*\*|\*)?(Advertencia)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
+      calloutType: 'warning',
+    },
+    {
+      regex: /^(?:\*\*|\*)?(Definici[oó]n)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
+      calloutType: 'definition',
+    },
+  ]
+
+  for (const { regex, calloutType } of patterns) {
+    const m = trimmed.match(regex)
+    if (m) {
+      return {
+        kind: 'callout',
+        calloutType,
+        title: `${m[1].trim()}:`,
+        text: m[2].trim(),
+      }
+    }
+  }
+  return null
+}
 
 export function parseMarkdownToClinicalBlocks(markdown: string): ClinicalBlock[] {
   const blocks: ClinicalBlock[] = []
@@ -47,6 +89,30 @@ export function parseMarkdownToClinicalBlocks(markdown: string): ClinicalBlock[]
       continue
     }
 
+    // 2b. Bloques explícitos a ancho completo (:::ancho-completo / :::fullwidth)
+    if (/^[-*+\s]*\\*:::\s*(?:ancho[-_\s]*completo|full[-_\s]*width|1\s*col(?:umna)?)$/i.test(line.trim())) {
+      i++
+      const innerLines: string[] = []
+      while (i < lines.length) {
+        const currTrimmed = lines[i].trim()
+        if (
+          currTrimmed === ':::' ||
+          currTrimmed === '\\:\\:\\:' ||
+          /^\\*:::\s*(?:ancho[-_\s]*completo|full[-_\s]*width|1\s*col(?:umna)?)?$/i.test(currTrimmed)
+        ) {
+          i++
+          break
+        }
+        innerLines.push(lines[i])
+        i++
+      }
+      const innerBlocks = parseMarkdownToClinicalBlocks(innerLines.join('\n'))
+      for (const ib of innerBlocks) {
+        blocks.push({ ...ib, fullWidth: true })
+      }
+      continue
+    }
+
     // 3. Encabezados (# H1, ## H2, ### H3)
     const headingMatch = line.match(/^(#{1,3})\s+(.+)$/)
     if (headingMatch) {
@@ -56,17 +122,20 @@ export function parseMarkdownToClinicalBlocks(markdown: string): ClinicalBlock[]
       continue
     }
 
-    // 4. Callouts médicos (> [!WARNING], > [!NOTE], etc.)
-    const calloutMatch = line.match(/^>\s*\[!(NOTE|WARNING|TIP|DOSAGE|IMPORTANT)\]\s*$/i)
+    // 4. Callouts médicos (> [!WARNING], > [!NOTE], > [!PERLA], > [!EJEMPLO], > [!DEFINICION], etc.)
+    const calloutMatch = line.match(
+      /^>\s*\[!(NOTE|WARNING|TIP|DOSAGE|DOSIS|IMPORTANT|PERLA|EJEMPLO|EXAMPLE|ADVERTENCIA|DEFINICION|DEFINICIÓN)\](?:\s+(.*))?$/i
+    )
     if (calloutMatch) {
       const typeRaw = calloutMatch[1].toLowerCase()
-      let calloutType: 'note' | 'warning' | 'dosage' | 'important' = 'note'
+      const customTitle = calloutMatch[2]?.trim()
+      let calloutType: ClinicalCalloutType = 'note'
       let defaultTitle = 'NOTA CLÍNICA'
 
-      if (typeRaw === 'warning') {
+      if (typeRaw === 'warning' || typeRaw === 'advertencia') {
         calloutType = 'warning'
-        defaultTitle = 'ADVERTENCIA'
-      } else if (typeRaw === 'dosage') {
+        defaultTitle = typeRaw === 'advertencia' ? 'Advertencia:' : 'ADVERTENCIA'
+      } else if (typeRaw === 'dosage' || typeRaw === 'dosis') {
         calloutType = 'dosage'
         defaultTitle = 'DOSIFICACIÓN'
       } else if (typeRaw === 'important') {
@@ -75,6 +144,15 @@ export function parseMarkdownToClinicalBlocks(markdown: string): ClinicalBlock[]
       } else if (typeRaw === 'tip') {
         calloutType = 'note'
         defaultTitle = 'CONSEJO CLÍNICO'
+      } else if (typeRaw === 'perla') {
+        calloutType = 'pearl'
+        defaultTitle = 'Perla clínica:'
+      } else if (typeRaw === 'ejemplo' || typeRaw === 'example') {
+        calloutType = 'example'
+        defaultTitle = 'Ejemplo clínico:'
+      } else if (typeRaw === 'definicion' || typeRaw === 'definición') {
+        calloutType = 'definition'
+        defaultTitle = 'Definición:'
       }
 
       i++
@@ -87,7 +165,7 @@ export function parseMarkdownToClinicalBlocks(markdown: string): ClinicalBlock[]
       blocks.push({
         kind: 'callout',
         calloutType,
-        title: defaultTitle,
+        title: customTitle || defaultTitle,
         text: textLines.join(' ').trim(),
       })
       continue
@@ -109,9 +187,22 @@ export function parseMarkdownToClinicalBlocks(markdown: string): ClinicalBlock[]
             .map((c) => c.trim())
 
         const headers = splitRow(tableLines[0])
-        // tableLines[1] es típicamente |---|---|
-        const rows = tableLines.slice(2).map(splitRow)
-        blocks.push({ kind: 'table', headers, rows })
+        const maybeSep = splitRow(tableLines[1])
+        const hasSep = maybeSep.length > 0 && maybeSep.every((c) => /^:?-+:?$/.test(c))
+
+        if (hasSep) {
+          const rows = tableLines.slice(2).map(splitRow)
+          blocks.push({ kind: 'table', headers, rows })
+        } else {
+          const rows = tableLines.slice(1).map(splitRow)
+          if (headers.length >= 2 && rows.every((r) => r.length === headers.length)) {
+            blocks.push({ kind: 'table', headers, rows })
+          } else {
+            for (const tl of tableLines) {
+              blocks.push({ kind: 'paragraph', text: tl })
+            }
+          }
+        }
       } else {
         for (const tl of tableLines) {
           blocks.push({ kind: 'paragraph', text: tl })
@@ -147,7 +238,15 @@ export function parseMarkdownToClinicalBlocks(markdown: string): ClinicalBlock[]
       continue
     }
 
-    // 7. Párrafo normal
+    // 7. Párrafos con estilo de callout natural (Ejemplo clínico:, Perla clínica:, Advertencia:, Definición:)
+    const naturalCallout = matchNaturalGdocsCallout(line.trim())
+    if (naturalCallout) {
+      blocks.push(naturalCallout)
+      i++
+      continue
+    }
+
+    // 8. Párrafo normal
     blocks.push({ kind: 'paragraph', text: line.trim() })
     i++
   }

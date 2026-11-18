@@ -44,15 +44,16 @@ describe('plantillas (spec templates)', () => {
     expect(fillTitlePlaceholder('# {título}\nTexto', 'FA')).toBe('# FA\nTexto')
   })
 
-  it('seedTemplatesIfNeeded siembra 12 plantillas en primer arranque (v2.1)', async () => {
+  it('seedTemplatesIfNeeded siembra 13 plantillas en primer arranque (v2.6)', async () => {
     const seeded = await seedTemplatesIfNeeded()
     expect(seeded).toBe(true)
     const tpls = await listTemplates()
-    expect(tpls.length).toBe(12)
+    expect(tpls.length).toBe(13)
     expect(tpls[0].node.title).toBe('Patología / Enfermedad')
     expect(tpls[1].node.title).toBe('Síndrome clínico / Diagnóstico sindromático')
     expect(tpls[10].node.title).toBe('Fármaco / Posología y administración clínica')
     expect(tpls[11].node.title).toBe('Patología oncológica / Cáncer')
+    expect(tpls[12].node.title).toBe('Apuntes 5to-2 (EUNACOM / Internado)')
     expect(tpls[0].body).toContain('## Definición')
     expect(tpls[10].body).toContain('## Posología')
     expect(tpls[10].body).toContain('| Contexto | Dosis | Frecuencia | Vía | Máximo diario | Acotaciones |')
@@ -65,6 +66,9 @@ describe('plantillas (spec templates)', () => {
     expect(tpls[10].body).toContain('Fuentes')
     expect(tpls[11].body).toContain('## Estadificación / TNM')
     expect(tpls[11].body).toContain('## Tratamiento según estadio')
+    expect(tpls[12].body).toContain('Asignatura · Apuntes 5to-2')
+    expect(tpls[12].body).toContain('Perla clínica:')
+    expect(tpls[12].body).toContain('TABLA O ALGORITMO A ANCHO COMPLETO')
     expect(tpls[0].body).toContain('{título}')
   })
 
@@ -78,7 +82,7 @@ describe('plantillas (spec templates)', () => {
     expect(seededAgain).toBe(false)
     const tpls2 = await listTemplates()
     expect(tpls2[0].body).toBe('EDITADO')
-    expect(tpls2.length).toBe(12)
+    expect(tpls2.length).toBe(13)
   })
 
   it('plantilla Fármaco / Posología y administración clínica reproduce el formato clínico manuscrito', async () => {

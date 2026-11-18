@@ -12,9 +12,18 @@ export interface ArticleReaderProps {
   onOpenExportGoogleDocs?: () => void
   isPrintView?: boolean
   articleTitle?: string
+  folderPath?: string
+  suppressDocHeader?: boolean
 }
 
-export type CalloutKind = 'warning' | 'tip' | 'dosage' | 'important' | 'note'
+export type CalloutKind =
+  | 'warning'
+  | 'tip'
+  | 'dosage'
+  | 'important'
+  | 'note'
+  | 'example'
+  | 'definition'
 
 export interface NestedListItem {
   text: string
@@ -23,34 +32,246 @@ export interface NestedListItem {
 }
 
 export type Block =
-  | { type: 'header'; level: number; text: string }
-  | { type: 'mermaid'; code: string }
-  | { type: 'code'; lang: string; code: string }
-  | { type: 'table'; headers: string[]; rows: string[][]; alignments?: ('left' | 'center' | 'right')[] }
+  | { type: 'header'; level: number; text: string; fullWidth?: boolean }
+  | { type: 'mermaid'; code: string; fullWidth?: boolean }
+  | { type: 'code'; lang: string; code: string; fullWidth?: boolean }
+  | {
+      type: 'table'
+      headers: string[]
+      rows: string[][]
+      alignments?: ('left' | 'center' | 'right')[]
+      fullWidth?: boolean
+    }
   | { type: 'hr' }
-  | { type: 'image'; alt: string; src: string }
+  | { type: 'image'; alt: string; src: string; fullWidth?: boolean }
   | { type: 'pdf'; src: string; title?: string }
-  | { type: 'list'; items: NestedListItem[]; ordered: boolean }
-  | { type: 'callout'; kind: CalloutKind; title: string; text: string }
-  | { type: 'blockquote'; text: string }
-  | { type: 'columns'; columns: Block[][] }
-  | { type: 'paragraph'; text: string }
+  | {
+      type: 'list'
+      items: NestedListItem[]
+      ordered: boolean
+      isBibliography?: boolean
+      startNumber?: number
+      fullWidth?: boolean
+    }
+  | {
+      type: 'callout'
+      kind: CalloutKind
+      title: string
+      text: string
+      inlineFormat?: boolean
+      fullWidth?: boolean
+    }
+  | { type: 'blockquote'; text: string; fullWidth?: boolean }
+  | { type: 'columns'; columns: Block[][]; fullWidth?: boolean }
+  | {
+      type: 'paragraph'
+      text: string
+      variant?: 'normal' | 'secondary' | 'caption' | 'bibliography' | 'subtitle'
+      fullWidth?: boolean
+    }
 
 function parseCalloutType(typeStr: string): { kind: CalloutKind; defaultTitle: string; icon: string } {
   const upper = typeStr.toUpperCase()
-  if (['WARNING', 'ALERTA', 'RED-FLAGS', 'RED_FLAGS', 'CAUTION', 'PELIGRO'].includes(upper)) {
-    return { kind: 'warning', defaultTitle: 'Criterios de Alarma / Red Flags', icon: '🚨' }
+  if (['WARNING', 'ALERTA', 'ADVERTENCIA', 'RED-FLAGS', 'RED_FLAGS', 'CAUTION', 'PELIGRO'].includes(upper)) {
+    return { kind: 'warning', defaultTitle: 'Advertencia', icon: '🚨' }
   }
-  if (['TIP', 'PERLA', 'PERLA-CLINICA', 'CONSEJO'].includes(upper)) {
-    return { kind: 'tip', defaultTitle: 'Perla Clínica', icon: '💡' }
+  if (['TIP', 'PERLA', 'PERLA-CLINICA', 'PERLA_CLINICA', 'CONSEJO'].includes(upper)) {
+    return { kind: 'tip', defaultTitle: 'Perla clínica', icon: '💡' }
   }
-  if (['DOSIS', 'FARMACO', 'MEDICACION', 'DRUG'].includes(upper)) {
+  if (['EXAMPLE', 'EJEMPLO', 'EJEMPLO-CLINICO', 'EJEMPLO_CLINICO', 'CASO'].includes(upper)) {
+    return { kind: 'example', defaultTitle: 'Ejemplo clínico', icon: '' }
+  }
+  if (['DEFINITION', 'DEFINICION', 'DEFINICIÓN', 'DEF'].includes(upper)) {
+    return { kind: 'definition', defaultTitle: 'Definición', icon: '' }
+  }
+  if (['DOSIS', 'DOSAGE', 'FARMACO', 'MEDICACION', 'DRUG'].includes(upper)) {
     return { kind: 'dosage', defaultTitle: 'Dosis y Farmacología', icon: '💊' }
   }
   if (['IMPORTANT', 'IMPORTANTE', 'OJO'].includes(upper)) {
     return { kind: 'important', defaultTitle: 'Importante', icon: '📋' }
   }
   return { kind: 'note', defaultTitle: 'Nota Clínica', icon: 'ℹ️' }
+}
+
+export function matchNaturalCallout(trimmed: string): Block | null {
+  const patterns: Array<{ regex: RegExp; kind: CalloutKind }> = [
+    {
+      regex: /^(?:\*\*|\*)?(Ejemplo\s+cl[ií]nico)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
+      kind: 'example',
+    },
+    {
+      regex: /^(?:\*\*|\*)?(Perla\s+cl[ií]nica)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
+      kind: 'tip',
+    },
+    {
+      regex: /^(?:\*\*|\*)?(Advertencia)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
+      kind: 'warning',
+    },
+    {
+      regex: /^(?:\*\*|\*)?(Definici[oó]n)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
+      kind: 'definition',
+    },
+  ]
+
+  for (const { regex, kind } of patterns) {
+    const m = trimmed.match(regex)
+    if (m) {
+      return {
+        type: 'callout',
+        kind,
+        title: `${m[1].trim()}:`,
+        text: m[2].trim(),
+        inlineFormat: true,
+      }
+    }
+  }
+  return null
+}
+
+export interface PreparedTemplateDocument {
+  docTitle: string | null
+  docSubtitle: string | null
+  runningHeader: string
+  bodyBlocks: Block[]
+}
+
+function isSubtitleParagraph(block: Block | undefined): block is Extract<Block, { type: 'paragraph' }> {
+  if (!block || block.type !== 'paragraph') return false
+  return /(?:·|\|)\s*Apuntes\s+5to-2/i.test(block.text) || /^Asignatura\s*·/i.test(block.text.trim())
+}
+
+/**
+ * Prepara los bloques parseados para el layout de la plantilla Apuntes 5to-2:
+ * - Promueve título y subtítulo iniciales al bloque de cabecera a 1 columna.
+ * - Marca automáticamente tablas >= 3 columnas, diagramas Mermaid y secciones de ancho completo.
+ * - Clasifica notas secundarias, pies de tabla (Caption) y referencias de Bibliografía.
+ */
+export function prepareTemplateDocument(
+  blocks: Block[],
+  articleTitle?: string,
+  folderPath?: string,
+): PreparedTemplateDocument {
+  const subjectText = folderPath?.trim()
+  const runningHeader = `APUNTES 5TO-2  ·  ${subjectText ? subjectText.toUpperCase() : 'ASIGNATURA'}`
+
+  if (blocks.length === 0) {
+    return {
+      docTitle: articleTitle?.trim() || null,
+      docSubtitle: articleTitle?.trim()
+        ? `${subjectText || 'Asignatura'} · Apuntes 5to-2`
+        : null,
+      runningHeader,
+      bodyBlocks: [],
+    }
+  }
+
+  let startIndex = 0
+  let docTitle: string | null = articleTitle?.trim() || null
+  let docSubtitle: string | null = null
+
+  const first = blocks[0]
+  if (first && first.type === 'header' && first.level === 1) {
+    const firstNorm = first.text.trim().toLowerCase()
+    const propNorm = (articleTitle || '').trim().toLowerCase()
+    const matchesProp = Boolean(propNorm && firstNorm === propNorm)
+    const isTemplatePlaceholder =
+      first.text.trim().toUpperCase() === 'TÍTULO DEL TEMA' ||
+      first.text.trim().toLowerCase() === '{título}' ||
+      first.text.trim().toLowerCase() === '{titulo}'
+    const hasSubtitleNext = isSubtitleParagraph(blocks[1])
+    const isSectionLikeTitle = /^(?:introducci[oó]n|tabla\b|continuaci[oó]n\b|bibliograf[ií]a|resumen)\b/i.test(
+      first.text.trim(),
+    )
+
+    if (matchesProp || isTemplatePlaceholder || hasSubtitleNext || (!articleTitle && !isSectionLikeTitle)) {
+      docTitle =
+        articleTitle?.trim() && isTemplatePlaceholder
+          ? articleTitle.trim()
+          : first.text.trim()
+      startIndex = 1
+    }
+  }
+
+  if (isSubtitleParagraph(blocks[startIndex])) {
+    const rawSub = (blocks[startIndex] as Extract<Block, { type: 'paragraph' }>).text.trim()
+    docSubtitle =
+      subjectText && /^Asignatura\s*·/i.test(rawSub)
+        ? rawSub.replace(/^Asignatura/i, subjectText)
+        : rawSub
+    startIndex++
+  } else if (docTitle) {
+    docSubtitle = `${subjectText || 'Asignatura'} · Apuntes 5to-2`
+  }
+
+  const enriched: Block[] = []
+  let inFullWidthSection = false
+  let inBibliographySection = false
+  let bibCounter = 1
+
+  for (const raw of blocks.slice(startIndex)) {
+    const block: Block = { ...raw }
+
+    if (block.type === 'header') {
+      inFullWidthSection = /ancho\s+completo|full\s*width|1\s*col(?:umna)?/i.test(block.text)
+      inBibliographySection = /^bibliograf[ií]a$|^referencias$|^fuentes$/i.test(block.text.trim())
+      if (inBibliographySection) {
+        bibCounter = 1
+      }
+      if (inFullWidthSection) {
+        block.fullWidth = true
+      }
+      enriched.push(block)
+      continue
+    }
+
+    if (inFullWidthSection && block.type !== 'hr' && block.type !== 'pdf') {
+      block.fullWidth = true
+    }
+
+    if (block.type === 'table') {
+      const colCount = Math.max(block.headers.length, ...block.rows.map((r) => r.length), 0)
+      if (colCount >= 3) {
+        block.fullWidth = true
+      }
+    } else if (block.type === 'mermaid') {
+      block.fullWidth = true
+    } else if (block.type === 'paragraph') {
+      const prev = enriched[enriched.length - 1]
+      const isAfterVisual =
+        prev && (prev.type === 'table' || prev.type === 'mermaid' || prev.type === 'image')
+      const looksLikeCaption =
+        /^(?:Tabla|Figura|Cuadro|Algoritmo|Esquema|Gr[aá]fico)\b/i.test(block.text.trim()) ||
+        /^\*[^*]+\*$/.test(block.text.trim())
+
+      if (isAfterVisual && looksLikeCaption) {
+        block.variant = 'caption'
+        if ('fullWidth' in prev && prev.fullWidth) {
+          block.fullWidth = true
+        }
+      } else if (
+        /^Nota\s+secundaria\s*:/i.test(block.text.trim()) ||
+        /^Este bloque est[aá] en una sola columna/i.test(block.text.trim()) ||
+        (inFullWidthSection && (!prev || prev.type === 'header'))
+      ) {
+        block.variant = 'secondary'
+      } else if (inBibliographySection) {
+        block.variant = 'bibliography'
+      }
+    } else if (block.type === 'list' && inBibliographySection) {
+      block.isBibliography = true
+      block.startNumber = bibCounter
+      bibCounter += block.items.length
+    }
+
+    enriched.push(block)
+  }
+
+  return {
+    docTitle,
+    docSubtitle,
+    runningHeader,
+    bodyBlocks: enriched,
+  }
 }
 
 function parseTableAlignment(cell: string): 'left' | 'center' | 'right' {
@@ -265,6 +486,35 @@ export function parseMarkdownBlocks(md: string): Block[] {
       continue
     }
 
+    // 6a. Bloques a ancho completo (:::ancho-completo / :::fullwidth)
+    if (/^[-*+\s]*\\*:::\s*(?:ancho[-_\s]*completo|full[-_\s]*width|1\s*col(?:umna)?)$/i.test(trimmed)) {
+      i++
+      const innerLines: string[] = []
+      while (i < rawLines.length) {
+        const currLine = rawLines[i]
+        const currTrimmed = currLine.trim().replace(/^[-*+]\s+/, '')
+        if (
+          currTrimmed === ':::' ||
+          currTrimmed === '\\:\\:\\:' ||
+          /^\\*:::\s*(?:ancho[-_\s]*completo|full[-_\s]*width|1\s*col(?:umna)?)?$/i.test(currTrimmed)
+        ) {
+          i++
+          break
+        }
+        innerLines.push(currLine)
+        i++
+      }
+      const innerBlocks = parseMarkdownBlocks(innerLines.join('\n'))
+      for (const ib of innerBlocks) {
+        if (ib.type !== 'hr' && ib.type !== 'pdf') {
+          blocks.push({ ...ib, fullWidth: true })
+        } else {
+          blocks.push(ib)
+        }
+      }
+      continue
+    }
+
     // 6. Bloques multicolumna (:::columns, :::columnas, :::col, :::2cols, etc., con separadores |||)
     if (/^[-*+\s]*\\*:::\s*(?:columns?|columnas?|cols?|\d+\s*cols?|\d+\s*columnas?)/i.test(trimmed)) {
       i++ // saltar línea de apertura
@@ -344,7 +594,24 @@ export function parseMarkdownBlocks(md: string): Block[] {
           })
           continue
         }
+
+        const parsedRows = tableLines.slice(1).map((rowLine) =>
+          rowLine.slice(1, -1).split('|').map((c) => c.trim())
+        )
+        if (headerCells.length >= 2 && parsedRows.every((r) => r.length === headerCells.length)) {
+          blocks.push({
+            type: 'table',
+            headers: headerCells,
+            rows: parsedRows,
+          })
+          continue
+        }
       }
+
+      for (const tl of tableLines) {
+        blocks.push({ type: 'paragraph', text: tl })
+      }
+      continue
     }
 
     // 8. Listas (Ordenadas y Desordenadas con soporte de anidación)
@@ -377,7 +644,15 @@ export function parseMarkdownBlocks(md: string): Block[] {
       continue
     }
 
-    // 9. Párrafo estándar
+    // 9. Párrafos con estilo de callout natural (Ejemplo clínico:, Perla clínica:, Advertencia:, Definición:)
+    const naturalCallout = matchNaturalCallout(trimmed)
+    if (naturalCallout) {
+      blocks.push(naturalCallout)
+      i++
+      continue
+    }
+
+    // 10. Párrafo estándar
     blocks.push({
       type: 'paragraph',
       text: trimmed,
@@ -610,6 +885,10 @@ function getCalloutIcon(kind: CalloutKind) {
       return '💊'
     case 'important':
       return '📋'
+    case 'example':
+      return '🩺'
+    case 'definition':
+      return '📘'
     case 'note':
       return 'ℹ️'
   }
@@ -622,20 +901,62 @@ function renderBlock(
   articleTitle?: string,
   isPrintView: boolean = false,
 ): React.ReactNode {
+  const fullWidthClass = 'fullWidth' in block && block.fullWidth ? ' full-width-block' : ''
+
   switch (block.type) {
     case 'header': {
       const Tag = `h${Math.min(block.level, 6)}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
       return (
-        <Tag key={key} className={`reader-heading h${block.level}`}>
+        <Tag key={key} className={`reader-heading h${block.level}${fullWidthClass}`}>
           {renderFormattedInline(block.text, onWikiLinkClick)}
         </Tag>
       )
     }
     case 'hr':
       return <hr key={key} className="reader-hr" />
-    case 'callout':
+    case 'callout': {
+      const isApuntesCallout =
+        block.inlineFormat ||
+        block.kind === 'example' ||
+        block.kind === 'tip' ||
+        block.kind === 'warning' ||
+        block.kind === 'definition'
+
+      if (isApuntesCallout) {
+        const paragraphs = block.text ? block.text.split('\n') : []
+        const firstLine = paragraphs[0] ?? ''
+        const rest = paragraphs.slice(1)
+        const normalizedTitle = block.title
+          ? block.title.endsWith(':')
+            ? block.title
+            : `${block.title}:`
+          : ''
+
+        return (
+          <div
+            key={key}
+            className={`reader-callout callout-${block.kind} callout-apuntes${fullWidthClass}`}
+          >
+            <p className="callout-paragraph">
+              {normalizedTitle && (
+                <strong className="callout-inline-title">
+                  {renderFormattedInline(normalizedTitle, onWikiLinkClick)}
+                  {firstLine ? ' ' : ''}
+                </strong>
+              )}
+              {firstLine && renderFormattedInline(firstLine, onWikiLinkClick)}
+            </p>
+            {rest.map((p, pIdx) => (
+              <p key={pIdx + 1} className="callout-paragraph">
+                {renderFormattedInline(p, onWikiLinkClick)}
+              </p>
+            ))}
+          </div>
+        )
+      }
+
       return (
-        <div key={key} className={`reader-callout callout-${block.kind}`}>
+        <div key={key} className={`reader-callout callout-${block.kind}${fullWidthClass}`}>
           <div className="callout-header">
             <span className="callout-icon">{getCalloutIcon(block.kind)}</span>
             <strong className="callout-title">
@@ -653,30 +974,38 @@ function renderBlock(
           )}
         </div>
       )
+    }
     case 'blockquote':
       return (
-        <blockquote key={key} className="reader-blockquote">
+        <blockquote key={key} className={`reader-blockquote${fullWidthClass}`}>
           {block.text.split('\n').map((p, pIdx) => (
             <p key={pIdx}>{renderFormattedInline(p, onWikiLinkClick)}</p>
           ))}
         </blockquote>
       )
     case 'mermaid':
-      return <MermaidViewer key={key} code={block.code} isPrintView={isPrintView} />
+      return (
+        <MermaidViewer
+          key={key}
+          code={block.code}
+          isPrintView={isPrintView}
+          className={block.fullWidth ? 'full-width-block' : ''}
+        />
+      )
     case 'code':
       return (
-        <pre key={key} className="reader-code-block">
+        <pre key={key} className={`reader-code-block${fullWidthClass}`}>
           <code className={block.lang ? `language-${block.lang}` : ''}>{block.code}</code>
         </pre>
       )
     case 'table': {
       const colCount = Math.max(block.headers.length, ...block.rows.map((r) => r.length), 0)
-      const isWide = colCount >= 3
+      const isWide = colCount >= 3 || Boolean(block.fullWidth)
       const isExtraWide = colCount >= 5
       return (
         <div
           key={key}
-          className={`reader-table-container reader-table-wrapper ${isWide ? 'table-wide' : ''} ${isExtraWide ? 'table-extra-wide' : ''}`}
+          className={`reader-table-container reader-table-wrapper ${isWide ? 'table-wide full-width-block' : ''} ${isExtraWide ? 'table-extra-wide' : ''}${!isWide ? fullWidthClass : ''}`}
         >
           <table className="reader-table">
             <thead>
@@ -724,9 +1053,22 @@ function renderBlock(
         />
       )
     case 'list': {
+      if (block.isBibliography) {
+        const startNum = block.startNumber ?? 1
+        return (
+          <div key={key} className={`reader-bibliography-list${fullWidthClass}`}>
+            {block.items.map((item, idx) => (
+              <p key={idx} className="reader-bibliography-item">
+                <span className="reader-bib-num">{startNum + idx}.</span>{' '}
+                <span>{renderFormattedInline(item.text, onWikiLinkClick)}</span>
+              </p>
+            ))}
+          </div>
+        )
+      }
       const ListTag = block.ordered ? 'ol' : 'ul'
       return (
-        <ListTag key={key} className="reader-list">
+        <ListTag key={key} className={`reader-list${fullWidthClass}`}>
           {renderListItems(block.items, onWikiLinkClick)}
         </ListTag>
       )
@@ -736,7 +1078,7 @@ function renderBlock(
       return (
         <div
           key={key}
-          className={`article-columns-grid cols-${colCount}`}
+          className={`article-columns-grid cols-${colCount}${fullWidthClass}`}
           style={{ '--col-count': colCount } as React.CSSProperties}
         >
           {block.columns.map((colBlocks, colIdx) => (
@@ -749,12 +1091,41 @@ function renderBlock(
         </div>
       )
     }
-    case 'paragraph':
+    case 'paragraph': {
+      if (block.variant === 'caption') {
+        return (
+          <p key={key} className={`reader-caption${fullWidthClass}`}>
+            {renderFormattedInline(block.text, onWikiLinkClick)}
+          </p>
+        )
+      }
+      if (block.variant === 'secondary') {
+        return (
+          <p key={key} className={`reader-secondary-note${fullWidthClass}`}>
+            {renderFormattedInline(block.text, onWikiLinkClick)}
+          </p>
+        )
+      }
+      if (block.variant === 'subtitle') {
+        return (
+          <p key={key} className="reader-doc-subtitle full-width-block">
+            {renderFormattedInline(block.text, onWikiLinkClick)}
+          </p>
+        )
+      }
+      if (block.variant === 'bibliography') {
+        return (
+          <p key={key} className={`reader-bibliography-item${fullWidthClass}`}>
+            {renderFormattedInline(block.text, onWikiLinkClick)}
+          </p>
+        )
+      }
       return (
-        <p key={key} className="reader-paragraph">
+        <p key={key} className={`reader-paragraph${fullWidthClass}`}>
           {renderFormattedInline(block.text, onWikiLinkClick)}
         </p>
       )
+    }
     default:
       return null
   }
@@ -767,6 +1138,8 @@ export function ArticleReader({
   onOpenExportGoogleDocs,
   isPrintView = false,
   articleTitle,
+  folderPath,
+  suppressDocHeader = false,
 }: ArticleReaderProps) {
   const [isTwoColumns, setIsTwoColumns] = useState<boolean>(() => {
     try {
@@ -811,13 +1184,17 @@ export function ArticleReader({
     () => blocks.length > 0 && blocks.some((b) => b.type === 'pdf'),
     [blocks],
   )
+  const preparedDoc = useMemo(
+    () => prepareTemplateDocument(blocks, articleTitle, folderPath),
+    [blocks, articleTitle, folderPath],
+  )
   const alignmentClass = isJustified ? 'text-justified' : 'text-left'
   const sheets = useMemo(() => {
     if (isTwoColumns) {
-      return paginateTwoColumnBlocks(blocks)
+      return paginateTwoColumnBlocks(preparedDoc.bodyBlocks)
     }
-    return partitionBlocksIntoSheets(blocks)
-  }, [blocks, isTwoColumns])
+    return partitionBlocksIntoSheets(preparedDoc.bodyBlocks)
+  }, [preparedDoc.bodyBlocks, isTwoColumns])
 
   return (
     <div
@@ -878,7 +1255,17 @@ export function ArticleReader({
           </div>
         ) : (
           <div className={`print-reader-view ${alignmentClass}`}>
-            {blocks.map((block, idx) => renderBlock(block, idx, onWikiLinkClick, articleTitle, isPrintView))}
+            {!suppressDocHeader && preparedDoc.docTitle && (
+              <div className="a4-sheet-doc-header full-width-block">
+                <h1 className="reader-doc-title">{preparedDoc.docTitle}</h1>
+                {preparedDoc.docSubtitle && (
+                  <p className="reader-doc-subtitle">{preparedDoc.docSubtitle}</p>
+                )}
+              </div>
+            )}
+            {preparedDoc.bodyBlocks.map((block, idx) =>
+              renderBlock(block, idx, onWikiLinkClick, articleTitle, isPrintView),
+            )}
           </div>
         )
       ) : isPdfArticle ? (
@@ -888,6 +1275,7 @@ export function ArticleReader({
       ) : !markdown.trim() ? (
         <div className="a4-sheet-container">
           <div className={`article-reader-view a4-sheet empty ${alignmentClass}`}>
+            <header className="a4-sheet-running-header">{preparedDoc.runningHeader}</header>
             <p className="muted empty-reader">Este artículo está vacío. Toca "Editar" para redactar contenido.</p>
           </div>
         </div>
@@ -904,6 +1292,15 @@ export function ArticleReader({
                 className={`article-reader-view a4-sheet ${isTwoColumns ? 'layout-two-columns' : 'layout-single-column'} ${alignmentClass}`}
                 data-sheet-index={sheetIdx}
               >
+                <header className="a4-sheet-running-header">{preparedDoc.runningHeader}</header>
+                {sheetIdx === 0 && !suppressDocHeader && preparedDoc.docTitle && (
+                  <div className="a4-sheet-doc-header">
+                    <h1 className="reader-doc-title">{preparedDoc.docTitle}</h1>
+                    {preparedDoc.docSubtitle && (
+                      <p className="reader-doc-subtitle">{preparedDoc.docSubtitle}</p>
+                    )}
+                  </div>
+                )}
                 <div className="a4-sheet-content">
                   {sheetBlocks.map((block, blockIdx) =>
                     renderBlock(block, `s${sheetIdx}-${blockIdx}`, onWikiLinkClick, articleTitle, isPrintView)
@@ -911,7 +1308,7 @@ export function ArticleReader({
                 </div>
                 <footer className="a4-sheet-page-footer">
                   <span className="a4-sheet-page-number">
-                    {sheets.length > 1 ? `Página ${sheetIdx + 1} de ${sheets.length}` : 'Página 1'}
+                    {sheets.length > 1 ? `Página ${sheetIdx + 1} de ${sheets.length}` : `Página ${sheetIdx + 1}`}
                   </span>
                 </footer>
               </div>

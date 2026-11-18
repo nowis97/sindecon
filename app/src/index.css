@@ -58,11 +58,15 @@ html[data-theme='light'] {
   --font-main: 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Paleta Médica de Plantillas Word (v2) */
-  --reader-h1-color: #142337;
-  --reader-h2-color: #008080;
-  --reader-h3-color: #00aca8;
-  --reader-body-color: #1e1e1e;
+  /* Paleta Médica de Plantillas Apuntes 5to-2 */
+  --reader-title-color: #1F4E79;
+  --reader-title-border: #4F81BD;
+  --reader-subtitle-color: #666666;
+  --reader-h1-color: #1F4E79;
+  --reader-h2-color: #1F4E79;
+  --reader-h3-color: #222222;
+  --reader-body-color: #222222;
+  --reader-muted-color: #666666;
 
   /* Motion Tokens (Transiciones y Curvas Bézier Fluidas) */
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
@@ -2383,28 +2387,77 @@ body {
   animation: fade-in-up var(--dur-fast) var(--ease-smooth);
 }
 
-/* Hoja A4 Estándar del Modo Vista */
+/* Hoja A4 Estándar del Modo Vista (Plantilla Apuntes 5to-2) */
 .article-reader-view.a4-sheet,
 .a4-sheet {
   width: 100%;
   max-width: 210mm;
   min-height: 297mm;
-  padding: 24mm 20mm;
+  padding: 10mm 18mm 18mm 18mm;
   box-sizing: border-box;
-  background: var(--bg-card);
+  background: #ffffff;
+  color: #222222;
+  font-family: 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm, 4px);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
   margin: 0 auto;
-  line-height: 1.48;
-  font-size: 1rem;
+  line-height: 1.1;
+  font-size: 10.5pt;
   position: relative;
   transition: box-shadow var(--dur-fast) var(--ease-smooth);
 }
 
 [data-theme='dark'] .article-reader-view.a4-sheet,
 [data-theme='dark'] .a4-sheet {
+  background: #ffffff;
+  color: #222222;
   box-shadow: 0 6px 28px rgba(0, 0, 0, 0.42), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Encabezado superior corrido (Running Header) */
+.a4-sheet-running-header,
+.print-running-header {
+  text-align: right;
+  font-family: 'Roboto', sans-serif;
+  font-size: 8pt;
+  font-weight: 400;
+  color: #666666;
+  border-bottom: 0.5pt solid #D9D9D9;
+  padding-bottom: 4pt;
+  margin-bottom: 10pt;
+  letter-spacing: 0.02em;
+}
+
+.a4-sheet-doc-header {
+  width: 100%;
+  margin: 0;
+}
+
+.reader-doc-title,
+.print-article-title {
+  font-family: 'Roboto', sans-serif;
+  font-size: 18pt;
+  font-weight: 700;
+  color: #1F4E79;
+  letter-spacing: 0.25pt;
+  border-bottom: 1pt solid #4F81BD;
+  padding-bottom: 4pt;
+  margin: 0 0 7pt 0;
+  line-height: 1.2;
+  display: block;
+  width: 100%;
+}
+
+.reader-doc-subtitle,
+.print-article-subtitle {
+  font-family: 'Roboto', sans-serif;
+  font-size: 9.5pt;
+  font-weight: 400;
+  color: #666666;
+  letter-spacing: 0.75pt;
+  margin: 0 0 10pt 0;
+  line-height: 1.2;
 }
 
 /* Separador y Salto de Hoja A4 */
@@ -2446,10 +2499,13 @@ body {
 /* Pie de Página para Hoja A4 */
 .a4-sheet-page-footer {
   position: absolute;
-  bottom: 3.5mm;
-  right: 10.5mm;
-  font-size: 0.72rem;
-  color: var(--text-tertiary);
+  bottom: 6mm;
+  left: 18mm;
+  right: 18mm;
+  text-align: center;
+  font-family: 'Roboto', sans-serif;
+  font-size: 8pt;
+  color: #666666;
   user-select: none;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
@@ -2457,21 +2513,23 @@ body {
 }
 
 .article-reader-view.a4-sheet.layout-single-column .a4-sheet-page-footer {
-  right: 20mm;
-  bottom: 8mm;
+  left: 18mm;
+  right: 18mm;
+  bottom: 6mm;
+  text-align: center;
 }
 
-/* Maquetación a 2 Columnas (Estilo Ficha Médica / Word) */
+/* Maquetación a 2 Columnas (Estilo Plantilla Apuntes 5to-2) */
 .article-reader-view.layout-two-columns {
   columns: 2;
-  column-gap: 2.25rem;
-  column-rule: 1px solid var(--border-subtle);
+  column-gap: 7mm;
+  column-rule: none;
 }
 
 .article-reader-view.a4-sheet.layout-two-columns {
   columns: unset;
-  padding: 7mm 10.5mm 12mm 10.5mm;
-  line-height: 1.2;
+  padding: 10mm 18mm 18mm 18mm;
+  line-height: 1.1;
   min-height: 297mm;
   height: auto;
   box-sizing: border-box;
@@ -2481,50 +2539,63 @@ body {
 .article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content {
   columns: 2;
   column-count: 2;
-  column-gap: 1.5rem;
-  column-rule: 1px solid var(--border-subtle);
+  column-gap: 7mm;
+  column-rule: none;
   column-fill: balance;
   box-sizing: border-box;
+  display: block;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content .full-width-block,
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content .reader-table-wrapper.table-wide,
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content .mermaid-viewer-card {
+  column-span: all;
+  width: 100%;
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .reader-paragraph {
-  margin-bottom: 6px;
-  line-height: 1.2;
+  margin-top: 0;
+  margin-bottom: 5pt;
+  line-height: 1.1;
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .reader-heading.h1 {
-  margin-top: 2px;
-  margin-bottom: 8px;
-  font-size: 1.35rem;
+  margin-top: 12pt;
+  margin-bottom: 5pt;
+  font-size: 14.5pt;
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .reader-heading.h2 {
-  margin-top: 10px;
-  margin-bottom: 4px;
-  font-size: 1.12rem;
+  margin-top: 9pt;
+  margin-bottom: 4pt;
+  font-size: 12.5pt;
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .reader-heading.h3 {
-  margin-top: 8px;
-  margin-bottom: 3px;
-  font-size: 1rem;
+  margin-top: 6pt;
+  margin-bottom: 2pt;
+  font-size: 11pt;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content > .reader-heading:first-child {
+  margin-top: 0;
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .reader-list {
-  margin-bottom: 6px;
-  line-height: 1.2;
+  margin-bottom: 3pt;
+  line-height: 1.05;
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .reader-blockquote {
-  margin: 6px 0;
-  padding: 4px 10px;
-  line-height: 1.2;
+  margin: 4pt 0 6pt 0;
+  padding: 4pt 8pt;
+  line-height: 1.05;
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .callout-card {
-  margin: 6px 0;
-  padding: 8px 10px;
-  line-height: 1.2;
+  margin: 4pt 0 6pt 0;
+  padding: 4pt 2.5mm 4pt 3.5mm;
+  line-height: 1.0;
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .reader-image-figure {
@@ -2532,52 +2603,93 @@ body {
 }
 
 .article-reader-view.layout-two-columns .reader-heading.h1 {
-  margin-top: 0;
-  margin-bottom: 16px;
+  margin-top: 12pt;
+  margin-bottom: 5pt;
 }
 
 .reader-heading {
-  font-family: var(--font-main);
+  font-family: 'Roboto', sans-serif;
   font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.25;
+  letter-spacing: 0;
+  line-height: 1.0;
+  break-after: avoid;
+  page-break-after: avoid;
 }
 
 .reader-heading.h1 {
-  color: var(--reader-h2-color);
-  font-size: 1.48rem;
-  border-bottom: 2px solid var(--reader-h2-color);
-  padding-bottom: 4px;
-  margin-top: 22px;
-  margin-bottom: 8px;
+  color: #1F4E79;
+  font-size: 14.5pt;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-top: 12pt;
+  margin-bottom: 5pt;
   display: block;
-  width: fit-content;
+  width: auto;
   max-width: 100%;
   text-transform: none;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .reader-heading.h2 {
-  color: var(--reader-h2-color);
-  font-size: 1.22rem;
-  margin-top: 20px;
-  margin-bottom: 6px;
+  color: #1F4E79;
+  font-size: 12.5pt;
+  margin-top: 9pt;
+  margin-bottom: 4pt;
   display: block;
-  width: fit-content;
+  width: auto;
   max-width: 100%;
 }
 
 .reader-heading.h3 {
-  color: var(--reader-h3-color);
-  font-size: 1.05rem;
-  margin-top: 16px;
-  margin-bottom: 6px;
+  color: #222222;
+  font-size: 11pt;
+  margin-top: 6pt;
+  margin-bottom: 2pt;
 }
 
 .reader-paragraph {
-  color: var(--reader-body-color);
-  margin-bottom: 9px;
-  line-height: 1.48;
+  font-family: 'Roboto', sans-serif;
+  font-size: 10.5pt;
+  font-weight: 400;
+  color: #222222;
+  margin-top: 0;
+  margin-bottom: 5pt;
+  line-height: 1.1;
+}
+
+.reader-secondary-note {
+  font-family: 'Roboto', sans-serif;
+  font-size: 9.5pt;
+  font-weight: 400;
+  color: #666666;
+  line-height: 1.0;
+  margin: 0 0 5pt 0;
+}
+
+.reader-caption {
+  font-family: 'Roboto', sans-serif;
+  font-size: 9pt;
+  font-style: italic;
+  color: #666666;
+  text-align: center;
+  line-height: 1.0;
+  margin: 2pt 0 6pt 0;
+}
+
+.reader-bibliography-list {
+  margin: 0 0 4pt 0;
+  padding: 0;
+}
+
+.reader-bibliography-item {
+  font-family: 'Roboto', sans-serif;
+  font-size: 9pt;
+  font-weight: 400;
+  color: #222222;
+  line-height: 1.0;
+  margin: 0 0 3pt 0;
+  padding-left: 5mm;
+  text-indent: -5mm;
 }
 
 /* Justificación tipográfica en modo lector */
@@ -2585,12 +2697,14 @@ body {
 .article-reader-view.text-justified .reader-blockquote p,
 .article-reader-view.text-justified .callout-paragraph,
 .article-reader-view.text-justified .reader-list li,
+.article-reader-view.text-justified .reader-bibliography-item,
 .article-reader-view.text-justified .article-column-item .reader-paragraph,
 .article-reader-view.text-justified .article-column-item p,
 .print-reader-view.text-justified .reader-paragraph,
 .print-reader-view.text-justified .reader-blockquote p,
 .print-reader-view.text-justified .callout-paragraph,
-.print-reader-view.text-justified .reader-list li {
+.print-reader-view.text-justified .reader-list li,
+.print-reader-view.text-justified .reader-bibliography-item {
   text-align: justify;
   text-justify: inter-word;
   hyphens: auto;
@@ -2716,19 +2830,29 @@ body {
 
 /* Listas con sangría y sub-viñetas */
 .reader-list {
-  margin: 6px 0 10px 0;
-  padding-left: 24px;
-  line-height: 1.38;
-  color: var(--reader-body-color);
+  font-family: 'Roboto', sans-serif;
+  font-size: 10.5pt;
+  margin: 0 0 3pt 0;
+  padding-left: 8mm;
+  line-height: 1.05;
+  color: #222222;
+}
+
+ul.reader-list {
+  list-style-type: disc;
+}
+
+ol.reader-list {
+  list-style-type: decimal;
 }
 
 .reader-list li {
-  margin: 2px 0;
+  margin: 0 0 3pt 0;
 }
 
 .reader-list-nested {
-  margin: 2px 0 4px 0;
-  padding-left: 22px;
+  margin: 2pt 0 3pt 0;
+  padding-left: 5mm;
   list-style-type: circle;
 }
 
@@ -2971,138 +3095,192 @@ body {
   color: var(--text-primary);
 }
 
-/* Callouts Médicos Estilo Obsidian / Notion */
+/* Callouts Médicos Estilo Plantilla Apuntes 5to-2 */
 .reader-callout {
-  border-radius: var(--radius-md);
-  padding: 14px 18px;
-  margin: 18px 0;
-  border-left: 4px solid var(--accent-primary);
-  background: var(--accent-surface);
-  color: var(--text-primary);
-  transition: transform var(--dur-fast) var(--ease-spring),
-              box-shadow var(--dur-fast) var(--ease-smooth);
-}
-
-.reader-callout:hover {
-  transform: translateX(3px);
-  box-shadow: var(--shadow-subtle);
+  font-family: 'Roboto', sans-serif;
+  border-radius: 0;
+  padding: 4pt 2.5mm 4pt 3.5mm;
+  margin: 4pt 0 6pt 0;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  border-left: 1.25pt solid #1F4E79;
+  background: #F5F5F5;
+  color: #222222;
+  font-size: 10.5pt;
+  line-height: 1.0;
 }
 
 .reader-callout .callout-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin-bottom: 3pt;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 10.5pt;
 }
 
 .reader-callout .callout-icon {
-  font-size: 1.15rem;
+  font-size: 1rem;
   display: inline-block;
-  transition: transform var(--dur-fast) var(--ease-spring);
-}
-
-.reader-callout:hover .callout-icon {
-  transform: scale(1.2);
 }
 
 .reader-callout .callout-body {
-  font-size: 0.92rem;
-  line-height: 1.45;
+  font-size: 10.5pt;
+  line-height: 1.0;
+  color: #222222;
 }
 
 .reader-callout .callout-paragraph {
-  margin: 4px 0;
+  margin: 0;
+  line-height: 1.0;
+  color: #222222;
+}
+
+.reader-callout .callout-paragraph + .callout-paragraph {
+  margin-top: 3pt;
+}
+
+.reader-callout .callout-inline-title {
+  font-weight: 700;
+  color: #222222;
+}
+
+.reader-callout.callout-example,
+.reader-callout.example {
+  border-left: 1pt solid #B7B7B7;
+  background: #F2F2F2;
+  font-size: 10pt;
+  font-style: italic;
+  color: #222222;
+}
+.reader-callout.callout-example .callout-paragraph,
+.reader-callout.callout-example .callout-inline-title {
+  font-size: 10pt;
+  font-style: italic;
+  color: #222222;
 }
 
 .reader-callout.callout-warning,
 .reader-callout.warning {
-  border-left-color: #ef4444;
-  background: rgba(239, 68, 68, 0.12);
+  border-left: 1.5pt solid #9C2F2F;
+  background: #FCE8E6;
+  color: #222222;
 }
-.reader-callout.callout-warning .callout-title {
-  color: #ef4444;
+.reader-callout.callout-warning .callout-title,
+.reader-callout.callout-warning .callout-inline-title {
+  color: #222222;
 }
 
 .reader-callout.callout-tip,
 .reader-callout.tip {
-  border-left-color: #3b82f6;
-  background: var(--accent-blue-bg);
+  border-left: 1.5pt solid #D9D2C3;
+  background: #F3EFE6;
+  color: #222222;
 }
-.reader-callout.callout-tip .callout-title {
-  color: #3b82f6;
+.reader-callout.callout-tip .callout-title,
+.reader-callout.callout-tip .callout-inline-title {
+  color: #222222;
 }
 
 .reader-callout.callout-dosage,
 .reader-callout.dosage {
-  border-left-color: #10b981;
-  background: var(--accent-green-bg);
+  border-left: 1.5pt solid #2563EB;
+  background: #EFF6FF;
+  color: #222222;
 }
 .reader-callout.callout-dosage .callout-title {
-  color: #10b981;
+  color: #1D4ED8;
 }
 
 .reader-callout.callout-important,
 .reader-callout.important {
-  border-left-color: #f59e0b;
-  background: var(--accent-amber-bg);
+  border-left: 1.25pt solid #1F4E79;
+  background: #F5F5F5;
+  color: #222222;
 }
 .reader-callout.callout-important .callout-title {
-  color: #f59e0b;
+  color: #1F4E79;
 }
 
+.reader-callout.callout-definition,
+.reader-callout.definition,
 .reader-callout.callout-note,
 .reader-callout.note {
-  border-left-color: var(--accent-primary);
-  background: var(--accent-surface);
+  border-left: 1.25pt solid #1F4E79;
+  background: #F5F5F5;
+  color: #222222;
+}
+.reader-callout.callout-definition .callout-title,
+.reader-callout.callout-definition .callout-inline-title,
+.reader-callout.callout-note .callout-title,
+.reader-callout.callout-note .callout-inline-title {
+  color: #222222;
 }
 
-/* Tablas Médicas */
+/* Tablas Médicas (Apuntes - Tabla) */
 .reader-table-wrapper {
   overflow-x: auto;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  margin: 18px 0;
-  background: var(--bg-card);
-  box-shadow: var(--shadow-subtle);
+  border: none;
+  border-radius: 0;
+  margin: 4pt 0;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .reader-table {
   width: 100%;
-  border-collapse: separate;
+  border-collapse: collapse;
   border-spacing: 0;
   text-align: left;
-  font-size: 0.9rem;
+  font-family: 'Roboto', sans-serif;
+  font-size: 9.5pt;
+  line-height: 1.0;
+  color: #222222;
 }
 
 .reader-table th {
-  background: var(--bg-muted);
-  color: var(--text-primary);
+  background: #D9D2C3;
+  color: #222222;
   font-weight: 700;
-  padding: 10px 14px;
-  border-right: 1px solid var(--border-subtle);
-  border-bottom: 1.5px solid var(--border-strong);
+  font-size: 9.5pt;
+  padding: 3.5pt 5pt;
+  border: 0.5pt solid #C9C9C9;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 
 .reader-table td {
-  padding: 10px 14px;
-  border-right: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
+  padding: 3.5pt 5pt;
+  border: 0.5pt solid #C9C9C9;
+  color: #222222;
+  font-size: 9.5pt;
+  vertical-align: middle;
+  background: #ffffff;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 
-.reader-table th:last-child,
-.reader-table td:last-child {
-  border-right: none;
+.reader-table tbody tr:nth-child(even) td {
+  background: #FAF9F6;
 }
 
-.reader-table tbody tr:last-child td {
-  border-bottom: none;
+.reader-table-wrapper.table-extra-wide .reader-table,
+.reader-table-container.table-extra-wide .reader-table {
+  font-size: 8.5pt;
+  line-height: 1.05;
 }
 
-.reader-table tbody tr:hover {
-  background: var(--bg-card-hover);
+.reader-table-wrapper.table-extra-wide .reader-table th,
+.reader-table-wrapper.table-extra-wide .reader-table td,
+.reader-table-container.table-extra-wide .reader-table th,
+.reader-table-container.table-extra-wide .reader-table td {
+  padding: 2.5pt 3.5pt;
 }
 
 .editor-host .ProseMirror table {
@@ -4990,48 +5168,77 @@ select.dialog-input {
     padding-top: 0 !important;
   }
 
-  /* 4. Encabezado Médico del Documento */
+  /* 4. Encabezado Médico del Documento (Plantilla Apuntes 5to-2) */
   .print-article-header {
-    margin-bottom: 6pt !important;
-    padding-bottom: 4pt !important;
-    border-bottom: 2pt solid #008080 !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom: none !important;
     break-after: avoid !important;
     page-break-after: avoid !important;
+  }
+
+  .print-running-header {
+    text-align: right !important;
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 8pt !important;
+    font-weight: 400 !important;
+    color: #666666 !important;
+    border-bottom: 0.5pt solid #D9D9D9 !important;
+    padding-bottom: 4pt !important;
+    margin-bottom: 10pt !important;
+    letter-spacing: 0.02em !important;
   }
 
   .print-header-top {
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
-    font-size: 8.5pt !important;
-    color: #64748b !important;
+    font-size: 8pt !important;
+    color: #666666 !important;
     margin-bottom: 4pt !important;
     font-weight: 600 !important;
   }
 
   .print-brand-tag {
-    color: #008080 !important;
+    color: #1F4E79 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.5px !important;
     font-weight: 700 !important;
   }
 
   .print-date-tag {
-    color: #64748b !important;
+    color: #666666 !important;
   }
 
-  .print-article-title {
+  .print-article-title,
+  .reader-doc-title {
+    font-family: 'Roboto', sans-serif !important;
     font-size: 18pt !important;
-    font-weight: 800 !important;
-    color: #0f172a !important;
-    margin: 2pt 0 !important;
-    line-height: 1.25 !important;
-    letter-spacing: -0.01em !important;
+    font-weight: 700 !important;
+    color: #1F4E79 !important;
+    border-bottom: 1pt solid #4F81BD !important;
+    padding-bottom: 4pt !important;
+    margin: 0 0 7pt 0 !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.25pt !important;
+    width: 100% !important;
+    display: block !important;
+  }
+
+  .print-article-subtitle,
+  .reader-doc-subtitle {
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 9.5pt !important;
+    font-weight: 400 !important;
+    color: #666666 !important;
+    letter-spacing: 0.75pt !important;
+    margin: 0 0 10pt 0 !important;
+    line-height: 1.2 !important;
   }
 
   .print-breadcrumb-path {
     font-size: 9pt !important;
-    color: #475569 !important;
+    color: #666666 !important;
     margin-top: 2pt !important;
   }
 
@@ -5039,26 +5246,28 @@ select.dialog-input {
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 4pt !important;
-    margin-bottom: 4pt !important;
+    margin-bottom: 6pt !important;
   }
 
   .print-tag-pill {
     font-size: 8pt !important;
-    background: #f1f5f9 !important;
-    color: #334155 !important;
-    border: 1px solid #cbd5e1 !important;
+    background: #F5F5F5 !important;
+    color: #222222 !important;
+    border: 0.5pt solid #C9C9C9 !important;
     padding: 2pt 6pt !important;
-    border-radius: 4pt !important;
+    border-radius: 3pt !important;
     font-weight: 600 !important;
   }
 
-  /* 5. Maquetación según selección: 1 Columna vs 2 Columnas (Estilo Ficha Médica / Modo Lector) */
+  /* 5. Maquetación según selección: 1 Columna vs 2 Columnas (Plantilla Apuntes 5to-2) */
   .print-layout-single .print-reader-view,
   .print-layout-single .article-reader-view {
     column-count: 1 !important;
     columns: 1 !important;
-    font-size: 9pt !important;
-    line-height: 1.15 !important;
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 10.5pt !important;
+    line-height: 1.1 !important;
+    color: #222222 !important;
   }
 
   .print-layout-two-columns .print-reader-view,
@@ -5069,21 +5278,36 @@ select.dialog-input {
   body.print-columns-2 #print-bulk-document .article-reader-view {
     column-count: 2 !important;
     columns: 2 !important;
-    column-gap: 1.5rem !important;
-    column-rule: 1px solid #e2e8f0 !important;
-    column-fill: auto !important;
-    font-size: 9pt !important;
-    line-height: 1.15 !important;
+    column-gap: 7mm !important;
+    column-rule: none !important;
+    column-fill: balance !important;
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 10.5pt !important;
+    line-height: 1.1 !important;
+    color: #222222 !important;
   }
 
-  /* Garantizar que NINGÚN elemento rompa la continuidad de las dos columnas */
-  .print-layout-two-columns,
-  .print-layout-two-columns *,
-  body.print-columns-2 #print-article-document,
-  body.print-columns-2 #print-article-document *,
-  body.print-columns-2 #print-bulk-document,
-  body.print-columns-2 #print-bulk-document * {
-    column-span: none !important;
+  /* Permitir bloques a ancho completo (1 columna dentro de 2 columnas) */
+  .print-layout-two-columns .full-width-block,
+  .print-layout-two-columns .reader-table-wrapper.table-wide,
+  .print-layout-two-columns .reader-table-container.table-wide,
+  .print-layout-two-columns .mermaid-viewer-card,
+  .print-layout-two-columns .reader-doc-title,
+  .print-layout-two-columns .reader-doc-subtitle,
+  body.print-columns-2 #print-article-document .full-width-block,
+  body.print-columns-2 #print-article-document .reader-table-wrapper.table-wide,
+  body.print-columns-2 #print-article-document .reader-table-container.table-wide,
+  body.print-columns-2 #print-article-document .mermaid-viewer-card,
+  body.print-columns-2 #print-article-document .reader-doc-title,
+  body.print-columns-2 #print-article-document .reader-doc-subtitle,
+  body.print-columns-2 #print-bulk-document .full-width-block,
+  body.print-columns-2 #print-bulk-document .reader-table-wrapper.table-wide,
+  body.print-columns-2 #print-bulk-document .reader-table-container.table-wide,
+  body.print-columns-2 #print-bulk-document .mermaid-viewer-card,
+  body.print-columns-2 #print-bulk-document .reader-doc-title,
+  body.print-columns-2 #print-bulk-document .reader-doc-subtitle {
+    column-span: all !important;
+    width: 100% !important;
   }
 
   .print-article-body,
@@ -5115,55 +5339,96 @@ select.dialog-input {
     margin-top: 0 !important;
   }
 
-  /* 6. Tipografía y Encabezados Fieles al Modo Lector */
+  /* 6. Tipografía y Encabezados Fieles a Plantilla Apuntes 5to-2 */
   .reader-heading {
+    font-family: 'Roboto', sans-serif !important;
     font-weight: 700 !important;
-    letter-spacing: -0.01em !important;
-    line-height: 1.25 !important;
+    letter-spacing: 0 !important;
+    line-height: 1.0 !important;
     break-after: avoid !important;
     page-break-after: avoid !important;
   }
 
   .reader-heading.h1 {
-    color: #008080 !important;
-    font-size: 14pt !important;
-    border-bottom: 2px solid #008080 !important;
-    padding-bottom: 4px !important;
-    margin-top: 18pt !important;
-    margin-bottom: 8pt !important;
+    color: #1F4E79 !important;
+    font-size: 14.5pt !important;
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+    margin-top: 12pt !important;
+    margin-bottom: 5pt !important;
+    width: auto !important;
     break-after: avoid !important;
     page-break-after: avoid !important;
   }
 
   .reader-heading.h2 {
-    color: #008080 !important;
-    font-size: 12pt !important;
-    margin-top: 14pt !important;
-    margin-bottom: 6pt !important;
+    color: #1F4E79 !important;
+    font-size: 12.5pt !important;
+    margin-top: 9pt !important;
+    margin-bottom: 4pt !important;
+    width: auto !important;
     break-after: avoid !important;
     page-break-after: avoid !important;
   }
 
   .reader-heading.h3 {
-    color: #0f766e !important;
-    font-size: 10.5pt !important;
-    margin-top: 12pt !important;
-    margin-bottom: 5pt !important;
+    color: #222222 !important;
+    font-size: 11pt !important;
+    margin-top: 6pt !important;
+    margin-bottom: 2pt !important;
     break-after: avoid !important;
     page-break-after: avoid !important;
   }
 
   .reader-paragraph {
-    font-size: 9pt !important;
-    color: #1e293b !important;
-    margin-bottom: 4pt !important;
-    line-height: 1.15 !important;
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 10.5pt !important;
+    font-weight: 400 !important;
+    color: #222222 !important;
+    margin-top: 0 !important;
+    margin-bottom: 5pt !important;
+    line-height: 1.1 !important;
     text-align: justify !important;
     text-justify: inter-word !important;
     hyphens: auto !important;
     -webkit-hyphens: auto !important;
     orphans: 2 !important;
     widows: 2 !important;
+  }
+
+  .reader-secondary-note {
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 9.5pt !important;
+    font-weight: 400 !important;
+    color: #666666 !important;
+    line-height: 1.0 !important;
+    margin: 0 0 5pt 0 !important;
+  }
+
+  .reader-caption {
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 9pt !important;
+    font-style: italic !important;
+    color: #666666 !important;
+    text-align: center !important;
+    line-height: 1.0 !important;
+    margin: 2pt 0 6pt 0 !important;
+  }
+
+  .reader-bibliography-list {
+    margin: 0 0 4pt 0 !important;
+    padding: 0 !important;
+  }
+
+  .reader-bibliography-item {
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 9pt !important;
+    font-weight: 400 !important;
+    color: #222222 !important;
+    line-height: 1.0 !important;
+    margin: 0 0 3pt 0 !important;
+    padding-left: 5mm !important;
+    text-indent: -5mm !important;
   }
 
   .reader-paragraph:has(+ .reader-list),
@@ -5277,38 +5542,61 @@ select.dialog-input {
   }
 
 
-  /* Callouts clínicos con colores distintivos */
+  /* Callouts clínicos con colores exactos de Plantilla Apuntes 5to-2 */
   .reader-callout {
-    margin: 9pt 0 !important;
-    padding: 7pt 10pt !important;
-    border-radius: 6pt !important;
-    border: 1px solid #e2e8f0 !important;
-    border-left-width: 4px !important;
+    font-family: 'Roboto', sans-serif !important;
+    margin: 4pt 0 6pt 0 !important;
+    padding: 4pt 2.5mm 4pt 3.5mm !important;
+    border-radius: 0 !important;
+    border-top: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    border-left: 1.25pt solid #1F4E79 !important;
+    background: #F5F5F5 !important;
+    color: #222222 !important;
+    font-size: 10.5pt !important;
+    line-height: 1.0 !important;
+  }
+
+  .reader-callout.callout-example {
+    border-left: 1pt solid #B7B7B7 !important;
+    background: #F2F2F2 !important;
+    font-size: 10pt !important;
+    font-style: italic !important;
+    color: #222222 !important;
+  }
+
+  .reader-callout.callout-example .callout-paragraph,
+  .reader-callout.callout-example .callout-inline-title {
+    font-size: 10pt !important;
+    font-style: italic !important;
+    color: #222222 !important;
   }
 
   .reader-callout.callout-warning {
-    border-left-color: #ef4444 !important;
-    background: #fef2f2 !important;
+    border-left: 1.5pt solid #9C2F2F !important;
+    background: #FCE8E6 !important;
+    color: #222222 !important;
   }
 
   .reader-callout.callout-tip {
-    border-left-color: #f59e0b !important;
-    background: #fffbeb !important;
+    border-left: 1.5pt solid #D9D2C3 !important;
+    background: #F3EFE6 !important;
+    color: #222222 !important;
   }
 
   .reader-callout.callout-dosage {
-    border-left-color: #8b5cf6 !important;
-    background: #f5f3ff !important;
+    border-left: 1.5pt solid #2563EB !important;
+    background: #EFF6FF !important;
+    color: #222222 !important;
   }
 
-  .reader-callout.callout-important {
-    border-left-color: #008080 !important;
-    background: #f0fdfa !important;
-  }
-
+  .reader-callout.callout-important,
+  .reader-callout.callout-definition,
   .reader-callout.callout-note {
-    border-left-color: #3b82f6 !important;
-    background: #eff6ff !important;
+    border-left: 1.25pt solid #1F4E79 !important;
+    background: #F5F5F5 !important;
+    color: #222222 !important;
   }
 
   .reader-callout .callout-header {
@@ -5318,28 +5606,41 @@ select.dialog-input {
     margin-bottom: 3pt !important;
   }
 
-  .reader-callout .callout-title {
+  .reader-callout .callout-title,
+  .reader-callout .callout-inline-title {
     font-weight: 700 !important;
-    font-size: 9pt !important;
-    color: #0f172a !important;
+    color: #222222 !important;
   }
 
   .reader-callout .callout-body {
-    font-size: 8.5pt !important;
-    line-height: 1.28 !important;
-    color: #334155 !important;
+    font-size: 10.5pt !important;
+    line-height: 1.0 !important;
+    color: #222222 !important;
+  }
+
+  .reader-callout .callout-paragraph {
+    margin: 0 !important;
+    line-height: 1.0 !important;
+    color: #222222 !important;
     text-align: justify !important;
     text-justify: inter-word !important;
     hyphens: auto !important;
     -webkit-hyphens: auto !important;
   }
 
-  /* Tablas Clínicas */
+  .reader-callout .callout-paragraph + .callout-paragraph {
+    margin-top: 3pt !important;
+  }
+
+  /* Tablas Clínicas (Apuntes - Tabla) */
   .reader-table-wrapper,
   .reader-table-container {
-    margin: 8pt 0 !important;
+    margin: 4pt 0 !important;
     width: 100% !important;
     max-width: 100% !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
     box-sizing: border-box !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
@@ -5350,28 +5651,37 @@ select.dialog-input {
     max-width: 100% !important;
     box-sizing: border-box !important;
     border-collapse: collapse !important;
-    font-size: 8pt !important;
-    line-height: 1.2 !important;
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 9.5pt !important;
+    line-height: 1.0 !important;
+    color: #222222 !important;
   }
 
   .reader-table th,
   .reader-table td {
-    padding: 3pt 5pt !important;
-    border: 1px solid #cbd5e1 !important;
+    padding: 3.5pt 5pt !important;
+    border: 0.5pt solid #C9C9C9 !important;
+    vertical-align: middle !important;
     overflow-wrap: anywhere !important;
     word-break: break-word !important;
     hyphens: auto !important;
     -webkit-hyphens: auto !important;
+    color: #222222 !important;
+    font-size: 9.5pt !important;
   }
 
   .reader-table th {
-    background: #f1f5f9 !important;
+    background: #D9D2C3 !important;
     font-weight: 700 !important;
-    color: #0f172a !important;
+    color: #222222 !important;
   }
 
-  .reader-table tr:nth-child(even) {
-    background: #f8fafc !important;
+  .reader-table tbody tr:nth-child(odd) td {
+    background: #FFFFFF !important;
+  }
+
+  .reader-table tbody tr:nth-child(even) td {
+    background: #FAF9F6 !important;
   }
 
   .reader-table .reader-code-inline {
@@ -5380,44 +5690,40 @@ select.dialog-input {
     white-space: normal !important;
   }
 
-  /* Tablas anchas (>= 3 columnas): tipografía y espaciado compacto */
-  .reader-table-wrapper.table-wide .reader-table,
-  .reader-table-container.table-wide .reader-table {
-    font-size: 7.5pt !important;
-    line-height: 1.15 !important;
-  }
-
-  .reader-table-wrapper.table-wide .reader-table th,
-  .reader-table-wrapper.table-wide .reader-table td,
-  .reader-table-container.table-wide .reader-table th,
-  .reader-table-container.table-wide .reader-table td {
-    padding: 2.5pt 3.5pt !important;
-  }
-
-  /* Tablas muy anchas (>= 5 columnas): máxima compacidad para no desbordar */
+  /* Tablas muy anchas (>= 5 columnas): ajuste sutil para no desbordar */
   .reader-table-wrapper.table-extra-wide .reader-table,
   .reader-table-container.table-extra-wide .reader-table {
-    font-size: 7pt !important;
-    line-height: 1.1 !important;
+    font-size: 8.5pt !important;
+    line-height: 1.05 !important;
   }
 
   .reader-table-wrapper.table-extra-wide .reader-table th,
   .reader-table-wrapper.table-extra-wide .reader-table td,
   .reader-table-container.table-extra-wide .reader-table th,
   .reader-table-container.table-extra-wide .reader-table td {
-    padding: 2pt 2.5pt !important;
+    padding: 2.5pt 3.5pt !important;
   }
 
   /* Listas con sangría y sub-viñetas */
   .reader-list {
-    margin: 4pt 0 6pt 0 !important;
-    padding-left: 20pt !important;
-    line-height: 1.28 !important;
-    color: #1e293b !important;
+    font-family: 'Roboto', sans-serif !important;
+    font-size: 10.5pt !important;
+    margin: 0 0 3pt 0 !important;
+    padding-left: 8mm !important;
+    line-height: 1.05 !important;
+    color: #222222 !important;
+  }
+
+  ul.reader-list {
+    list-style-type: disc !important;
+  }
+
+  ol.reader-list {
+    list-style-type: decimal !important;
   }
 
   .reader-list li {
-    margin: 1.5pt 0 !important;
+    margin: 0 0 3pt 0 !important;
     text-align: justify !important;
     text-justify: inter-word !important;
     hyphens: auto !important;
@@ -5426,7 +5732,7 @@ select.dialog-input {
 
   .reader-list-nested {
     margin: 2pt 0 3pt 0 !important;
-    padding-left: 16pt !important;
+    padding-left: 5mm !important;
     list-style-type: circle !important;
   }
 
@@ -5472,8 +5778,8 @@ select.dialog-input {
   }
 
   @page {
-    margin: 7mm 10.5mm;
-    size: auto;
+    margin: 18mm;
+    size: A4;
   }
 }
 

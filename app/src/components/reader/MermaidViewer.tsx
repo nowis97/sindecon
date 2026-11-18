@@ -68,9 +68,10 @@ export async function preloadMermaidDiagrams(codes: string[]): Promise<void> {
 interface MermaidViewerProps {
   code: string
   isPrintView?: boolean
+  className?: string
 }
 
-export function MermaidViewer({ code, isPrintView = false }: MermaidViewerProps) {
+export function MermaidViewer({ code, isPrintView = false, className = '' }: MermaidViewerProps) {
   const trimmed = code.trim()
   const [svg, setSvg] = useState<string | null>(() => mermaidSvgCache.get(trimmed) || null)
   const [error, setError] = useState<string | null>(null)
@@ -160,7 +161,7 @@ export function MermaidViewer({ code, isPrintView = false }: MermaidViewerProps)
   }
 
   const viewerContent = (
-    <div className={`mermaid-viewer-card ${isFullscreen ? 'fullscreen-mode' : ''} ${isPrintView ? 'is-print-view' : ''}`}>
+    <div className={`mermaid-viewer-card ${isFullscreen ? 'fullscreen-mode' : ''} ${isPrintView ? 'is-print-view' : ''} ${className}`.trim()}>
       {!isPrintView && (
         <div className="mermaid-controls">
           <span className="mermaid-tag">Algoritmo / Esquema</span>

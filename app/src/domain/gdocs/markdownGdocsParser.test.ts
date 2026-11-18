@@ -126,4 +126,27 @@ describe('markdownGdocsParser', () => {
       { kind: 'list', ordered: false, items: ['Item 1', 'Item 2'] },
     ])
   })
+
+  it('detecta callouts naturales de la plantilla Apuntes 5to-2 y bloques :::ancho-completo', () => {
+    const md = [
+      'Ejemplo clínico: caso típico.',
+      'Perla clínica: dato de alto rendimiento.',
+      'Advertencia: urgencia vital.',
+      'Definición: criterio formal.',
+      ':::ancho-completo',
+      '| Col 1 | Col 2 |',
+      '| --- | --- |',
+      '| A | B |',
+      ':::',
+    ].join('\n')
+
+    const blocks = parseMarkdownToClinicalBlocks(md)
+    expect(blocks).toEqual([
+      { kind: 'callout', calloutType: 'example', title: 'Ejemplo clínico:', text: 'caso típico.' },
+      { kind: 'callout', calloutType: 'pearl', title: 'Perla clínica:', text: 'dato de alto rendimiento.' },
+      { kind: 'callout', calloutType: 'warning', title: 'Advertencia:', text: 'urgencia vital.' },
+      { kind: 'callout', calloutType: 'definition', title: 'Definición:', text: 'criterio formal.' },
+      { kind: 'table', headers: ['Col 1', 'Col 2'], rows: [['A', 'B']], fullWidth: true },
+    ])
+  })
 })

@@ -10,14 +10,24 @@ import {
   BorderStyle,
   WidthType,
   AlignmentType,
+  SectionType,
+  VerticalAlign,
+  LevelFormat,
+  type ISectionOptions,
 } from 'docx'
 import {
+  APUNTES_COLORS,
   CLINICAL_COLORS,
+  createApuntesFooter,
+  createApuntesRunningHeader,
   createClinicalHeader,
   createClinicalHeading,
   createClinicalCallout,
 } from './docxClinicalStyles'
-import { parseMarkdownToClinicalBlocks } from './markdownGdocsParser'
+import {
+  parseMarkdownToClinicalBlocks,
+  type ClinicalBlock,
+} from './markdownGdocsParser'
 import { renderMermaidToPngBuffer } from './mermaidPngRenderer'
 
 export interface ClinicalDocxMetadata {
@@ -27,80 +37,278 @@ export interface ClinicalDocxMetadata {
   dateStr?: string
 }
 
-export async function generateClinicalDocxBlob(
-  markdown: string,
+const APUNTES_PAGE_PROPS = {
+  size: {
+    width: 11906,
+    height: 16838,
+  },
+  margin: {
+    top: 1020,
+    right: 1020,
+    bottom: 1020,
+    left: 1020,
+    header: 567,
+    footer: 567,
+    gutter: 0,
+  },
+} as const
+
+interface EnrichedGdocsData {
+  effectiveTitle: string
+  subtitleOverride?: string
+  sections: Array<{ fullWidth: boolean; blocks: ClinicalBlock[] }>
+}
+
+function isSubtitleBlock(block: ClinicalBlock | undefined): block is Extract<ClinicalBlock, { kind: 'paragraph' }> {
+  if (!block || block.kind !== 'paragraph') return false
+  return /(?:·|\|)\s*Apuntes\s+5to-2/i.test(block.text) || /^Asignatura\s*·/i.test(block.text.trim())
+}
+
+function prepareGdocsSections(
+  blocks: ClinicalBlock[],
   metadata: ClinicalDocxMetadata
-): Promise<Blob> {
-  const blocks = parseMarkdownToClinicalBlocks(markdown)
+): EnrichedGdocsData {
+  let startIndex = 0
+  let effectiveTitle = metadata.title
+  let subtitleOverride: string | undefined
+
+  const first = blocks[0]
+  if (first && first.kind === 'heading' && first.level === 1) {
+    const firstNorm = first.text.trim().toLowerCase()
+    const titleNorm = metadata.title.trim().toLowerCase()
+    const isPlaceholder =
+      first.text.trim().toUpperCase() === 'TÍTULO DEL TEMA' ||
+      first.text.trim().toLowerCase() === '{título}' ||
+      first.text.trim().toLowerCase() === '{titulo}'
+    if (firstNorm === titleNorm || isPlaceholder || isSubtitleBlock(blocks[1])) {
+      if (isPlaceholder && metadata.title.trim()) {
+        effectiveTitle = metadata.title
+      } else if (!metadata.title.trim()) {
+        effectiveTitle = first.text.trim()
+      }
+      startIndex = 1
+    }
+  }
+
+  if (isSubtitleBlock(blocks[startIndex])) {
+    const rawSub = (blocks[startIndex] as Extract<ClinicalBlock, { kind: 'paragraph' }>).text.trim()
+    subtitleOverride =
+      metadata.folderPath?.trim() && /^Asignatura\s*·/i.test(rawSub)
+        ? rawSub.replace(/^Asignatura/i, metadata.folderPath.trim())
+        : rawSub
+    startIndex++
+  }
+
+  const enriched: ClinicalBlock[] = []
+  let inFullWidthSection = false
+  let inBibliographySection = false
+  let bibCounter = 1
+
+  for (const raw of blocks.slice(startIndex)) {
+    const block: ClinicalBlock = { ...raw }
+
+    if (block.kind === 'heading') {
+      inFullWidthSection = /ancho\s+completo|full\s*width|1\s*col(?:umna)?/i.test(block.text)
+      inBibliographySection = /^bibliograf[ií]a$|^referencias$|^fuentes$/i.test(block.text.trim())
+      if (inBibliographySection) {
+        bibCounter = 1
+      }
+      if (inFullWidthSection) {
+        block.fullWidth = true
+      }
+      enriched.push(block)
+      continue
+    }
+
+    if (inFullWidthSection) {
+      block.fullWidth = true
+    }
+
+    if (block.kind === 'table') {
+      const colCount = Math.max(block.headers.length, ...block.rows.map((r) => r.length), 0)
+      if (colCount >= 3) {
+        block.fullWidth = true
+      }
+    } else if (block.kind === 'mermaid') {
+      block.fullWidth = true
+    } else if (block.kind === 'paragraph') {
+      const prev = enriched[enriched.length - 1]
+      const isAfterVisual = prev && (prev.kind === 'table' || prev.kind === 'mermaid')
+      const looksLikeCaption =
+        /^(?:Tabla|Figura|Cuadro|Algoritmo|Esquema|Gr[aá]fico)\b/i.test(block.text.trim()) ||
+        /^\*[^*]+\*$/.test(block.text.trim())
+
+      if (isAfterVisual && looksLikeCaption) {
+        block.variant = 'caption'
+        if (prev.fullWidth) {
+          block.fullWidth = true
+        }
+      } else if (
+        /^Nota\s+secundaria\s*:/i.test(block.text.trim()) ||
+        /^Este bloque est[aá] en una sola columna/i.test(block.text.trim()) ||
+        (inFullWidthSection && (!prev || prev.kind === 'heading'))
+      ) {
+        block.variant = 'secondary'
+      } else if (inBibliographySection) {
+        block.variant = 'bibliography'
+      }
+    } else if (block.kind === 'list' && inBibliographySection) {
+      block.isBibliography = true
+      block.startNumber = bibCounter
+      bibCounter += block.items.length
+    }
+
+    enriched.push(block)
+  }
+
+  const sections: Array<{ fullWidth: boolean; blocks: ClinicalBlock[] }> = []
+  for (const b of enriched) {
+    const fw = Boolean(b.fullWidth)
+    const last = sections[sections.length - 1]
+    if (!last || last.fullWidth !== fw) {
+      sections.push({ fullWidth: fw, blocks: [b] })
+    } else {
+      last.blocks.push(b)
+    }
+  }
+
+  return { effectiveTitle, subtitleOverride, sections }
+}
+
+async function renderBlocksToDocElements(
+  blocks: ClinicalBlock[],
+  inTwoColumns: boolean
+): Promise<(Paragraph | Table)[]> {
   const docElements: (Paragraph | Table)[] = []
 
-  // 1. Encabezado Médico Oficial de SINDECON
-  docElements.push(
-    ...createClinicalHeader(
-      metadata.title,
-      metadata.folderPath,
-      metadata.tags,
-      metadata.dateStr
-    )
-  )
-
-  // 2. Procesamiento de bloques secuenciales
   for (const block of blocks) {
     if (block.kind === 'heading') {
       docElements.push(createClinicalHeading(block.text, block.level))
     } else if (block.kind === 'paragraph') {
-      docElements.push(
-        new Paragraph({
-          spacing: { after: 120, line: 260 },
-          children: parseInlineFormatting(block.text),
-        })
-      )
+      if (block.variant === 'caption') {
+        docElements.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 40, after: 120, line: 240 },
+            children: parseInlineFormatting(block.text, {
+              size: 18, // 9pt
+              color: APUNTES_COLORS.mutedGray,
+              italics: true,
+            }),
+          })
+        )
+      } else if (block.variant === 'secondary') {
+        docElements.push(
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { before: 0, after: 100, line: 240 },
+            children: parseInlineFormatting(block.text, {
+              size: 19, // 9.5pt
+              color: APUNTES_COLORS.mutedGray,
+            }),
+          })
+        )
+      } else if (block.variant === 'bibliography') {
+        docElements.push(
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { before: 0, after: 60, line: 240 },
+            indent: { left: 283, hanging: 283 },
+            children: parseInlineFormatting(block.text, {
+              size: 18, // 9pt
+              color: APUNTES_COLORS.bodyText,
+            }),
+          })
+        )
+      } else {
+        docElements.push(
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { before: 0, after: 100, line: 264 },
+            children: parseInlineFormatting(block.text, {
+              size: 21, // 10.5pt
+              color: APUNTES_COLORS.bodyText,
+            }),
+          })
+        )
+      }
     } else if (block.kind === 'callout') {
       docElements.push(
         createClinicalCallout(block.title, block.text, block.calloutType)
       )
-      // Espaciado posterior al callout
-      docElements.push(new Paragraph({ spacing: { after: 100 } }))
+      docElements.push(new Paragraph({ spacing: { before: 0, after: 60 } }))
     } else if (block.kind === 'list') {
-      for (const item of block.items) {
-        docElements.push(
-          new Paragraph({
-            bullet: block.ordered ? undefined : { level: 0 },
-            numbering: block.ordered
-              ? { reference: 'clinical-numbering', level: 0 }
-              : undefined,
-            spacing: { after: 60 },
-            children: parseInlineFormatting(item),
-          })
-        )
+      if (block.isBibliography) {
+        const startNum = block.startNumber ?? 1
+        block.items.forEach((item, idx) => {
+          docElements.push(
+            new Paragraph({
+              alignment: AlignmentType.JUSTIFIED,
+              spacing: { before: 0, after: 60, line: 240 },
+              indent: { left: 283, hanging: 283 },
+              children: [
+                new TextRun({
+                  text: `${startNum + idx}. `,
+                  font: 'Roboto',
+                  size: 18,
+                  color: APUNTES_COLORS.bodyText,
+                }),
+                ...parseInlineFormatting(item, {
+                  size: 18,
+                  color: APUNTES_COLORS.bodyText,
+                }),
+              ],
+            })
+          )
+        })
+      } else {
+        for (const item of block.items) {
+          docElements.push(
+            new Paragraph({
+              alignment: AlignmentType.JUSTIFIED,
+              bullet: block.ordered ? undefined : { level: 0 },
+              numbering: block.ordered
+                ? { reference: 'clinical-numbering', level: 0 }
+                : undefined,
+              spacing: { before: 0, after: 60, line: 252 },
+              children: parseInlineFormatting(item, {
+                size: 21,
+                color: APUNTES_COLORS.bodyText,
+              }),
+            })
+          )
+        }
+        docElements.push(new Paragraph({ spacing: { before: 0, after: 40 } }))
       }
-      docElements.push(new Paragraph({ spacing: { after: 60 } }))
     } else if (block.kind === 'table') {
       const tableRows: TableRow[] = []
 
-      // Cabecera
+      // Cabecera (#D9D2C3)
       tableRows.push(
         new TableRow({
           tableHeader: true,
           children: block.headers.map(
             (h) =>
               new TableCell({
-                shading: { fill: 'F1F5F9' },
+                shading: { fill: APUNTES_COLORS.tableHeaderBg },
+                verticalAlign: VerticalAlign.CENTER,
                 borders: {
-                  top: { style: BorderStyle.SINGLE, size: 4, color: CLINICAL_COLORS.borderLight },
-                  bottom: { style: BorderStyle.SINGLE, size: 8, color: CLINICAL_COLORS.primaryTeal },
-                  left: { style: BorderStyle.NONE },
-                  right: { style: BorderStyle.NONE },
+                  top: { style: BorderStyle.SINGLE, size: 4, color: APUNTES_COLORS.tableBorderGray },
+                  bottom: { style: BorderStyle.SINGLE, size: 4, color: APUNTES_COLORS.tableBorderGray },
+                  left: { style: BorderStyle.SINGLE, size: 4, color: APUNTES_COLORS.tableBorderGray },
+                  right: { style: BorderStyle.SINGLE, size: 4, color: APUNTES_COLORS.tableBorderGray },
                 },
-                margins: { top: 80, bottom: 80, left: 100, right: 100 },
+                margins: { top: 70, bottom: 70, left: 100, right: 100 },
                 children: [
                   new Paragraph({
+                    spacing: { before: 0, after: 40, line: 240 },
                     children: [
                       new TextRun({
                         text: h,
+                        font: 'Roboto',
                         bold: true,
-                        size: 20,
-                        color: CLINICAL_COLORS.darkSlate,
+                        size: 19, // 9.5pt
+                        color: APUNTES_COLORS.bodyText,
                       }),
                     ],
                   }),
@@ -110,30 +318,37 @@ export async function generateClinicalDocxBlob(
         })
       )
 
-      // Filas de datos
-      for (const row of block.rows) {
+      // Filas de datos (bandas alternadas #FFFFFF / #FAF9F6)
+      block.rows.forEach((row, rIdx) => {
+        const fill = rIdx % 2 === 1 ? APUNTES_COLORS.tableZebraBg : 'FFFFFF'
         tableRows.push(
           new TableRow({
             children: row.map(
               (cellText) =>
                 new TableCell({
+                  shading: { fill },
+                  verticalAlign: VerticalAlign.CENTER,
                   borders: {
-                    top: { style: BorderStyle.NONE },
-                    bottom: { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' },
-                    left: { style: BorderStyle.NONE },
-                    right: { style: BorderStyle.NONE },
+                    top: { style: BorderStyle.SINGLE, size: 4, color: APUNTES_COLORS.tableBorderGray },
+                    bottom: { style: BorderStyle.SINGLE, size: 4, color: APUNTES_COLORS.tableBorderGray },
+                    left: { style: BorderStyle.SINGLE, size: 4, color: APUNTES_COLORS.tableBorderGray },
+                    right: { style: BorderStyle.SINGLE, size: 4, color: APUNTES_COLORS.tableBorderGray },
                   },
-                  margins: { top: 60, bottom: 60, left: 100, right: 100 },
+                  margins: { top: 70, bottom: 70, left: 100, right: 100 },
                   children: [
                     new Paragraph({
-                      children: parseInlineFormatting(cellText),
+                      spacing: { before: 0, after: 40, line: 240 },
+                      children: parseInlineFormatting(cellText, {
+                        size: 19, // 9.5pt
+                        color: APUNTES_COLORS.bodyText,
+                      }),
                     }),
                   ],
                 })
             ),
           })
         )
-      }
+      })
 
       docElements.push(
         new Table({
@@ -141,13 +356,12 @@ export async function generateClinicalDocxBlob(
           rows: tableRows,
         })
       )
-      docElements.push(new Paragraph({ spacing: { after: 120 } }))
+      docElements.push(new Paragraph({ spacing: { before: 0, after: 60 } }))
     } else if (block.kind === 'mermaid') {
       const rendered = await renderMermaidToPngBuffer(block.code, 2.5)
 
       if (rendered) {
-        // Escalar respetando el ancho máximo de página imprimible (máx 560pt)
-        const maxWidth = 560
+        const maxWidth = inTwoColumns ? 260 : 560
         let displayWidth = Math.round(rendered.width / 2.5)
         let displayHeight = Math.round(rendered.height / 2.5)
 
@@ -160,7 +374,7 @@ export async function generateClinicalDocxBlob(
         docElements.push(
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            spacing: { before: 140, after: 140 },
+            spacing: { before: 120, after: 120 },
             children: [
               new ImageRun({
                 data: rendered.buffer,
@@ -174,26 +388,26 @@ export async function generateClinicalDocxBlob(
           })
         )
       } else {
-        // Fallback elegante si el mermaid tiene error de sintaxis
         docElements.push(
           new Paragraph({
-            shading: { fill: 'F8FAFC' },
+            shading: { fill: APUNTES_COLORS.definitionBg },
             spacing: { before: 100, after: 100 },
             border: {
-              left: { style: BorderStyle.SINGLE, size: 12, color: CLINICAL_COLORS.mutedText },
+              left: { style: BorderStyle.SINGLE, size: 10, color: APUNTES_COLORS.headingBlue },
             },
             children: [
               new TextRun({
                 text: '📊 [Diagrama clínico - Preservado en texto]:\n',
+                font: 'Roboto',
                 bold: true,
                 size: 18,
-                color: CLINICAL_COLORS.mutedText,
+                color: APUNTES_COLORS.mutedGray,
               }),
               new TextRun({
                 text: block.code,
                 font: 'Courier New',
                 size: 16,
-                color: CLINICAL_COLORS.darkSlate,
+                color: APUNTES_COLORS.bodyText,
               }),
             ],
           })
@@ -202,7 +416,7 @@ export async function generateClinicalDocxBlob(
     } else if (block.kind === 'code') {
       docElements.push(
         new Paragraph({
-          shading: { fill: 'F1F5F9' },
+          shading: { fill: APUNTES_COLORS.definitionBg },
           spacing: { before: 80, after: 80 },
           children: [
             new TextRun({
@@ -217,52 +431,146 @@ export async function generateClinicalDocxBlob(
     }
   }
 
-  const doc = new Document({
-    sections: [
-      {
-        properties: {
-          page: {
-            margin: {
-              top: 1000,
-              bottom: 1000,
-              left: 1000,
-              right: 1000,
-            },
-          },
+  return docElements
+}
+
+export async function generateClinicalDocxBlob(
+  markdown: string,
+  metadata: ClinicalDocxMetadata
+): Promise<Blob> {
+  const blocks = parseMarkdownToClinicalBlocks(markdown)
+  const { effectiveTitle, subtitleOverride, sections } = prepareGdocsSections(
+    blocks,
+    metadata
+  )
+
+  const headerElements = createClinicalHeader(
+    effectiveTitle,
+    metadata.folderPath,
+    metadata.tags,
+    metadata.dateStr,
+    subtitleOverride
+  )
+
+  const runningHeader = createApuntesRunningHeader(metadata.folderPath)
+  const runningFooter = createApuntesFooter()
+
+  const docSections: ISectionOptions[] = [
+    {
+      headers: { default: runningHeader },
+      footers: { default: runningFooter },
+      properties: {
+        page: APUNTES_PAGE_PROPS,
+        column: {
+          count: 1,
+          space: 397,
+          equalWidth: true,
         },
-        children: docElements,
       },
-    ],
+      children: headerElements,
+    },
+  ]
+
+  for (const segment of sections) {
+    const segmentElements = await renderBlocksToDocElements(
+      segment.blocks,
+      !segment.fullWidth
+    )
+    if (segmentElements.length === 0) continue
+
+    docSections.push({
+      properties: {
+        type: SectionType.CONTINUOUS,
+        page: APUNTES_PAGE_PROPS,
+        column: segment.fullWidth
+          ? {
+              count: 1,
+              space: 397,
+              equalWidth: true,
+            }
+          : {
+              count: 2,
+              space: 397,
+              equalWidth: true,
+            },
+      },
+      children: segmentElements,
+    })
+  }
+
+  const doc = new Document({
+    numbering: {
+      config: [
+        {
+          reference: 'clinical-numbering',
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.DECIMAL,
+              text: '%1.',
+              alignment: AlignmentType.LEFT,
+              style: {
+                paragraph: {
+                  indent: { left: 454, hanging: 227 },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    sections: docSections,
   })
 
   return await Packer.toBlob(doc)
 }
 
-function parseInlineFormatting(text: string): TextRun[] {
+function parseInlineFormatting(
+  text: string,
+  opts: { size?: number; color?: string; italics?: boolean } = {}
+): TextRun[] {
+  const size = opts.size ?? 21
+  const color = opts.color ?? APUNTES_COLORS.bodyText
+  const baseItalics = opts.italics ?? false
   const runs: TextRun[] = []
-  // Regex básica para bold (**texto**)
-  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
 
   for (const part of parts) {
-    if (part.startsWith('**') && part.endsWith('**')) {
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       runs.push(
         new TextRun({
           text: part.slice(2, -2),
+          font: 'Roboto',
           bold: true,
-          size: 19,
-          color: CLINICAL_COLORS.bodyText,
+          italics: baseItalics,
+          size,
+          color,
+        })
+      )
+    } else if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
+      runs.push(
+        new TextRun({
+          text: part.slice(1, -1),
+          font: 'Roboto',
+          italics: true,
+          size,
+          color,
         })
       )
     } else if (part) {
       runs.push(
         new TextRun({
           text: part,
-          size: 19,
-          color: CLINICAL_COLORS.bodyText,
+          font: 'Roboto',
+          italics: baseItalics,
+          size,
+          color,
         })
       )
     }
   }
 
-  return runs.length > 0 ? runs : [new TextRun({ text, size: 19, color: CLINICAL_COLORS.bodyText })]
+  return runs.length > 0
+    ? runs
+    : [new TextRun({ text, font: 'Roboto', italics: baseItalics, size, color })]
 }

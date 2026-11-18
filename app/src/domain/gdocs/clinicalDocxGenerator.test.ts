@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import JSZip from 'jszip'
 import { generateClinicalDocxBlob } from './clinicalDocxGenerator'
 import * as mermaidModule from './mermaidPngRenderer'
 
@@ -111,5 +112,67 @@ graph LR
 
     expect(blob).toBeInstanceOf(Blob)
     expect(blob.size).toBeGreaterThan(500)
+  })
+
+  it('genera DOCX con los estilos exactos de Plantilla Apuntes 5to-2 y secciones continuas 1/2 columnas', async () => {
+    const markdown = `
+# TÍTULO DEL TEMA
+Asignatura · Apuntes 5to-2
+
+# INTRODUCCIÓN
+Texto del apunte.
+
+Ejemplo clínico: paciente típico.
+
+Perla clínica: dato de alto rendimiento.
+
+Advertencia: urgencia clínica.
+
+Definición: criterio formal.
+
+# TABLA O ALGORITMO A ANCHO COMPLETO
+Este bloque está en una sola columna.
+
+| Situación | Hallazgo / criterio | Conducta |
+| --- | --- | --- |
+| Paciente estable | Sin criterios | Manejo habitual |
+| Paciente de riesgo | Con hallazgos | Vigilar |
+
+Tabla de ejemplo.
+
+# CONTINUACIÓN DEL APUNTE
+Vuelve a dos columnas.
+
+## Bibliografía
+1. Autor. Guía clínica. 2026.
+`
+
+    const blob = await generateClinicalDocxBlob(markdown, {
+      title: 'Insuficiencia Cardíaca',
+      folderPath: 'Cardiología',
+    })
+
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer())
+    const docXml = await zip.file('word/document.xml')?.async('string')
+    const headerXml = await zip.file('word/header1.xml')?.async('string')
+    const footerXml = await zip.file('word/footer1.xml')?.async('string')
+
+    expect(docXml).toBeDefined()
+    expect(headerXml).toContain('APUNTES 5TO-2')
+    expect(headerXml).toContain('CARDIOLOGÍA')
+    expect(footerXml).toContain('Página')
+
+    // Colores exactos de la plantilla en document.xml
+    expect(docXml).toContain('1F4E79')
+    expect(docXml).toContain('4F81BD')
+    expect(docXml).toContain('D9D2C3')
+    expect(docXml).toContain('FAF9F6')
+    expect(docXml).toContain('F2F2F2')
+    expect(docXml).toContain('F3EFE6')
+    expect(docXml).toContain('FCE8E6')
+    expect(docXml).toContain('F5F5F5')
+    // Alternancia de secciones continuas de 1 y 2 columnas
+    expect(docXml).toContain('continuous')
+    expect(docXml).toContain('w:num="2"')
   })
 })

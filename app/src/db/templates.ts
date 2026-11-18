@@ -15,6 +15,7 @@ interface Section {
 interface Template {
   title: string
   sections: Section[]
+  rawMarkdown?: string
 }
 
 export const TEMPLATES: Template[] = [
@@ -323,10 +324,57 @@ export const TEMPLATES: Template[] = [
       { title: 'Perlas clínicas', kind: 'list' },
     ],
   },
+  {
+    title: 'Apuntes 5to-2 (EUNACOM / Internado)',
+    sections: [],
+    rawMarkdown: [
+      '# {título}',
+      'Asignatura · Apuntes 5to-2',
+      '',
+      '# INTRODUCCIÓN',
+      'Texto del apunte.',
+      '',
+      '## SUBTÍTULO CLÍNICO',
+      'Usa Título 2 para apartados como clínica, diagnóstico, tratamiento, complicaciones o seguimiento. Reserva los punteos para enumeraciones que realmente mejoren la claridad.',
+      '',
+      '### Hallazgo o concepto específico',
+      'Usa Título 3 para subdivisiones puntuales dentro de un apartado. Evita fragmentar demasiado el apunte.',
+      '',
+      '- Primer elemento de una lista breve',
+      '- Segundo elemento de una lista breve',
+      '',
+      'Ejemplo clínico: paciente con una presentación típica que ayuda a aplicar el concepto anterior.',
+      '',
+      'Perla clínica: utiliza este estilo para datos de alto rendimiento, decisiones prácticas o asociaciones particularmente útiles para internado y EUNACOM.',
+      '',
+      'Advertencia: reserva este estilo para urgencias, contraindicaciones, errores graves o situaciones donde la conducta cambie de forma importante.',
+      '',
+      'Definición: utiliza este estilo cuando una definición formal sea importante para comprender o responder una evaluación.',
+      '',
+      '# TABLA O ALGORITMO A ANCHO COMPLETO',
+      'Este bloque está en una sola columna. Úsalo cuando una tabla, algoritmo o imagen sea demasiado ancha para las dos columnas.',
+      '',
+      '| Situación | Hallazgo / criterio | Conducta |',
+      '| --- | --- | --- |',
+      '| Paciente estable | Sin criterios de gravedad | Manejo según contexto clínico |',
+      '| Paciente de riesgo | Hallazgos que modifican conducta | Ampliar estudio / vigilar |',
+      '| Urgencia | Compromiso clínico importante | Actuar y derivar según corresponda |',
+      '',
+      'Tabla de ejemplo. Reemplázala o elimínala según el tema.',
+      '',
+      '# CONTINUACIÓN DEL APUNTE',
+      'Después de un bloque ancho, la plantilla vuelve a dos columnas. Puedes conservar esta estructura o eliminar los bloques que no necesites.',
+      '',
+      '## Bibliografía',
+      '1. Autor o institución. Título del documento o guía. Año.',
+      '2. Autor o institución. Título del texto de referencia. Edición.',
+    ].join('\n'),
+  },
 ]
 
 /** Construye el cuerpo Markdown vacío de un template. */
 export function buildTemplateBody(template: Template): string {
+  if (template.rawMarkdown) return template.rawMarkdown
   const lines: string[] = ['# {título}', '']
   for (const s of template.sections) {
     lines.push(`## ${s.title}`, '')
@@ -374,7 +422,7 @@ export function getTemplateId(title: string): string {
   return `sys-tpl-${slug}`
 }
 
-const SEED_KEY = 'seeded_templates_v2_5'
+const SEED_KEY = 'seeded_templates_v2_6'
 
 /**
  * Siembra la carpeta "Plantillas" con los 12 formatos oficiales de forma determinista e idempotente.

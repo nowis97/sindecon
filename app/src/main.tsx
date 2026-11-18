@@ -22,6 +22,7 @@ if (typeof window !== 'undefined') {
 }
 
 import { createRoot } from 'react-dom/client'
+import './tailwind.css'
 import './index.css'
 import App from './App.tsx'
 import { initSentry } from './observability/sentry.ts'

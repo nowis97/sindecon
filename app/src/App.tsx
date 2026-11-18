@@ -8,6 +8,8 @@ import {
 import { useBacklinks } from './hooks/useBacklinks'
 import { useTheme } from './hooks/useTheme'
 import { useFavorites } from './hooks/useFavorites'
+import { useAuth } from './hooks/useAuth'
+import { LoginView } from './components/auth/LoginView'
 import { useGoogleSync } from './hooks/useGoogleSync'
 import { usePWAUpdate } from './hooks/usePWAUpdate'
 import { usePwaInstall } from './hooks/usePwaInstall'
@@ -15,7 +17,12 @@ import { TreeView } from './components/tree/TreeView'
 import { Breadcrumbs } from './components/tree/Breadcrumbs'
 import { FolderExplorerView } from './components/tree/FolderExplorerView'
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/editor/MarkdownEditor'
-import { ArticleReader, matchPdfBlock } from './components/reader/ArticleReader'
+import {
+  ArticleReader,
+  matchPdfBlock,
+  parseMarkdownBlocks,
+  prepareTemplateDocument,
+} from './components/reader/ArticleReader'
 import { QuickCapture } from './components/capture/QuickCapture'
 import { SmartImportModal } from './components/editor/SmartImportModal'
 import { BulkImportModal } from './components/portability/BulkImportModal'
@@ -117,6 +124,7 @@ function App() {
     triggerSync: triggerGoogleSync,
     initiateOAuthLogin: initiateGoogleOAuth,
   } = useGoogleSync()
+  const { user, isAuthenticated, logout } = useAuth()
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [moveMode, setMoveMode] = useState(false)
@@ -677,6 +685,22 @@ function App() {
     setSidebarOpen(false)
   }
 
+  if (!isAuthenticated) {
+    return (
+      <LoginView
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onGoogleSignIn={initiateGoogleOAuth}
+        onLoginSuccess={(loggedUser) =>
+          setToastMessage(`Sesión iniciada: ${loggedUser.name}`)
+        }
+        onOfflineAccess={() =>
+          setToastMessage('Acceso en Modo Urgencias Offline activado')
+        }
+      />
+    )
+  }
+
   return (
     <div className="app-container">
       <header className="mobile-topbar">
@@ -699,6 +723,15 @@ function App() {
           lastSyncedAt={googleLastSyncedAt}
           onClick={() => setIsGoogleModalOpen(true)}
         />
+        <button
+          type="button"
+          className="btn-topbar-lock"
+          onClick={logout}
+          title={`Sesión activa: ${user?.name || 'Médico'}. Clic para bloquear terminal.`}
+          aria-label="Bloquear terminal"
+        >
+          🔒
+        </button>
         <button
           type="button"
           className="btn-topbar-theme"
@@ -745,6 +778,15 @@ function App() {
                   aria-label="Cambiar tema"
                 >
                   {theme === 'dark' ? '☀️' : '🌙'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-theme-toggle"
+                  onClick={logout}
+                  title={`Sesión activa: ${user?.name || 'Médico'}. Clic para bloquear terminal.`}
+                  aria-label="Bloquear terminal"
+                >
+                  🔒
                 </button>
                 <button
                   type="button"
@@ -1103,6 +1145,12 @@ function App() {
                       ) : (
                         <ArticleReader
                           articleTitle={selected.title}
+                          folderPath={
+                            pathTo(nodes, selected.id)
+                              .slice(0, -1)
+                              .map((n) => n.title)
+                              .join(' · ') || undefined
+                          }
                           markdown={currentBody}
                           onWikiLinkClick={selectArticle}
                           onOpenExportPdf={() => setIsExportPdfOpen(true)}
@@ -1442,100 +1490,107 @@ function App() {
           className={`print-bulk-document print-layout-${bulkPrintState.options.columns === '2' ? 'two-columns' : 'single'} ${bulkPrintState.options.pageBreakBetween ? 'print-break-between' : ''}`}
           aria-hidden="true"
         >
-          {bulkPrintState.items.map(({ node, article: artItem }) => (
-            <div key={node.id} className="print-bulk-article-item">
-              {bulkPrintState.options.includeHeader && (
-                <div className="print-article-header">
-                  <div className="print-header-top">
-                    <span className="print-brand-tag">SINDECON • Cuaderno Médico</span>
-                    <span className="print-date-tag">
-                      {new Date(node.updated_at).toLocaleDateString('es-ES', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </span>
+          {bulkPrintState.items.map(({ node, article: artItem }) => {
+            const itemFolderPath =
+              pathTo(nodes, node.id)
+                .slice(0, -1)
+                .map((n) => n.title)
+                .join(' · ') || undefined
+            const itemMd = artItem?.body_md ?? ''
+            const prepared = prepareTemplateDocument(
+              parseMarkdownBlocks(itemMd),
+              node.title,
+              itemFolderPath,
+            )
+            return (
+              <div key={node.id} className="print-bulk-article-item">
+                {bulkPrintState.options.includeHeader && (
+                  <div className="print-article-header">
+                    <div className="print-running-header">{prepared.runningHeader}</div>
+                    <h1 className="print-article-title">{prepared.docTitle || node.title}</h1>
+                    {prepared.docSubtitle && (
+                      <p className="print-article-subtitle">{prepared.docSubtitle}</p>
+                    )}
                   </div>
-                  <h1 className="print-article-title">{node.title}</h1>
-                  {pathTo(nodes, node.id).length > 1 && (
-                    <div className="print-breadcrumb-path">
-                      📁 {pathTo(nodes, node.id).map((n) => n.title).join(' › ')}
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
 
-              {bulkPrintState.options.includeTags && (artItem?.tags ?? []).length > 0 && (
-                <div className="print-tags-row">
-                  {(artItem?.tags ?? []).map((t: string) => (
-                    <span key={t} className="print-tag-pill">
-                      #{t}
-                    </span>
-                  ))}
-                </div>
-              )}
+                {bulkPrintState.options.includeTags && (artItem?.tags ?? []).length > 0 && (
+                  <div className="print-tags-row">
+                    {(artItem?.tags ?? []).map((t: string) => (
+                      <span key={t} className="print-tag-pill">
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-              <div className="print-article-body">
-                <ArticleReader
-                  articleTitle={node.title}
-                  markdown={artItem?.body_md ?? ''}
-                  onWikiLinkClick={() => {}}
-                  isPrintView={true}
-                />
+                <div className="print-article-body">
+                  <ArticleReader
+                    articleTitle={node.title}
+                    folderPath={itemFolderPath}
+                    markdown={itemMd}
+                    onWikiLinkClick={() => {}}
+                    isPrintView={true}
+                    suppressDocHeader={true}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
       {/* Documento Exclusivo para Impresión / Guardar como PDF */}
-      {selected?.kind === 'article' && (
-        <div
-          id="print-article-document"
-          className={`print-article-document print-layout-${printOptions.columns === '2' ? 'two-columns' : 'single'}`}
-          aria-hidden="true"
-        >
-          {printOptions.includeHeader && (
-            <div className="print-article-header">
-              <div className="print-header-top">
-                <span className="print-brand-tag">SINDECON • Cuaderno Médico</span>
-                <span className="print-date-tag">
-                  {new Date(selected.updated_at).toLocaleDateString('es-ES', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </span>
+      {selected?.kind === 'article' && (() => {
+        const selectedFolderPath =
+          pathTo(nodes, selected.id)
+            .slice(0, -1)
+            .map((n) => n.title)
+            .join(' · ') || undefined
+        const prepared = prepareTemplateDocument(
+          parseMarkdownBlocks(currentBody),
+          selected.title,
+          selectedFolderPath,
+        )
+        return (
+          <div
+            id="print-article-document"
+            className={`print-article-document print-layout-${printOptions.columns === '2' ? 'two-columns' : 'single'}`}
+            aria-hidden="true"
+          >
+            {printOptions.includeHeader && (
+              <div className="print-article-header">
+                <div className="print-running-header">{prepared.runningHeader}</div>
+                <h1 className="print-article-title">{prepared.docTitle || selected.title}</h1>
+                {prepared.docSubtitle && (
+                  <p className="print-article-subtitle">{prepared.docSubtitle}</p>
+                )}
               </div>
-              <h1 className="print-article-title">{selected.title}</h1>
-              {pathTo(nodes, selected.id).length > 1 && (
-                <div className="print-breadcrumb-path">
-                  📁 {pathTo(nodes, selected.id).map((n) => n.title).join(' › ')}
-                </div>
-              )}
-            </div>
-          )}
+            )}
 
-          {printOptions.includeTags && (article?.tags ?? []).length > 0 && (
-            <div className="print-tags-row">
-              {(article?.tags ?? []).map((t) => (
-                <span key={t} className="print-tag-pill">
-                  #{t}
-                </span>
-              ))}
-            </div>
-          )}
+            {printOptions.includeTags && (article?.tags ?? []).length > 0 && (
+              <div className="print-tags-row">
+                {(article?.tags ?? []).map((t) => (
+                  <span key={t} className="print-tag-pill">
+                    #{t}
+                  </span>
+                ))}
+              </div>
+            )}
 
-          <div className="print-article-body">
-            <ArticleReader
-              articleTitle={selected?.title}
-              markdown={currentBody}
-              onWikiLinkClick={() => {}}
-              isPrintView={true}
-            />
+            <div className="print-article-body">
+              <ArticleReader
+                articleTitle={selected?.title}
+                folderPath={selectedFolderPath}
+                markdown={currentBody}
+                onWikiLinkClick={() => {}}
+                isPrintView={true}
+                suppressDocHeader={true}
+              />
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

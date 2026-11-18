@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@theme {
+  --color-clinical-porcelain: #f4f7f9;
+  --color-clinical-navy: #142337;
+  --color-clinical-teal: #0f766e;
+  --color-clinical-icu: #08121a;
+  --color-clinical-cyan: #2dd4bf;
+}
+
+.clinical-login {
+  --cl-bg: #f4f7f9;
+  --cl-bg-subtle: #edf2f6;
+  --cl-surface: #ffffff;
+  --cl-surface-warm: #eaf1f5;
+  --cl-surface-elevated: #ffffff;
+  --cl-fg: #142337;
+  --cl-fg-2: #33485e;
+  --cl-muted: #52677a;
+  --cl-border: #d3dfe8;
+  --cl-border-soft: #e6eef4;
+  --cl-accent: #0f766e;
+  --cl-accent-hover: #115e59;
+  --cl-accent-active: #134e4a;
+  --cl-accent-soft: #e6f4f2;
+  --cl-accent-border: #99d5ce;
+  --cl-diagnostic: #0f766e;
+  --cl-success: #047857;
+  --cl-success-soft: #ecfdf5;
+  --cl-success-border: #86efac;
+  --cl-danger: #be123c;
+  --cl-danger-soft: #fff1f2;
+  --cl-danger-border: #fecdd3;
+  --cl-shadow-card: 0 2px 12px rgba(20, 35, 55, 0.06), 0 1px 3px rgba(20, 35, 55, 0.04);
+  --cl-shadow-tab: 0 1px 3px rgba(20, 35, 55, 0.09);
+  --cl-shell-bg: linear-gradient(180deg, rgba(244, 247, 249, 0.85) 0%, rgba(244, 247, 249, 0.96) 100%);
+  background-color: var(--cl-bg);
+  background-image:
+    linear-gradient(to right, var(--cl-border-soft) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--cl-border-soft) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: top center;
+  color: var(--cl-fg);
+}
+
+.clinical-login[data-login-theme="dark"] {
+  --cl-bg: #08121a;
+  --cl-bg-subtle: #0c1822;
+  --cl-surface: #0f1d28;
+  --cl-surface-warm: #152736;
+  --cl-surface-elevated: #142433;
+  --cl-fg: #f0f6fa;
+  --cl-fg-2: #b9cad8;
+  --cl-muted: #849bb0;
+  --cl-border: #20374a;
+  --cl-border-soft: #172a3a;
+  --cl-accent: #0f766e;
+  --cl-accent-hover: #115e59;
+  --cl-accent-active: #134e4a;
+  --cl-accent-soft: rgba(45, 212, 191, 0.12);
+  --cl-accent-border: rgba(45, 212, 191, 0.34);
+  --cl-diagnostic: #2dd4bf;
+  --cl-success: #34d399;
+  --cl-success-soft: rgba(16, 185, 129, 0.12);
+  --cl-success-border: rgba(52, 211, 153, 0.35);
+  --cl-danger: #fb7185;
+  --cl-danger-soft: rgba(244, 63, 94, 0.14);
+  --cl-danger-border: rgba(251, 113, 133, 0.35);
+  --cl-shadow-card: 0 12px 32px rgba(2, 8, 14, 0.45);
+  --cl-shadow-tab: 0 1px 4px rgba(0, 0, 0, 0.35);
+  --cl-shell-bg: linear-gradient(180deg, rgba(8, 18, 26, 0.86) 0%, rgba(8, 18, 26, 0.97) 100%);
+}
+
+@keyframes clinical-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+.clinical-animate-shake {
+  animation: clinical-shake 340ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clinical-animate-shake {
+    animation: none;
+  }
+}
+
+.btn-topbar-lock {
+  background: var(--bg-muted);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 6px 9px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--dur-fast) var(--ease-smooth),
+              border-color var(--dur-fast) var(--ease-smooth),
+              transform var(--dur-fast) var(--ease-spring),
+              color var(--dur-fast) var(--ease-smooth);
+  user-select: none;
+}
+
+.btn-topbar-lock:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  transform: scale(1.06);
+}
+
+.btn-topbar-lock:active {
+  transform: scale(0.92);
+}

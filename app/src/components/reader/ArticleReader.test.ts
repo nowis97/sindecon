@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   ArticleReader,
   parseMarkdownBlocks,
+  prepareTemplateDocument,
   partitionBlocksIntoSheets,
   estimateBlockHeight,
   paginateTwoColumnBlocks,
@@ -565,6 +566,95 @@ describe('ArticleReader - Google Docs Export Prop & Contract', () => {
       onOpenExportPdf: () => {},
     }
     expect(typeof dummyProps.onOpenExportGoogleDocs).toBe('function')
+  })
+})
+
+describe('Plantilla Apuntes 5to-2 - Callouts naturales, bloques ancho completo y clasificación', () => {
+  it('reconoce prefijos naturales de Ejemplo clínico, Perla clínica, Advertencia y Definición', () => {
+    const md = [
+      'Ejemplo clínico: paciente con presentación típica.',
+      '',
+      '**Perla clínica:** dato de alto rendimiento EUNACOM.',
+      '',
+      'Advertencia: contraindicación absoluta en embarazo.',
+      '',
+      'Definición: síndrome clínico definido por criterios formales.',
+    ].join('\n')
+
+    const blocks = parseMarkdownBlocks(md)
+    expect(blocks).toHaveLength(4)
+    expect(blocks[0]).toMatchObject({ type: 'callout', kind: 'example', title: 'Ejemplo clínico:', inlineFormat: true })
+    expect(blocks[1]).toMatchObject({ type: 'callout', kind: 'tip', title: 'Perla clínica:', inlineFormat: true })
+    expect(blocks[2]).toMatchObject({ type: 'callout', kind: 'warning', title: 'Advertencia:', inlineFormat: true })
+    expect(blocks[3]).toMatchObject({ type: 'callout', kind: 'definition', title: 'Definición:', inlineFormat: true })
+  })
+
+  it('parsea bloques explícitos :::ancho-completo marcando sus bloques internos con fullWidth', () => {
+    const md = [
+      ':::ancho-completo',
+      '### Algoritmo extendido',
+      '| A | B |',
+      '|---|---|',
+      '| 1 | 2 |',
+      ':::',
+    ].join('\n')
+
+    const blocks = parseMarkdownBlocks(md)
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0]).toMatchObject({ type: 'header', level: 3, text: 'Algoritmo extendido', fullWidth: true })
+    expect(blocks[1]).toMatchObject({ type: 'table', fullWidth: true })
+  })
+
+  it('prepara el documento de plantilla Apuntes 5to-2 con título, subtítulo, ancho completo, caption y bibliografía', () => {
+    const md = [
+      '# TÍTULO DEL TEMA',
+      'Asignatura · Apuntes 5to-2',
+      '',
+      '# INTRODUCCIÓN',
+      'Texto del apunte.',
+      '',
+      '# TABLA O ALGORITMO A ANCHO COMPLETO',
+      'Este bloque está en una sola columna. Úsalo cuando una tabla sea ancha.',
+      '',
+      '| Situación | Hallazgo / criterio | Conducta |',
+      '| --- | --- | --- |',
+      '| Paciente estable | Sin criterios de gravedad | Manejo según contexto |',
+      '',
+      'Tabla de ejemplo. Reemplázala según el tema.',
+      '',
+      '## Bibliografía',
+      '1. Autor 1. Guía 1.',
+      '',
+      '2. Autor 2. Guía 2.',
+    ].join('\n')
+
+    const rawBlocks = parseMarkdownBlocks(md)
+    const prepared = prepareTemplateDocument(rawBlocks, 'Cefalea Aguda', 'Neurología')
+
+    expect(prepared.docTitle).toBe('Cefalea Aguda')
+    expect(prepared.docSubtitle).toBe('Neurología · Apuntes 5to-2')
+    expect(prepared.runningHeader).toBe('APUNTES 5TO-2  ·  NEUROLOGÍA')
+
+    const hIntro = prepared.bodyBlocks[0]
+    expect(hIntro).toMatchObject({ type: 'header', level: 1, text: 'INTRODUCCIÓN' })
+    expect('fullWidth' in hIntro ? hIntro.fullWidth : undefined).toBeUndefined()
+
+    const hWide = prepared.bodyBlocks.find((b) => b.type === 'header' && b.text.includes('ANCHO COMPLETO'))
+    expect(hWide).toMatchObject({ fullWidth: true })
+
+    const secNote = prepared.bodyBlocks.find((b) => b.type === 'paragraph' && b.variant === 'secondary')
+    expect(secNote).toMatchObject({ fullWidth: true })
+
+    const tableBlock = prepared.bodyBlocks.find((b) => b.type === 'table')
+    expect(tableBlock).toMatchObject({ fullWidth: true })
+
+    const captionBlock = prepared.bodyBlocks.find((b) => b.type === 'paragraph' && b.variant === 'caption')
+    expect(captionBlock).toMatchObject({ fullWidth: true })
+
+    const bibLists = prepared.bodyBlocks.filter((b) => b.type === 'list' && b.isBibliography)
+    expect(bibLists).toHaveLength(2)
+    expect((bibLists[0] as Extract<typeof bibLists[number], { type: 'list' }>).startNumber).toBe(1)
+    expect((bibLists[1] as Extract<typeof bibLists[number], { type: 'list' }>).startNumber).toBe(2)
   })
 })
 
