@@ -235,17 +235,17 @@ sindecon/
 
 ---
 
-## 🌐 Despliegue en Cloudflare Pages
+## 🌐 Despliegue en Cloudflare (Workers + Static Assets)
 
-El proyecto está 100% optimizado para desplegarse como sitio estático en **Cloudflare Pages**:
+El proyecto está configurado para desplegarse en **Cloudflare Workers** mediante `wrangler.jsonc` + `worker.ts` (o en Cloudflare Pages vía `app/functions/`):
 
 | Configuración | Valor |
 | :--- | :--- |
-| **Framework preset** | `Vite` |
 | **Root directory** | `app` |
 | **Build command** | `npm run build` |
-| **Build output directory** | `dist` |
-| **Node.js version** | `20` o superior |
+| **Deploy command** | `npx wrangler deploy` |
+| **Static Assets (`wrangler.jsonc`)** | `./dist` (`single-page-application`, `run_worker_first: ["/api/*"]`) |
+| **Node.js version** | `22` (fijada en `.node-version`) |
 
 ### Cabeceras HTTP de Cloudflare (`app/public/_headers`)
 El archivo `_headers` se copia automáticamente a `dist/` en cada compilación:

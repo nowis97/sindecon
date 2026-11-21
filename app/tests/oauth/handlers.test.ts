@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import worker from '../../worker'
 import { onRequest as exchangeOnRequest } from '../../functions/api/oauth/exchange'
 import { onRequest as refreshOnRequest } from '../../functions/api/oauth/refresh'
 import { onRequest as logoutOnRequest } from '../../functions/api/oauth/logout'
@@ -628,6 +629,73 @@ describe('oauth endpoints (exchange, refresh, logout)', () => {
       expect(await res.json()).toEqual({ ok: true })
       expect(res.headers.get('Set-Cookie')).toContain('Max-Age=0')
       expect(fetchMock).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Cloudflare Worker entrypoint (worker.ts)', () => {
+    it('enruta /api/oauth/{exchange,refresh,logout} al handler correspondiente sin delegar a ASSETS', async () => {
+      const assetsFetch = vi.fn<typeof fetch>()
+
+      const exchangeReq = new Request('https://sindecon.workers.dev/api/oauth/exchange', {
+        method: 'GET',
+        headers: { Origin: 'https://sindecon.workers.dev' },
+      })
+      const exchangeRes = await worker.fetch(exchangeReq, {
+        ...TEST_ENV,
+        ASSETS: { fetch: assetsFetch },
+      })
+      expect(exchangeRes.status).toBe(405)
+      expect(await exchangeRes.json()).toEqual({ error: 'method_not_allowed' })
+
+      const refreshReq = new Request('https://sindecon.workers.dev/api/oauth/refresh', {
+        method: 'POST',
+        headers: { Origin: 'https://sindecon.workers.dev' },
+      })
+      const refreshRes = await worker.fetch(refreshReq, {
+        ...TEST_ENV,
+        ASSETS: { fetch: assetsFetch },
+      })
+      expect(refreshRes.status).toBe(401)
+      expect(await refreshRes.json()).toEqual({ error: 'session_expired' })
+
+      const logoutReq = new Request('https://sindecon.workers.dev/api/oauth/logout', {
+        method: 'POST',
+        headers: { Origin: 'https://sindecon.workers.dev' },
+      })
+      const logoutRes = await worker.fetch(logoutReq, {
+        ...TEST_ENV,
+        ASSETS: { fetch: assetsFetch },
+      })
+      expect(logoutRes.status).toBe(200)
+      expect(await logoutRes.json()).toEqual({ ok: true })
+
+      expect(assetsFetch).not.toHaveBeenCalled()
+    })
+
+    it('responde 404 JSON en rutas /api/* desconocidas y delega rutas estáticas a env.ASSETS', async () => {
+      const assetsFetch = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(new Response('<html>SPA</html>', { status: 200 }))
+
+      const apiMissingReq = new Request('https://sindecon.workers.dev/api/unknown', {
+        method: 'GET',
+      })
+      const apiMissingRes = await worker.fetch(apiMissingReq, {
+        ...TEST_ENV,
+        ASSETS: { fetch: assetsFetch },
+      })
+      expect(apiMissingRes.status).toBe(404)
+      expect(await apiMissingRes.json()).toEqual({ error: 'not_found' })
+      expect(assetsFetch).not.toHaveBeenCalled()
+
+      const appReq = new Request('https://sindecon.workers.dev/', { method: 'GET' })
+      const appRes = await worker.fetch(appReq, {
+        ...TEST_ENV,
+        ASSETS: { fetch: assetsFetch },
+      })
+      expect(appRes.status).toBe(200)
+      expect(await appRes.text()).toBe('<html>SPA</html>')
+      expect(assetsFetch).toHaveBeenCalledTimes(1)
     })
   })
 })
