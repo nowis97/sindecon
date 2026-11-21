@@ -176,6 +176,19 @@ describe('useGoogleSync orchestration helpers', () => {
           hasValidToken: true,
         }),
       ).toBe(false)
+
+      expect(
+        shouldAttemptBackgroundSync({
+          enabled: true,
+          isOnline: true,
+          usesServerOAuth: true,
+          serverSessionExpired: false,
+          hasValidToken: true,
+          now: 100_000,
+          lastAttemptAt: 70_000,
+          cooldownMs: 60_000,
+        }),
+      ).toBe(false)
     })
 
     it('permite sincronizar en modo BFF cuando la sesión no está confirmada expirada o con token vigente en modo legacy', () => {
@@ -196,6 +209,32 @@ describe('useGoogleSync orchestration helpers', () => {
           usesServerOAuth: false,
           serverSessionExpired: false,
           hasValidToken: true,
+        }),
+      ).toBe(true)
+
+      expect(
+        shouldAttemptBackgroundSync({
+          enabled: true,
+          isOnline: true,
+          usesServerOAuth: true,
+          serverSessionExpired: false,
+          hasValidToken: true,
+          now: 130_000,
+          lastAttemptAt: 70_000,
+          cooldownMs: 60_000,
+        }),
+      ).toBe(true)
+
+      expect(
+        shouldAttemptBackgroundSync({
+          enabled: true,
+          isOnline: true,
+          usesServerOAuth: true,
+          serverSessionExpired: false,
+          hasValidToken: true,
+          now: 10_000,
+          lastAttemptAt: 0,
+          cooldownMs: 60_000,
         }),
       ).toBe(true)
     })
@@ -255,8 +294,9 @@ describe('useGoogleSync orchestration helpers', () => {
       expect(result).toEqual(OK_SYNC)
     })
 
-    it('retorna null sin propagar error si el refresco tras 401 indica sesión expirada', async () => {
+    it('retorna null sin propagar error e invoca onSessionExpired si el refresco tras 401 indica sesión expirada', async () => {
       const ensureToken = vi.fn().mockResolvedValue(null)
+      const onSessionExpired = vi.fn()
       const runSync = vi.fn().mockRejectedValueOnce(new Error('Sesión de Google Drive expirada'))
 
       const result = await syncWithAutoRefresh({
@@ -264,14 +304,17 @@ describe('useGoogleSync orchestration helpers', () => {
         ensureToken,
         runSync,
         isSessionError: (msg) => msg.includes('401') || msg.includes('expirada'),
+        onSessionExpired,
       })
 
       expect(ensureToken).toHaveBeenCalledWith(true)
+      expect(onSessionExpired).toHaveBeenCalledTimes(1)
       expect(result).toBeNull()
     })
 
     it('propaga errores transitorios que no son de sesión sin reintentar ni forzar refresh', async () => {
       const ensureToken = vi.fn()
+      const onSessionExpired = vi.fn()
       const runSync = vi.fn().mockRejectedValueOnce(new Error('Error 503 Service Unavailable'))
 
       await expect(
@@ -280,15 +323,18 @@ describe('useGoogleSync orchestration helpers', () => {
           ensureToken,
           runSync,
           isSessionError: (msg) => msg.includes('401') || msg.includes('expirada'),
+          onSessionExpired,
         }),
       ).rejects.toThrow('Error 503 Service Unavailable')
 
       expect(ensureToken).not.toHaveBeenCalled()
+      expect(onSessionExpired).not.toHaveBeenCalled()
       expect(runSync).toHaveBeenCalledTimes(1)
     })
 
-    it('propaga errores transitorios si ensureToken rechaza al renovar', async () => {
+    it('propaga errores transitorios si ensureToken rechaza al renovar sin marcar sesión expirada', async () => {
       const ensureToken = vi.fn().mockRejectedValueOnce(new Error('Error temporal renovando sesión de Google (502)'))
+      const onSessionExpired = vi.fn()
       const runSync = vi.fn()
 
       await expect(
@@ -297,10 +343,12 @@ describe('useGoogleSync orchestration helpers', () => {
           ensureToken,
           runSync,
           isSessionError: (msg) => msg.includes('401') || msg.includes('expirada'),
+          onSessionExpired,
         }),
       ).rejects.toThrow('Error temporal renovando sesión de Google (502)')
 
       expect(ensureToken).toHaveBeenCalledWith(false)
+      expect(onSessionExpired).not.toHaveBeenCalled()
       expect(runSync).not.toHaveBeenCalled()
     })
 
