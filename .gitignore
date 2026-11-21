@@ -22,3 +22,6 @@ Desktop.ini
 
 # Worktrees locales
 .worktrees/
+
+.dev.vars
+.wrangler/
