@@ -43,9 +43,11 @@ export default defineConfig({
       },
       workbox: {
         // Precache de todos los assets → la app abre offline completa.
-        // La navegación SPA cae a index.html (navigateFallback por defecto).
+        // La navegación SPA cae a index.html (navigateFallback por defecto),
+        // excluyendo /api/* para no interceptar Cloudflare Pages Functions.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         maximumFileSizeToCacheInBytes: 15 * 1024 * 1024,
+        navigateFallbackDenylist: [/^\/api\//],
       },
     }),
   ],

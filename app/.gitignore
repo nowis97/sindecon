@@ -28,3 +28,7 @@ test-results/
 playwright-report/
 blob-report/
 
+# Cloudflare Wrangler / Pages Functions local secrets
+.dev.vars
+.wrangler/
+

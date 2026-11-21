@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { generateClinicalDocxBlob } from '../../domain/gdocs/clinicalDocxGenerator'
-import { uploadDocxAsGoogleDoc } from '../../pwa/googleDocsUpload'
+import { uploadDocxAsGoogleDoc, type GoogleDocUploadResult } from '../../pwa/googleDocsUpload'
 import {
   getStoredToken,
   setStoredToken,
   clearStoredToken,
   isTokenExpired,
-  getStoredClientId,
-  GOOGLE_DRIVE_SCOPES,
+  ensureValidAccessToken,
+  initiateGoogleOAuthFlow,
+  fetchGoogleUserEmail,
 } from '../../pwa/googleDrive'
 
 export type GoogleDocsExportStatus =
@@ -68,6 +69,59 @@ export function isSessionExpiredError(msg?: string | null): boolean {
     lower.includes('invalid_token') ||
     lower.includes('unauthorized')
   )
+}
+
+/**
+ * Resuelve un token vigente desde props, localStorage o refresco silencioso en BFF.
+ */
+export async function resolveTokenForDocsExport(
+  propToken: string | null | undefined,
+  deps: {
+    getToken: () => string | null
+    isExpired: (marginMinutes?: number) => boolean
+    ensureToken: (forceRefresh?: boolean) => Promise<string | null>
+  } = {
+    getToken: getStoredToken,
+    isExpired: isTokenExpired,
+    ensureToken: ensureValidAccessToken,
+  },
+): Promise<string | null> {
+  if (propToken) return propToken
+  const current = deps.getToken()
+  if (current && !deps.isExpired(1)) {
+    return current
+  }
+  return await deps.ensureToken(false)
+}
+
+/**
+ * Sube el DOCX a Google Drive reintentando una única vez si el token caducó (401).
+ */
+export async function uploadDocxWithTokenRetry(
+  blob: Blob,
+  cleanTitle: string,
+  activeToken: string,
+  deps: {
+    upload: (b: Blob, t: string, token: string) => Promise<GoogleDocUploadResult>
+    ensureToken: (forceRefresh?: boolean) => Promise<string | null>
+  } = {
+    upload: uploadDocxAsGoogleDoc,
+    ensureToken: ensureValidAccessToken,
+  },
+): Promise<GoogleDocUploadResult> {
+  try {
+    return await deps.upload(blob, cleanTitle, activeToken)
+  } catch (err) {
+    const msg = (err as Error)?.message || ''
+    if (!isSessionExpiredError(msg)) {
+      throw err
+    }
+    const refreshedToken = await deps.ensureToken(true)
+    if (!refreshedToken) {
+      throw err
+    }
+    return await deps.upload(blob, cleanTitle, refreshedToken)
+  }
 }
 
 /**
@@ -193,7 +247,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
         // 2. Subir a Google Drive con conversión a Google Docs nativo
         if (!isMountedRef.current) return
         setStatus('uploading')
-        const uploadResult = await uploadDocxAsGoogleDoc(blob, cleanTitle, activeToken)
+        const uploadResult = await uploadDocxWithTokenRetry(blob, cleanTitle, activeToken)
         if (!isMountedRef.current) return
         setDocUrl(uploadResult.url)
         setStatus('success')
@@ -221,60 +275,22 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
       return
     }
 
-    const win = window as unknown as {
-      google?: {
-        accounts?: {
-          oauth2?: {
-            initTokenClient: (config: {
-              client_id: string
-              scope: string
-              callback: (res: { access_token?: string; expires_in?: number; error?: string }) => void
-            }) => { requestAccessToken: (opts?: { prompt?: string }) => void }
-          }
-        }
-      }
-    }
-
-    const clientId = getStoredClientId()
-    if (!clientId) {
-      if (!isMountedRef.current) return
-      setStatus('error')
-      setErrorMessage(
-        'No hay Client ID de Google configurado. Puedes descargar el archivo .docx directamente o configurar tu Client ID en Ajustes.'
-      )
-      return
-    }
-
-    if (!win.google?.accounts?.oauth2) {
-      if (!isMountedRef.current) return
-      setStatus('error')
-      setErrorMessage(
-        'Google Identity Services no está listo en el navegador. Por favor verifica tu conexión o descarga el archivo .docx.'
-      )
-      return
-    }
-
-    try {
-      const client = win.google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: GOOGLE_DRIVE_SCOPES,
-        callback: (response) => {
+    initiateGoogleOAuthFlow({
+      onSuccess: (accessToken, expiresIn, email) => {
+        if (!isMountedRef.current) return
+        void (async () => {
+          const finalEmail = email || (await fetchGoogleUserEmail(accessToken)) || undefined
+          setStoredToken(accessToken, expiresIn, finalEmail)
           if (!isMountedRef.current) return
-          if (response.access_token) {
-            setStoredToken(response.access_token, response.expires_in || 3600)
-            void executeExport(response.access_token)
-          } else if (response.error) {
-            setStatus('error')
-            setErrorMessage(`Error de Google Identity Services: ${response.error}`)
-          }
-        },
-      })
-      client.requestAccessToken({ prompt: '' })
-    } catch (e) {
-      if (!isMountedRef.current) return
-      setStatus('error')
-      setErrorMessage((e as Error).message || 'Error al iniciar sesión con Google')
-    }
+          void executeExport(accessToken)
+        })()
+      },
+      onError: (msg) => {
+        if (!isMountedRef.current) return
+        setStatus('error')
+        setErrorMessage(msg)
+      },
+    })
   }, [executeExport, onInitiateOAuth])
 
   // Inicializar estado cuando se abre el modal
@@ -297,11 +313,29 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
       return
     }
 
-    const currentToken = propToken || getStoredToken()
-    if (currentToken && !isTokenExpired(1)) {
-      void executeExport(currentToken)
-    } else {
-      setStatus('idle')
+    let cancelled = false
+    let didStart = false
+    void resolveTokenForDocsExport(propToken)
+      .then((resolvedToken) => {
+        if (cancelled || !isMountedRef.current) return
+        didStart = true
+        if (resolvedToken) {
+          void executeExport(resolvedToken)
+        } else {
+          setStatus('idle')
+        }
+      })
+      .catch(() => {
+        if (cancelled || !isMountedRef.current) return
+        didStart = true
+        setStatus('idle')
+      })
+
+    return () => {
+      cancelled = true
+      if (!didStart) {
+        hasStartedRef.current = false
+      }
     }
   }, [isOpen, propToken, executeExport])
 
@@ -537,9 +571,20 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const currentToken = propToken || getStoredToken()
-                    if (currentToken) void executeExport(currentToken)
-                    else handleOAuthConnect()
+                    if (!navigator.onLine) return
+                    void resolveTokenForDocsExport(propToken)
+                      .then((resolvedToken) => {
+                        if (!isMountedRef.current) return
+                        if (resolvedToken) void executeExport(resolvedToken)
+                        else setStatus('idle')
+                      })
+                      .catch((err: unknown) => {
+                        if (!isMountedRef.current) return
+                        setStatus('error')
+                        setErrorMessage(
+                          (err as Error)?.message || 'Error al reconectar con Google Drive',
+                        )
+                      })
                   }}
                   style={{
                     background: 'none',
