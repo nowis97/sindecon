@@ -64,6 +64,17 @@ function isSubtitleBlock(block: ClinicalBlock | undefined): block is Extract<Cli
   return /(?:·|\|)\s*Apuntes\s+5to-2/i.test(block.text) || /^Asignatura\s*·/i.test(block.text.trim())
 }
 
+function normalizeCustomSubtitle(rawText: string, folderPath?: string): string | undefined {
+  const trimmed = rawText.trim()
+  if (!trimmed || /^Asignatura\s*·\s*Apuntes\s+5to-2$/i.test(trimmed)) {
+    return undefined
+  }
+  const subjectText = folderPath?.trim()
+  return subjectText && /^Asignatura\s*·/i.test(trimmed)
+    ? trimmed.replace(/^Asignatura/i, subjectText)
+    : trimmed
+}
+
 function prepareGdocsSections(
   blocks: ClinicalBlock[],
   metadata: ClinicalDocxMetadata
@@ -94,11 +105,8 @@ function prepareGdocsSections(
   }
 
   if (isSubtitleBlock(blocks[startIndex])) {
-    const rawSub = (blocks[startIndex] as Extract<ClinicalBlock, { kind: 'paragraph' }>).text.trim()
-    subtitleOverride =
-      metadata.folderPath?.trim() && /^Asignatura\s*·/i.test(rawSub)
-        ? rawSub.replace(/^Asignatura/i, metadata.folderPath.trim())
-        : rawSub
+    const rawSub = (blocks[startIndex] as Extract<ClinicalBlock, { kind: 'paragraph' }>).text
+    subtitleOverride = normalizeCustomSubtitle(rawSub, metadata.folderPath)
     startIndex++
   }
 
@@ -145,9 +153,9 @@ function prepareGdocsSections(
         /^\*[^*]+\*$/.test(block.text.trim())
 
       if (block.variant === 'subtitle') {
-        if (metadata.folderPath?.trim() && /^Asignatura\s*·/i.test(block.text.trim())) {
-          block.text = block.text.trim().replace(/^Asignatura/i, metadata.folderPath.trim())
-        }
+        const normalizedSub = normalizeCustomSubtitle(block.text, metadata.folderPath)
+        if (!normalizedSub) continue
+        block.text = normalizedSub
       } else if (block.variant === 'bibliography') {
         // Marcador REF: permanece en flujo secuencial de 2 columnas (col 1 -> col 2)
       } else if (block.variant === 'secondary') {

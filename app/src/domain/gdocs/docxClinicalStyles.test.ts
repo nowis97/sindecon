@@ -24,13 +24,18 @@ describe('docxClinicalStyles', () => {
     expect(APUNTES_COLORS.definitionBg).toBe('F5F5F5')
   })
 
-  it('construye el encabezado médico con marca SINDECON y fecha', () => {
+  it('construye el encabezado médico sin subtítulo automático cuando no hay subtitleOverride', () => {
     const paragraphs = createClinicalHeader('Cefaleas Agudas', 'Urgencias/Neurología', ['urgente', 'neurologia'], '03/11/2026')
-    expect(paragraphs.length).toBeGreaterThanOrEqual(3)
+    expect(paragraphs.length).toBe(2)
   })
 
-  it('construye el encabezado sin ruta ni tags opcionales', () => {
+  it('construye el encabezado solo con el título cuando no hay subtítulo ni tags opcionales', () => {
     const paragraphs = createClinicalHeader('Cefaleas Agudas')
+    expect(paragraphs.length).toBe(1)
+  })
+
+  it('incluye subtítulo cuando se pasa subtitleOverride explícito', () => {
+    const paragraphs = createClinicalHeader('Cefaleas Agudas', undefined, [], undefined, 'Neurología')
     expect(paragraphs.length).toBe(2)
   })
 

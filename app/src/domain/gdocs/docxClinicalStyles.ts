@@ -115,13 +115,15 @@ export function createApuntesFooter(): Footer {
 
 export function createClinicalHeader(
   title: string,
-  folderPath?: string,
+  _folderPath?: string,
   tags: string[] = [],
   dateStr?: string,
   subtitleOverride?: string
 ): Paragraph[] {
+  const subtitleText = subtitleOverride?.trim()
+
   const titleParagraph = new Paragraph({
-    spacing: { before: 0, after: 140, line: 240 },
+    spacing: { before: 0, after: subtitleText ? 140 : 200, line: 240 },
     border: {
       bottom: {
         color: APUNTES_COLORS.titleBorderBlue,
@@ -141,23 +143,23 @@ export function createClinicalHeader(
     ],
   })
 
-  const subtitleText =
-    subtitleOverride?.trim() ||
-    `${folderPath?.trim() || 'Asignatura'} · Apuntes 5to-2`
+  const result: Paragraph[] = [titleParagraph]
 
-  const subtitleParagraph = new Paragraph({
-    spacing: { before: 0, after: 200 },
-    children: [
-      new TextRun({
-        text: subtitleText,
-        font: 'Roboto',
-        size: 19, // 9.5pt
-        color: APUNTES_COLORS.mutedGray,
-      }),
-    ],
-  })
-
-  const result: Paragraph[] = [titleParagraph, subtitleParagraph]
+  if (subtitleText) {
+    result.push(
+      new Paragraph({
+        spacing: { before: 0, after: 200 },
+        children: [
+          new TextRun({
+            text: subtitleText,
+            font: 'Roboto',
+            size: 19, // 9.5pt
+            color: APUNTES_COLORS.mutedGray,
+          }),
+        ],
+      })
+    )
+  }
 
   if (tags.length > 0 || dateStr) {
     const metaRuns: TextRun[] = []

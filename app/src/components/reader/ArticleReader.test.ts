@@ -691,6 +691,34 @@ describe('Plantilla Apuntes 5to-2 - Callouts naturales, bloques ancho completo y
     expect('fullWidth' in bibRefs[0] ? bibRefs[0].fullWidth : undefined).toBeUndefined()
     expect('fullWidth' in bibRefs[1] ? bibRefs[1].fullWidth : undefined).toBeUndefined()
   })
+
+  it('no genera subtítulo automático "Asignatura · Apuntes 5to-2" cuando no se escribe @SUBTÍTULO', () => {
+    const preparedFromContent = prepareTemplateDocument(
+      parseMarkdownBlocks('# Neumonía Adquirida en la Comunidad\n\n## Definición\nInfección aguda del parénquima pulmonar.'),
+      'Neumonía Adquirida en la Comunidad',
+      'Medicina Interna',
+    )
+    expect(preparedFromContent.docTitle).toBe('Neumonía Adquirida en la Comunidad')
+    expect(preparedFromContent.docSubtitle).toBeNull()
+
+    const preparedEmpty = prepareTemplateDocument([], 'Apunte Nuevo', 'Cardiología')
+    expect(preparedEmpty.docTitle).toBe('Apunte Nuevo')
+    expect(preparedEmpty.docSubtitle).toBeNull()
+  })
+
+  it('suprime el placeholder heredado "Asignatura · Apuntes 5to-2" debajo del título', () => {
+    const mdWithTag = '# Shock Séptico\n@SUBTÍTULO: Asignatura · Apuntes 5to-2\n\n## Definición\nDisfunción orgánica.'
+    const preparedTag = prepareTemplateDocument(parseMarkdownBlocks(mdWithTag), 'Shock Séptico', 'UCI')
+    expect(preparedTag.docTitle).toBe('Shock Séptico')
+    expect(preparedTag.docSubtitle).toBeNull()
+    expect(preparedTag.bodyBlocks.some((b) => b.type === 'paragraph' && /Asignatura\s*·\s*Apuntes/i.test(b.text))).toBe(false)
+
+    const mdBare = '# Shock Séptico\nAsignatura · Apuntes 5to-2\n\n## Definición\nDisfunción orgánica.'
+    const preparedBare = prepareTemplateDocument(parseMarkdownBlocks(mdBare), 'Shock Séptico')
+    expect(preparedBare.docTitle).toBe('Shock Séptico')
+    expect(preparedBare.docSubtitle).toBeNull()
+    expect(preparedBare.bodyBlocks.some((b) => b.type === 'paragraph' && /Asignatura\s*·\s*Apuntes/i.test(b.text))).toBe(false)
+  })
 })
 
 

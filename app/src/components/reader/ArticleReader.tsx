@@ -162,6 +162,16 @@ function isSubtitleParagraph(block: Block | undefined): block is Extract<Block, 
   return /(?:·|\|)\s*Apuntes\s+5to-2/i.test(block.text) || /^Asignatura\s*·/i.test(block.text.trim())
 }
 
+function normalizeCustomSubtitle(rawText: string, subjectText?: string): string | null {
+  const trimmed = rawText.trim()
+  if (!trimmed || /^Asignatura\s*·\s*Apuntes\s+5to-2$/i.test(trimmed)) {
+    return null
+  }
+  return subjectText && /^Asignatura\s*·/i.test(trimmed)
+    ? trimmed.replace(/^Asignatura/i, subjectText)
+    : trimmed
+}
+
 /**
  * Prepara los bloques parseados para el layout de la plantilla Apuntes 5to-2:
  * - Promueve título (#) y subtítulo (@SUBTÍTULO:) iniciales al bloque de cabecera a 1 columna.
@@ -178,9 +188,7 @@ export function prepareTemplateDocument(
   if (blocks.length === 0) {
     return {
       docTitle: articleTitle?.trim() || null,
-      docSubtitle: articleTitle?.trim()
-        ? `${subjectText || 'Asignatura'} · Apuntes 5to-2`
-        : null,
+      docSubtitle: null,
       bodyBlocks: [],
     }
   }
@@ -213,14 +221,9 @@ export function prepareTemplateDocument(
   }
 
   if (isSubtitleParagraph(blocks[startIndex])) {
-    const rawSub = (blocks[startIndex] as Extract<Block, { type: 'paragraph' }>).text.trim()
-    docSubtitle =
-      subjectText && /^Asignatura\s*·/i.test(rawSub)
-        ? rawSub.replace(/^Asignatura/i, subjectText)
-        : rawSub
+    const rawSub = (blocks[startIndex] as Extract<Block, { type: 'paragraph' }>).text
+    docSubtitle = normalizeCustomSubtitle(rawSub, subjectText)
     startIndex++
-  } else if (docTitle) {
-    docSubtitle = `${subjectText || 'Asignatura'} · Apuntes 5to-2`
   }
 
   const enriched: Block[] = []
@@ -267,9 +270,9 @@ export function prepareTemplateDocument(
         /^\*[^*]+\*$/.test(block.text.trim())
 
       if (block.variant === 'subtitle') {
-        if (subjectText && /^Asignatura\s*·/i.test(block.text.trim())) {
-          block.text = block.text.trim().replace(/^Asignatura/i, subjectText)
-        }
+        const normalizedSub = normalizeCustomSubtitle(block.text, subjectText)
+        if (!normalizedSub) continue
+        block.text = normalizedSub
       } else if (block.variant === 'bibliography') {
         // Marcador explícito REF: permanece en flujo de 2 columnas (llenando col 1 antes de pasar a col 2)
       } else if (block.variant === 'secondary') {

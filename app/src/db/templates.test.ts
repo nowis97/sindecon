@@ -66,7 +66,8 @@ describe('plantillas (spec templates)', () => {
     expect(tpls[10].body).toContain('Fuentes')
     expect(tpls[11].body).toContain('## Estadificación / TNM')
     expect(tpls[11].body).toContain('## Tratamiento según estadio')
-    expect(tpls[12].body).toContain('@SUBTÍTULO: Asignatura · Apuntes 5to-2')
+    expect(tpls[12].body).not.toContain('Asignatura · Apuntes 5to-2')
+    expect(tpls[12].body).not.toContain('@SUBTÍTULO:')
     expect(tpls[12].body).toContain('> [!PERLA]')
     expect(tpls[12].body).toContain('*FIGURA:*')
     expect(tpls[12].body).toContain('REF:')
@@ -180,5 +181,20 @@ describe('plantillas (spec templates)', () => {
       expect(body).toContain(`# Caso · ${title.replace('Caso · ', '')}`)
       expect(body).not.toContain('{título}')
     }
+  })
+
+  it('actualiza la plantilla Apuntes 5to-2 heredada si aún contenía @SUBTÍTULO: Asignatura · Apuntes 5to-2', async () => {
+    await seedTemplatesIfNeeded()
+    const tplId = 'sys-tpl-apuntes-5to-2-eunacom-internado'
+    await db.articles.update(tplId, {
+      body_md: '# {título}\n@SUBTÍTULO: Asignatura · Apuntes 5to-2\n\n## INTRODUCCIÓN\nTexto.',
+    })
+    await db.meta.put({ key: 'seeded_templates_v2_8', value: true })
+    await db.meta.delete('seeded_templates_v2_9')
+
+    await seedTemplatesIfNeeded()
+    const updated = await db.articles.get(tplId)
+    expect(updated?.body_md).not.toContain('Asignatura · Apuntes 5to-2')
+    expect(updated?.body_md).not.toContain('@SUBTÍTULO:')
   })
 })

@@ -2435,6 +2435,11 @@ body {
   width: 100%;
 }
 
+.reader-doc-title:last-child,
+.print-article-title:last-child {
+  margin-bottom: 10pt;
+}
+
 .reader-doc-subtitle,
 .print-article-subtitle {
   font-family: 'Roboto', sans-serif;
@@ -5230,6 +5235,11 @@ select.dialog-input {
     letter-spacing: 0.25pt !important;
     width: 100% !important;
     display: block !important;
+  }
+
+  .print-article-title:last-child,
+  .reader-doc-title:last-child {
+    margin-bottom: 10pt !important;
   }
 
   .print-article-subtitle,

@@ -43,6 +43,11 @@ graph TD
     expect(blob).toBeInstanceOf(Blob)
     expect(blob.size).toBeGreaterThan(500)
     expect(blob.type).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer())
+    const docXml = await zip.file('word/document.xml')?.async('string')
+    expect(docXml).not.toContain('Asignatura · Apuntes 5to-2')
+    expect(docXml).not.toContain('Apuntes 5to-2')
   })
 
   it('maneja fallback elegante cuando mermaid falla al renderizar', async () => {
@@ -203,5 +208,25 @@ REF: Autor. Guía clínica. 2026.
     expect(sectPrMatches.length).toBeGreaterThanOrEqual(2)
     const lastSectPr = sectPrMatches[sectPrMatches.length - 1]
     expect(lastSectPr).toContain('w:num="2"')
+  })
+
+  it('omite el subtítulo placeholder "Asignatura · Apuntes 5to-2" en la exportación DOCX', async () => {
+    const markdown = `
+# Dolor Torácico
+@SUBTÍTULO: Asignatura · Apuntes 5to-2
+
+## Enfoque inicial
+Descartar causas potencialmente letales.
+`
+    const blob = await generateClinicalDocxBlob(markdown, {
+      title: 'Dolor Torácico',
+      folderPath: 'Urgencias',
+    })
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer())
+    const docXml = await zip.file('word/document.xml')?.async('string')
+    expect(docXml).toContain('Dolor Torácico')
+    expect(docXml).not.toContain('Asignatura · Apuntes 5to-2')
+    expect(docXml).not.toContain('Urgencias · Apuntes 5to-2')
+    expect(docXml).not.toContain('Apuntes 5to-2')
   })
 })

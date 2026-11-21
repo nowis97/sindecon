@@ -329,7 +329,6 @@ export const TEMPLATES: Template[] = [
     sections: [],
     rawMarkdown: [
       '# {título}',
-      '@SUBTÍTULO: Asignatura · Apuntes 5to-2',
       '',
       '## INTRODUCCIÓN',
       'Texto del apunte.',
@@ -431,7 +430,7 @@ export function getTemplateId(title: string): string {
   return `sys-tpl-${slug}`
 }
 
-const SEED_KEY = 'seeded_templates_v2_8'
+const SEED_KEY = 'seeded_templates_v2_9'
 
 /**
  * Siembra la carpeta "Plantillas" con los 12 formatos oficiales de forma determinista e idempotente.
@@ -511,7 +510,12 @@ export async function seedTemplatesIfNeeded(): Promise<boolean> {
       }
     } else if (tplId === 'sys-tpl-apuntes-5to-2-eunacom-internado') {
       const art = await db.articles.get(tplId)
-      if (art && !art.body_md.includes('@SUBTÍTULO:')) {
+      if (
+        art &&
+        (art.body_md.includes('@SUBTÍTULO: Asignatura · Apuntes 5to-2') ||
+          art.body_md.includes('Asignatura · Apuntes 5to-2') ||
+          !art.body_md.includes('> [!PERLA]'))
+      ) {
         await db.articles.update(tplId, { body_md: buildTemplateBody(t) })
         anySeeded = true
       }
