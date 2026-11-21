@@ -12,6 +12,7 @@ import {
 } from './googleDrive'
 
 const LAST_SYNC_KEY = 'cuaderno-last-sync-time'
+const LAST_CHECK_KEY = 'cuaderno-last-check-time'
 const DEVICE_ID_KEY = 'cuaderno-device-id'
 
 export type SyncState = 'idle' | 'checking' | 'syncing' | 'offline' | 'error'
@@ -27,8 +28,23 @@ export type SyncProgressCallback = (progress: SyncProgress) => void
 export interface SyncEngineResult {
   action: 'uploaded' | 'downloaded' | 'merged' | 'up-to-date' | 'skipped'
   timestamp: number
+  checkedAt?: number
   report?: MergeReport
   message?: string
+}
+
+function getStoredTimestamp(key: string): number {
+  const t = localStorage.getItem(key)
+  const parsed = t ? Number.parseInt(t, 10) : 0
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+function setStoredTimestamp(key: string, timestamp: number) {
+  if (timestamp > 0) {
+    localStorage.setItem(key, timestamp.toString())
+  } else {
+    localStorage.removeItem(key)
+  }
 }
 
 export function getDeviceId(): string {
@@ -41,22 +57,122 @@ export function getDeviceId(): string {
 }
 
 export function getLastSyncTime(): number {
-  const t = localStorage.getItem(LAST_SYNC_KEY)
-  return t ? Number.parseInt(t, 10) : 0
+  return getStoredTimestamp(LAST_SYNC_KEY)
 }
 
 export function setLastSyncTime(timestamp: number) {
-  localStorage.setItem(LAST_SYNC_KEY, timestamp.toString())
+  setStoredTimestamp(LAST_SYNC_KEY, timestamp)
+}
+
+export function getLastCheckTime(): number {
+  return getStoredTimestamp(LAST_CHECK_KEY)
+}
+
+export function setLastCheckTime(timestamp: number) {
+  setStoredTimestamp(LAST_CHECK_KEY, timestamp)
+}
+
+/** Calcula etiqueta, clase y tooltip del indicador de sincronización según estado y cambios pendientes. */
+export function getSyncStatusDetails(input: {
+  isConnected: boolean
+  isSessionExpired?: boolean
+  hasPendingChanges?: boolean
+  syncState: SyncState
+  syncProgress?: SyncProgress | null
+  lastSyncedAt: Date | null
+}): { status: string; label: string; title: string } {
+  if (!input.isConnected) {
+    return {
+      status: 'disconnected',
+      label: 'Drive',
+      title: 'Google Drive no conectado. Haz click para activar sincronización y backup automático.',
+    }
+  }
+
+  if (input.syncState === 'syncing' || input.syncState === 'checking') {
+    const percent =
+      input.syncProgress?.percent !== undefined ? Math.round(input.syncProgress.percent) : null
+    return {
+      status: 'syncing',
+      label: percent !== null ? `Sync ${percent}%` : 'Sincronizando…',
+      title: input.syncProgress?.message
+        ? `${input.syncProgress.message} (${percent ?? 0}%)`
+        : 'Sincronizando cambios en segundo plano con Google Drive…',
+    }
+  }
+
+  if (input.isSessionExpired) {
+    return {
+      status: 'paused',
+      label: input.hasPendingChanges ? 'Pendiente' : 'Drive',
+      title: input.hasPendingChanges
+        ? 'Sesión pausada: tienes cambios locales sin respaldar en Google Drive. Haz clic para reconectar y subir tus cambios.'
+        : 'Sesión de Google Drive en pausa (token temporal expirado). Haz clic para reconectar y sincronizar cuando lo desees.',
+    }
+  }
+
+  switch (input.syncState) {
+    case 'offline':
+      return input.hasPendingChanges
+        ? {
+            status: 'pending',
+            label: 'Pendiente',
+            title:
+              'Modo Offline con cambios locales sin respaldar. Se sincronizarán automáticamente al recuperar conexión.',
+          }
+        : {
+            status: 'offline',
+            label: 'Offline',
+            title:
+              'Modo Offline. Los cambios se guardan localmente y se sincronizarán al reconectar.',
+          }
+    case 'error':
+      return {
+        status: 'error',
+        label: 'Error Sync',
+        title: input.hasPendingChanges
+          ? 'Error al respaldar cambios pendientes en Google Drive. Haz clic para ver detalles y reintentar.'
+          : 'Error de sincronización con Google Drive. Haz click para ver detalles y reintentar.',
+      }
+    case 'idle':
+    default:
+      if (input.hasPendingChanges) {
+        return {
+          status: 'pending',
+          label: 'Pendiente',
+          title:
+            'Tienes cambios locales pendientes de sincronizar. Se respaldarán automáticamente en unos segundos (haz clic para sincronizar ahora).',
+        }
+      }
+      return {
+        status: 'synced',
+        label: input.lastSyncedAt
+          ? `Sync ${input.lastSyncedAt.toLocaleTimeString(undefined, {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}`
+          : 'Al día',
+        title: input.lastSyncedAt
+          ? `Última sincronización con Google Drive: ${input.lastSyncedAt.toLocaleString()}`
+          : 'Sincronizado con Google Drive (Local-First)',
+      }
+  }
 }
 
 /**
- * Obtiene el timestamp más reciente entre todos los nodos locales.
+ * Obtiene el timestamp más reciente entre las entidades sincronizables (nodos y flashcards).
  */
 export async function getLocalMaxTimestamp(): Promise<number> {
-  const nodes = await db.nodes.toArray()
+  const [nodes, flashcards] = await Promise.all([
+    db.nodes.toArray(),
+    db.flashcards.toArray(),
+  ])
   let max = 0
   for (const n of nodes) {
     if (n.updated_at > max) max = n.updated_at
+  }
+  for (const fc of flashcards) {
+    if (fc.updated_at > max) max = fc.updated_at
   }
   return max
 }
@@ -227,6 +343,8 @@ export async function performGoogleDriveSync(
 
     void newZip
     setLastSyncTime(now)
+    const checkedAt = Date.now()
+    setLastCheckTime(checkedAt)
 
     onProgress?.({
       phase: 'finalizing',
@@ -234,7 +352,12 @@ export async function performGoogleDriveSync(
       message: '¡Respaldo inicial completado con éxito!',
     })
 
-    return { action: 'uploaded', timestamp: now, message: 'Respaldo inicial subido a Google Drive' }
+    return {
+      action: 'uploaded',
+      timestamp: now,
+      checkedAt,
+      message: 'Respaldo inicial subido a Google Drive',
+    }
   }
 
   // Caso B: Existe manifiesto remoto -> Descargar y comparar versión
@@ -330,6 +453,8 @@ export async function performGoogleDriveSync(
       )
 
       setLastSyncTime(now)
+      const checkedAt = Date.now()
+      setLastCheckTime(checkedAt)
 
       onProgress?.({
         phase: 'finalizing',
@@ -340,12 +465,15 @@ export async function performGoogleDriveSync(
       return {
         action: 'merged',
         timestamp: now,
+        checkedAt,
         report,
         message: 'Cambios remotos y locales fusionados con éxito',
       }
     }
 
     setLastSyncTime(remoteTime)
+    const checkedAt = Date.now()
+    setLastCheckTime(checkedAt)
 
     onProgress?.({
       phase: 'finalizing',
@@ -356,6 +484,7 @@ export async function performGoogleDriveSync(
     return {
       action: 'downloaded',
       timestamp: remoteTime,
+      checkedAt,
       report,
       message: 'Cuaderno actualizado desde Google Drive',
     }
@@ -417,6 +546,8 @@ export async function performGoogleDriveSync(
     )
 
     setLastSyncTime(now)
+    const checkedAt = Date.now()
+    setLastCheckTime(checkedAt)
 
     onProgress?.({
       phase: 'finalizing',
@@ -424,15 +555,23 @@ export async function performGoogleDriveSync(
       message: '¡Cambios respaldados con éxito!',
     })
 
-    return { action: 'uploaded', timestamp: now, message: 'Cambios locales respaldados en Google Drive' }
+    return {
+      action: 'uploaded',
+      timestamp: now,
+      checkedAt,
+      message: 'Cambios locales respaldados en Google Drive',
+    }
   }
 
   // Si ambos están al día
+  const checkedAt = Date.now()
+  setLastCheckTime(checkedAt)
+
   onProgress?.({
     phase: 'finalizing',
     percent: 100,
     message: 'Al día con Google Drive',
   })
 
-  return { action: 'up-to-date', timestamp: remoteTime, message: 'Al día con Google Drive' }
+  return { action: 'up-to-date', timestamp: remoteTime, checkedAt, message: 'Al día con Google Drive' }
 }

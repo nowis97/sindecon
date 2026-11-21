@@ -731,7 +731,8 @@ body {
   box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
 }
 
-.sync-status-dot.dot-paused {
+.sync-status-dot.dot-paused,
+.sync-status-dot.dot-pending {
   background-color: #f59e0b;
   box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
 }
@@ -767,12 +768,25 @@ body {
   color: var(--accent-text);
 }
 
-.sync-indicator-chip.sync-status-paused {
+.sync-indicator-chip.sync-status-paused,
+.sync-indicator-chip.sync-status-pending {
   border-color: rgba(245, 158, 11, 0.4);
 }
 
-.sync-indicator-chip.sync-status-paused:hover {
+.sync-indicator-chip.sync-status-paused:hover,
+.sync-indicator-chip.sync-status-pending:hover {
   background: rgba(245, 158, 11, 0.1);
+}
+
+.sync-pending-notice {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-primary);
 }
 
 .sync-indicator-chip.sync-status-error {
