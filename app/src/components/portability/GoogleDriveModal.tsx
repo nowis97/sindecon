@@ -10,9 +10,11 @@ interface GoogleDriveModalProps {
   onClose: () => void
   isConnected: boolean
   isSessionExpired?: boolean
+  hasPendingChanges?: boolean
   syncState: SyncState
   syncProgress?: SyncProgress | null
   lastSyncedAt: Date | null
+  lastCheckedAt?: Date | null
   userEmail: string | null
   errorMessage: string | null
   onTriggerSync: () => void
@@ -26,9 +28,11 @@ export function GoogleDriveModal({
   onClose,
   isConnected,
   isSessionExpired = false,
+  hasPendingChanges = false,
   syncState,
   syncProgress,
   lastSyncedAt,
+  lastCheckedAt = null,
   userEmail,
   errorMessage,
   onTriggerSync,
@@ -115,12 +119,18 @@ export function GoogleDriveModal({
                     {syncState === 'syncing'
                       ? '🔄 Sincronizando cambios…'
                       : syncState === 'offline'
-                        ? '⚪ Sin conexión (Offline-First)'
+                        ? hasPendingChanges
+                          ? '🟠 Sin conexión (cambios pendientes)'
+                          : '⚪ Sin conexión (Offline-First)'
                         : syncState === 'error'
                           ? '🔴 Error en sincronización'
                           : isSessionExpired
-                            ? '🟡 Sesión en pausa (token expirado)'
-                            : '🟢 Al día y sincronizado'}
+                            ? hasPendingChanges
+                              ? '🟡 Sesión en pausa (cambios sin respaldar)'
+                              : '🟡 Sesión en pausa (token expirado)'
+                            : hasPendingChanges
+                              ? '🟠 Cambios locales pendientes de respaldo'
+                              : '🟢 Al día y sincronizado'}
                   </strong>
                 </div>
                 {syncState === 'syncing' && (
@@ -146,10 +156,29 @@ export function GoogleDriveModal({
                   <span>
                     {lastSyncedAt
                       ? lastSyncedAt.toLocaleString()
-                      : 'Pendiente de sincronizar'}
+                      : 'Sin respaldos aún'}
+                  </span>
+                </div>
+                <div className="sync-detail-row">
+                  <span>Última consulta:</span>
+                  <span>
+                    {lastCheckedAt
+                      ? lastCheckedAt.toLocaleString()
+                      : 'Sin consultas aún'}
                   </span>
                 </div>
               </div>
+
+              {hasPendingChanges && syncState !== 'syncing' && (
+                <div className="sync-pending-notice">
+                  ⏳ Tienes cambios locales que aún no se respaldan en Google Drive.{' '}
+                  {syncState === 'offline'
+                    ? 'Se subirán automáticamente cuando recuperes conexión.'
+                    : isSessionExpired
+                      ? 'Reconecta tu cuenta para respaldarlos.'
+                      : 'Se respaldarán automáticamente en unos segundos o podés sincronizar ahora.'}
+                </div>
+              )}
 
               {isSessionExpired && (
                 <div

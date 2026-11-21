@@ -1,8 +1,9 @@
-import type { SyncState, SyncProgress } from '../../pwa/syncEngine'
+import { getSyncStatusDetails, type SyncState, type SyncProgress } from '../../pwa/syncEngine'
 
 interface SyncIndicatorProps {
   isConnected: boolean
   isSessionExpired?: boolean
+  hasPendingChanges?: boolean
   syncState: SyncState
   syncProgress?: SyncProgress | null
   lastSyncedAt: Date | null
@@ -12,70 +13,20 @@ interface SyncIndicatorProps {
 export function SyncIndicator({
   isConnected,
   isSessionExpired = false,
+  hasPendingChanges = false,
   syncState,
   syncProgress,
   lastSyncedAt,
   onClick,
 }: SyncIndicatorProps) {
-  const getStatusDetails = () => {
-    if (!isConnected) {
-      return {
-        status: 'disconnected',
-        label: 'Drive',
-        title: 'Google Drive no conectado. Haz click para activar sincronización y backup automático.',
-      }
-    }
-
-    if (isSessionExpired) {
-      return {
-        status: 'paused',
-        label: 'Drive',
-        title: 'Sesión de Google Drive en pausa (token temporal expirado). Haz clic para reconectar y sincronizar cuando lo desees.',
-      }
-    }
-
-    switch (syncState) {
-      case 'syncing':
-      case 'checking': {
-        const percent = syncProgress?.percent !== undefined ? Math.round(syncProgress.percent) : null
-        return {
-          status: 'syncing',
-          label: percent !== null ? `Sync ${percent}%` : 'Sincronizando…',
-          title: syncProgress?.message
-            ? `${syncProgress.message} (${percent ?? 0}%)`
-            : 'Sincronizando cambios en segundo plano con Google Drive…',
-        }
-      }
-      case 'offline':
-        return {
-          status: 'offline',
-          label: 'Offline',
-          title: 'Modo Offline. Los cambios se guardan localmente y se sincronizarán al reconectar.',
-        }
-      case 'error':
-        return {
-          status: 'error',
-          label: 'Error Sync',
-          title: 'Error de sincronización con Google Drive. Haz click para ver detalles y reintentar.',
-        }
-      case 'idle':
-      default:
-        return {
-          status: 'synced',
-          label: lastSyncedAt
-            ? `Sync ${lastSyncedAt.toLocaleTimeString(undefined, {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}`
-            : 'Al día',
-          title: lastSyncedAt
-            ? `Última sincronización con Google Drive: ${lastSyncedAt.toLocaleString()}`
-            : 'Sincronizado con Google Drive (Local-First)',
-        }
-    }
-  }
-
-  const { status, label, title } = getStatusDetails()
+  const { status, label, title } = getSyncStatusDetails({
+    isConnected,
+    isSessionExpired,
+    hasPendingChanges,
+    syncState,
+    syncProgress,
+    lastSyncedAt,
+  })
 
   return (
     <button

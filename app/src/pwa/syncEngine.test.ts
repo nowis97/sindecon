@@ -4,6 +4,9 @@ import {
   getDeviceId,
   getLastSyncTime,
   setLastSyncTime,
+  getLastCheckTime,
+  setLastCheckTime,
+  getLocalMaxTimestamp,
   performGoogleDriveSync,
 } from './syncEngine'
 import { db } from '../db/db'
@@ -52,6 +55,7 @@ describe('syncEngine (Google Drive Local-First Sync)', () => {
     await db.nodes.clear()
     await db.articles.clear()
     await db.assets.clear()
+    await db.flashcards.clear()
     vi.clearAllMocks()
   })
 
@@ -62,10 +66,47 @@ describe('syncEngine (Google Drive Local-First Sync)', () => {
     expect(id1).toBe(id2)
   })
 
-  it('guarda y recupera el último timestamp de sincronización', () => {
+  it('guarda y recupera el último timestamp de sincronización y de consulta', () => {
     expect(getLastSyncTime()).toBe(0)
     setLastSyncTime(1700000000000)
     expect(getLastSyncTime()).toBe(1700000000000)
+
+    expect(getLastCheckTime()).toBe(0)
+    setLastCheckTime(1700000500000)
+    expect(getLastCheckTime()).toBe(1700000500000)
+  })
+
+  it('calcula getLocalMaxTimestamp considerando nodos y flashcards', async () => {
+    expect(await getLocalMaxTimestamp()).toBe(0)
+
+    await db.nodes.add({
+      id: 'n1',
+      parent_id: null,
+      kind: 'article',
+      title: 'Nota',
+      order: 0,
+      system: null,
+      created_at: 1000,
+      updated_at: 2000,
+      deleted_at: null,
+    })
+    expect(await getLocalMaxTimestamp()).toBe(2000)
+
+    await db.flashcards.add({
+      id: 'fc1',
+      node_id: 'n1',
+      front: 'P',
+      back: 'R',
+      source_type: 'manual',
+      interval: 1,
+      ease_factor: 2.5,
+      reps: 0,
+      lapses: 0,
+      due_date: 3000,
+      created_at: 3000,
+      updated_at: 4500,
+    })
+    expect(await getLocalMaxTimestamp()).toBe(4500)
   })
 
   it('realiza subida inicial si no hay archivos en Google Drive AppData', async () => {
@@ -80,9 +121,11 @@ describe('syncEngine (Google Drive Local-First Sync)', () => {
     expect(res.action).toBe('uploaded')
     expect(gdrive.uploadAppDataFile).toHaveBeenCalledTimes(2) // zip y manifest
     expect(getLastSyncTime()).toBeGreaterThan(0)
+    expect(getLastCheckTime()).toBeGreaterThan(0)
+    expect(res.checkedAt).toBe(getLastCheckTime())
   })
 
-  it('detecta si el cuaderno está al día cuando los timestamps coinciden', async () => {
+  it('detecta si el cuaderno está al día cuando los timestamps coinciden y actualiza solo lastCheckTime', async () => {
     const fixedTime = 1710000000000
     setLastSyncTime(fixedTime)
 
@@ -105,8 +148,33 @@ describe('syncEngine (Google Drive Local-First Sync)', () => {
       new Blob([JSON.stringify(manifestData)], { type: 'application/json' }),
     )
 
+    const beforeCheck = Date.now()
     const res = await performGoogleDriveSync('mock-token')
     expect(res.action).toBe('up-to-date')
+    expect(getLastSyncTime()).toBe(fixedTime)
+    expect(getLastCheckTime()).toBeGreaterThanOrEqual(beforeCheck)
+    expect(res.checkedAt).toBe(getLastCheckTime())
+  })
+
+  it('no modifica lastSyncTime ni lastCheckTime cuando omite sync en modo offline', async () => {
+    setLastSyncTime(1700000000000)
+    setLastCheckTime(1700000100000)
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { onLine: false },
+      writable: true,
+    })
+
+    try {
+      const res = await performGoogleDriveSync('mock-token')
+      expect(res.action).toBe('skipped')
+      expect(getLastSyncTime()).toBe(1700000000000)
+      expect(getLastCheckTime()).toBe(1700000100000)
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: { onLine: true },
+        writable: true,
+      })
+    }
   })
 
   it('descarga ai-config.json si en local no hay clave pero en Google Drive sí', async () => {

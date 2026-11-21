@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import {
   getStoredToken,
   getStoredEmail,
@@ -16,6 +17,9 @@ import {
 import {
   performGoogleDriveSync,
   getLastSyncTime,
+  getLastCheckTime,
+  setLastCheckTime,
+  getLocalMaxTimestamp,
   type SyncState,
   type SyncProgress,
   type SyncEngineResult,
@@ -25,6 +29,7 @@ const PROACTIVE_REFRESH_INTERVAL_MS = 10 * 60 * 1000
 const PROACTIVE_REFRESH_MARGIN_MINUTES = 12
 const SYNC_INTERVAL_MS = 5 * 60 * 1000
 const PASSIVE_SYNC_COOLDOWN_MS = 60 * 1000
+const AUTO_SYNC_DEBOUNCE_MS = 15 * 1000
 
 export interface SessionExpiredInput {
   enabled: boolean
@@ -76,6 +81,51 @@ export function shouldAttemptBackgroundSync(input: {
     return input.hasValidToken || input.enabled
   }
   return input.hasValidToken
+}
+
+/**
+ * Determina si existen cambios locales más recientes que el último respaldo sincronizado.
+ */
+export function computeHasPendingChanges(input: {
+  isConnected: boolean
+  localMaxTimestamp: number
+  lastSyncedTime: number
+}): boolean {
+  return (
+    input.isConnected &&
+    input.localMaxTimestamp > 0 &&
+    input.localMaxTimestamp > input.lastSyncedTime
+  )
+}
+
+/**
+ * Decide si corresponde programar una sincronización automática tras una edición local.
+ */
+export function shouldScheduleAutoSync(input: {
+  isConnected: boolean
+  hasPendingChanges: boolean
+  isOnline: boolean
+  isSessionExpired: boolean
+  syncState: SyncState
+}): boolean {
+  return (
+    input.isConnected &&
+    input.hasPendingChanges &&
+    input.isOnline &&
+    !input.isSessionExpired &&
+    input.syncState === 'idle'
+  )
+}
+
+/**
+ * Activa confirmación de salida en el navegador si hay Drive conectado con cambios pendientes o subida activa.
+ */
+export function shouldWarnBeforeUnload(input: {
+  isConnected: boolean
+  hasPendingChanges: boolean
+  syncState: SyncState
+}): boolean {
+  return input.isConnected && (input.hasPendingChanges || input.syncState === 'syncing')
 }
 
 /**
@@ -131,6 +181,7 @@ export function useGoogleSync() {
   )
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null)
   const [lastSyncedTime, setLastSyncedTime] = useState<number>(() => getLastSyncTime())
+  const [lastCheckedTime, setLastCheckedTime] = useState<number>(() => getLastCheckTime())
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const syncInFlightRef = useRef<Promise<void> | null>(null)
   const lastSyncAttemptAtRef = useRef<number>(0)
@@ -147,6 +198,12 @@ export function useGoogleSync() {
 
   const syncEnabled = isGoogleSyncEnabled()
   const isConnected = Boolean(token) || syncEnabled
+  const localMaxTimestamp = useLiveQuery(() => getLocalMaxTimestamp(), [], 0) ?? 0
+  const hasPendingChanges = computeHasPendingChanges({
+    isConnected,
+    localMaxTimestamp,
+    lastSyncedTime,
+  })
   const isSessionExpired = computeIsSessionExpired({
     enabled: syncEnabled,
     isRefreshing,
@@ -194,7 +251,8 @@ export function useGoogleSync() {
       setSyncState('syncing')
       setSyncProgress({ phase: 'checking', percent: 5, message: 'Iniciando sincronización…' })
       const res = await performGoogleDriveSync(activeToken, (p) => setSyncProgress(p))
-      setLastSyncedTime(res.timestamp)
+      setLastSyncedTime(getLastSyncTime())
+      setLastCheckedTime(res.checkedAt ?? getLastCheckTime())
       idleTimerRef.current = setTimeout(() => {
         idleTimerRef.current = null
         setSyncProgress(null)
@@ -388,9 +446,11 @@ export function useGoogleSync() {
     clearIdleTimer()
     lastSyncAttemptAtRef.current = 0
     clearStoredToken(true)
+    setLastCheckTime(0)
     void revokeServerOAuthSession()
     setToken(null)
     setUserEmail(null)
+    setLastCheckedTime(0)
     setServerSessionExpired(false)
     setIsRefreshing(false)
     setSyncProgress(null)
@@ -479,6 +539,50 @@ export function useGoogleSync() {
     }
   }, [isConnected, serverSessionExpired, triggerSync, refreshSilently])
 
+  // Auto-sync tras ediciones locales con debounce corto
+  useEffect(() => {
+    if (
+      !shouldScheduleAutoSync({
+        isConnected,
+        hasPendingChanges,
+        isOnline,
+        isSessionExpired,
+        syncState,
+      })
+    ) {
+      return
+    }
+
+    const timer = setTimeout(() => {
+      void triggerSync()
+    }, AUTO_SYNC_DEBOUNCE_MS)
+
+    return () => clearTimeout(timer)
+  }, [
+    isConnected,
+    hasPendingChanges,
+    localMaxTimestamp,
+    isOnline,
+    isSessionExpired,
+    syncState,
+    triggerSync,
+  ])
+
+  // Recordatorio antes de cerrar o recargar si hay cambios sin sincronizar o subida en curso
+  useEffect(() => {
+    if (!shouldWarnBeforeUnload({ isConnected, hasPendingChanges, syncState })) {
+      return
+    }
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isConnected, hasPendingChanges, syncState])
+
   const initiateOAuthLogin = useCallback(() => {
     initiateGoogleOAuthFlow({
       onSuccess: (accessToken, expiresIn, email) => {
@@ -493,9 +597,11 @@ export function useGoogleSync() {
   return {
     isConnected,
     isSessionExpired,
+    hasPendingChanges,
     syncState,
     syncProgress,
     lastSyncedAt: lastSyncedTime ? new Date(lastSyncedTime) : null,
+    lastCheckedAt: lastCheckedTime ? new Date(lastCheckedTime) : null,
     errorMessage,
     userEmail,
     connectWithToken,

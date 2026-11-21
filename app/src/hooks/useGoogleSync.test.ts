@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
   computeIsSessionExpired,
+  computeHasPendingChanges,
   shouldAttemptBackgroundSync,
+  shouldScheduleAutoSync,
+  shouldWarnBeforeUnload,
   syncWithAutoRefresh,
 } from './useGoogleSync'
 import type { SyncEngineResult } from '../pwa/syncEngine'
@@ -371,6 +374,138 @@ describe('useGoogleSync orchestration helpers', () => {
       expect(ensureToken).toHaveBeenCalledTimes(1)
       expect(ensureToken).toHaveBeenCalledWith(true)
       expect(runSync).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('computeHasPendingChanges, shouldScheduleAutoSync y shouldWarnBeforeUnload', () => {
+    it('detecta cambios pendientes solo si Drive está conectado y localMaxTimestamp supera lastSyncedTime', () => {
+      expect(
+        computeHasPendingChanges({
+          isConnected: false,
+          localMaxTimestamp: 5000,
+          lastSyncedTime: 1000,
+        }),
+      ).toBe(false)
+
+      expect(
+        computeHasPendingChanges({
+          isConnected: true,
+          localMaxTimestamp: 1000,
+          lastSyncedTime: 1000,
+        }),
+      ).toBe(false)
+
+      expect(
+        computeHasPendingChanges({
+          isConnected: true,
+          localMaxTimestamp: 0,
+          lastSyncedTime: 0,
+        }),
+      ).toBe(false)
+
+      expect(
+        computeHasPendingChanges({
+          isConnected: true,
+          localMaxTimestamp: 5000,
+          lastSyncedTime: 1000,
+        }),
+      ).toBe(true)
+    })
+
+    it('programa auto-sync tras editar solo cuando está conectado, online, en idle, con sesión válida y cambios pendientes', () => {
+      expect(
+        shouldScheduleAutoSync({
+          isConnected: true,
+          hasPendingChanges: true,
+          isOnline: true,
+          isSessionExpired: false,
+          syncState: 'idle',
+        }),
+      ).toBe(true)
+
+      expect(
+        shouldScheduleAutoSync({
+          isConnected: true,
+          hasPendingChanges: false,
+          isOnline: true,
+          isSessionExpired: false,
+          syncState: 'idle',
+        }),
+      ).toBe(false)
+
+      expect(
+        shouldScheduleAutoSync({
+          isConnected: true,
+          hasPendingChanges: true,
+          isOnline: false,
+          isSessionExpired: false,
+          syncState: 'offline',
+        }),
+      ).toBe(false)
+
+      expect(
+        shouldScheduleAutoSync({
+          isConnected: true,
+          hasPendingChanges: true,
+          isOnline: true,
+          isSessionExpired: true,
+          syncState: 'idle',
+        }),
+      ).toBe(false)
+
+      expect(
+        shouldScheduleAutoSync({
+          isConnected: true,
+          hasPendingChanges: true,
+          isOnline: true,
+          isSessionExpired: false,
+          syncState: 'error',
+        }),
+      ).toBe(false)
+
+      expect(
+        shouldScheduleAutoSync({
+          isConnected: true,
+          hasPendingChanges: true,
+          isOnline: true,
+          isSessionExpired: false,
+          syncState: 'syncing',
+        }),
+      ).toBe(false)
+    })
+
+    it('activa recordatorio beforeunload solo con Drive conectado y cambios pendientes o sync en curso', () => {
+      expect(
+        shouldWarnBeforeUnload({
+          isConnected: false,
+          hasPendingChanges: true,
+          syncState: 'syncing',
+        }),
+      ).toBe(false)
+
+      expect(
+        shouldWarnBeforeUnload({
+          isConnected: true,
+          hasPendingChanges: false,
+          syncState: 'idle',
+        }),
+      ).toBe(false)
+
+      expect(
+        shouldWarnBeforeUnload({
+          isConnected: true,
+          hasPendingChanges: true,
+          syncState: 'idle',
+        }),
+      ).toBe(true)
+
+      expect(
+        shouldWarnBeforeUnload({
+          isConnected: true,
+          hasPendingChanges: false,
+          syncState: 'syncing',
+        }),
+      ).toBe(true)
     })
   })
 })
