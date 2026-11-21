@@ -10,6 +10,7 @@ import {
   ensureValidAccessToken,
   initiateGoogleOAuthFlow,
   revokeServerOAuthSession,
+  shouldUseServerOAuth,
   GOOGLE_AUTH_CHANGE_EVENT,
 } from '../pwa/googleDrive'
 import {
@@ -20,24 +21,51 @@ import {
   type SyncEngineResult,
 } from '../pwa/syncEngine'
 
-const PROACTIVE_REFRESH_INTERVAL_MS = 45 * 60 * 1000
+const PROACTIVE_REFRESH_INTERVAL_MS = 10 * 60 * 1000
+const PROACTIVE_REFRESH_MARGIN_MINUTES = 12
 const SYNC_INTERVAL_MS = 5 * 60 * 1000
+
+export interface SessionExpiredInput {
+  enabled: boolean
+  isRefreshing: boolean
+  isOnline: boolean
+  usesServerOAuth: boolean
+  serverSessionExpired: boolean
+  token: string | null
+  tokenExpired: boolean
+}
 
 function isSessionExpiredMessage(msg: string): boolean {
   return msg.includes('expirada') || msg.includes('401')
 }
 
 /**
- * Determina si la sesión debe mostrarse como expirada sin parpadear durante un refresco silencioso.
+ * Determina si la sesión debe mostrarse como expirada sin confundir estado offline o errores transitorios.
  */
-export function computeIsSessionExpired(
-  enabled: boolean,
-  isRefreshing: boolean,
-  token: string | null,
-  tokenExpired: boolean,
-): boolean {
-  if (!enabled || isRefreshing) return false
-  return !token || tokenExpired
+export function computeIsSessionExpired(input: SessionExpiredInput): boolean {
+  if (!input.enabled || input.isRefreshing || !input.isOnline) return false
+  if (input.usesServerOAuth) {
+    return input.serverSessionExpired && (!input.token || input.tokenExpired)
+  }
+  return !input.token || input.tokenExpired
+}
+
+/**
+ * Decide si un disparador pasivo (foco, reconexión o intervalo) debe intentar sincronizar en segundo plano.
+ */
+export function shouldAttemptBackgroundSync(input: {
+  enabled: boolean
+  isOnline: boolean
+  usesServerOAuth: boolean
+  serverSessionExpired: boolean
+  hasValidToken: boolean
+}): boolean {
+  if (!input.isOnline) return false
+  if (input.usesServerOAuth) {
+    if (input.serverSessionExpired) return false
+    return input.hasValidToken || input.enabled
+  }
+  return input.hasValidToken
 }
 
 /**
@@ -74,33 +102,66 @@ export async function syncWithAutoRefresh(deps: {
 export function useGoogleSync() {
   const [token, setToken] = useState<string | null>(() => getStoredToken())
   const [userEmail, setUserEmail] = useState<string | null>(() => getStoredEmail())
+  const [serverSessionExpired, setServerSessionExpired] = useState(false)
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  )
   const [isRefreshing, setIsRefreshing] = useState<boolean>(
     () =>
       isGoogleSyncEnabled() &&
-      navigator.onLine &&
+      (typeof navigator === 'undefined' || navigator.onLine) &&
       (!getStoredToken() || isTokenExpired(2)),
   )
-  const [syncState, setSyncState] = useState<SyncState>('idle')
+  const [syncState, setSyncState] = useState<SyncState>(() =>
+    isGoogleSyncEnabled() && typeof navigator !== 'undefined' && !navigator.onLine
+      ? 'offline'
+      : 'idle',
+  )
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null)
   const [lastSyncedTime, setLastSyncedTime] = useState<number>(() => getLastSyncTime())
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const syncEnabled = isGoogleSyncEnabled()
   const isConnected = Boolean(token) || syncEnabled
-  const isSessionExpired = computeIsSessionExpired(
-    syncEnabled,
+  const isSessionExpired = computeIsSessionExpired({
+    enabled: syncEnabled,
     isRefreshing,
+    isOnline,
+    usesServerOAuth: shouldUseServerOAuth(),
+    serverSessionExpired,
     token,
-    isTokenExpired(0),
-  )
+    tokenExpired: isTokenExpired(0),
+  })
 
   useEffect(() => {
     const syncLocalState = () => {
-      setToken(getStoredToken())
+      const nextToken = getStoredToken()
+      setToken(nextToken)
       setUserEmail(getStoredEmail())
+      if (nextToken && !isTokenExpired(0)) {
+        setServerSessionExpired(false)
+      }
     }
     window.addEventListener(GOOGLE_AUTH_CHANGE_EVENT, syncLocalState)
     return () => window.removeEventListener(GOOGLE_AUTH_CHANGE_EVENT, syncLocalState)
+  }, [])
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true)
+      setSyncState((prev) => (prev === 'offline' ? 'idle' : prev))
+    }
+    const handleOffline = () => {
+      setIsOnline(false)
+      setIsRefreshing(false)
+      setSyncState((prev) => (isGoogleSyncEnabled() && prev !== 'syncing' ? 'offline' : prev))
+    }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
   }, [])
 
   const connectWithToken = useCallback(
@@ -114,6 +175,7 @@ export function useGoogleSync() {
       if (finalEmail) {
         setUserEmail(finalEmail)
       }
+      setServerSessionExpired(false)
       setIsRefreshing(false)
       setSyncState('idle')
       setErrorMessage(null)
@@ -130,42 +192,65 @@ export function useGoogleSync() {
       } catch (e) {
         setSyncProgress(null)
         setSyncState('error')
-        setErrorMessage((e as Error).message)
+        setErrorMessage((e as Error)?.message || '')
       }
     },
     [],
   )
 
-  const refreshSilently = useCallback(async (forceRefresh = false): Promise<string | null> => {
-    if (!isGoogleSyncEnabled()) return null
-    if (!navigator.onLine) {
-      setIsRefreshing(false)
-      return null
-    }
-
-    setIsRefreshing(true)
-    try {
-      const nextToken = await ensureValidAccessToken(forceRefresh)
-      setToken(getStoredToken())
-      setUserEmail(getStoredEmail())
-      if (nextToken) {
-        setErrorMessage(null)
+  const refreshSilently = useCallback(
+    async (
+      forceRefresh = false,
+    ): Promise<{ token: string | null; transientError: string | null }> => {
+      if (!isGoogleSyncEnabled()) {
+        setIsRefreshing(false)
+        return { token: null, transientError: null }
       }
-      return nextToken
-    } catch (e) {
-      // Error transitorio (5xx / red): mantener configuración y no expulsar usuario
-      setErrorMessage((e as Error).message)
-      return null
-    } finally {
-      setIsRefreshing(false)
-    }
-  }, [])
+      if (!navigator.onLine) {
+        setIsOnline(false)
+        setIsRefreshing(false)
+        return { token: null, transientError: null }
+      }
+
+      setIsRefreshing(true)
+      try {
+        const nextToken = await ensureValidAccessToken(forceRefresh)
+        setToken(getStoredToken())
+        setUserEmail(getStoredEmail())
+        if (nextToken) {
+          setServerSessionExpired(false)
+          setErrorMessage(null)
+          return { token: nextToken, transientError: null }
+        }
+        if (shouldUseServerOAuth() && navigator.onLine) {
+          setServerSessionExpired(true)
+        }
+        return { token: null, transientError: null }
+      } catch (e) {
+        if (!navigator.onLine) {
+          setIsOnline(false)
+          return { token: null, transientError: null }
+        }
+        // Error transitorio (5xx / 429 / red): mantener configuración y no expulsar usuario
+        const msg = (e as Error)?.message || 'Error temporal de sincronización'
+        setErrorMessage(msg)
+        return { token: null, transientError: msg }
+      } finally {
+        setIsRefreshing(false)
+      }
+    },
+    [],
+  )
 
   const triggerSync = useCallback(async () => {
     if (!navigator.onLine) {
+      setIsOnline(false)
+      setIsRefreshing(false)
       setSyncState('offline')
       return
     }
+
+    let lastTransientError: string | null = null
 
     try {
       setSyncState('syncing')
@@ -177,7 +262,11 @@ export function useGoogleSync() {
           const t = getStoredToken()
           return t && !isTokenExpired(2) ? t : null
         },
-        ensureToken: refreshSilently,
+        ensureToken: async (force = false) => {
+          const outcome = await refreshSilently(force)
+          lastTransientError = outcome.transientError
+          return outcome.token
+        },
         runSync: (activeToken) =>
           performGoogleDriveSync(activeToken, (p) => setSyncProgress(p)),
         isSessionError: isSessionExpiredMessage,
@@ -186,6 +275,16 @@ export function useGoogleSync() {
       if (!res) {
         setSyncProgress(null)
         setToken(getStoredToken())
+        if (!navigator.onLine) {
+          setIsOnline(false)
+          setSyncState('offline')
+          return
+        }
+        if (lastTransientError) {
+          setSyncState('error')
+          setErrorMessage(lastTransientError)
+          return
+        }
         setSyncState('idle')
         return
       }
@@ -197,10 +296,18 @@ export function useGoogleSync() {
       }, 500)
     } catch (e) {
       setSyncProgress(null)
-      const msg = (e as Error).message
+      if (!navigator.onLine) {
+        setIsOnline(false)
+        setSyncState('offline')
+        return
+      }
+      const msg = (e as Error)?.message || ''
       if (isSessionExpiredMessage(msg)) {
         clearStoredToken(false)
         setToken(null)
+        if (shouldUseServerOAuth()) {
+          setServerSessionExpired(true)
+        }
         setSyncState('idle')
         setErrorMessage(null)
         return
@@ -215,6 +322,7 @@ export function useGoogleSync() {
     void revokeServerOAuthSession()
     setToken(null)
     setUserEmail(null)
+    setServerSessionExpired(false)
     setIsRefreshing(false)
     setSyncProgress(null)
     setSyncState('idle')
@@ -223,21 +331,37 @@ export function useGoogleSync() {
 
   // Sincronización y renovación automática silenciosa al montar
   useEffect(() => {
-    if (!isGoogleSyncEnabled() || !navigator.onLine) {
+    if (!isGoogleSyncEnabled()) {
+      setIsRefreshing(false)
+      return
+    }
+    if (!navigator.onLine) {
+      setIsRefreshing(false)
+      setSyncState('offline')
       return
     }
 
     void triggerSync()
   }, [triggerSync])
 
-  // Sincronización y refresco proactivo al recuperar foco, conexión o cada 45 min
+  // Sincronización y refresco proactivo al recuperar foco, conexión o periódicamente
   useEffect(() => {
     if (!isConnected) return
 
     const ensureAndSync = () => {
       if (!navigator.onLine) return
       const activeToken = getStoredToken()
-      if ((activeToken && !isTokenExpired(5)) || isGoogleSyncEnabled()) {
+      const usesServerOAuth = shouldUseServerOAuth()
+      const hasValidToken = Boolean(activeToken && !isTokenExpired(usesServerOAuth ? 5 : 2))
+      if (
+        shouldAttemptBackgroundSync({
+          enabled: isGoogleSyncEnabled(),
+          isOnline: navigator.onLine,
+          usesServerOAuth,
+          serverSessionExpired,
+          hasValidToken,
+        })
+      ) {
         void triggerSync()
       }
     }
@@ -249,6 +373,8 @@ export function useGoogleSync() {
     }
 
     const handleOnline = () => {
+      setIsOnline(true)
+      setSyncState((prev) => (prev === 'offline' ? 'idle' : prev))
       ensureAndSync()
     }
 
@@ -262,7 +388,13 @@ export function useGoogleSync() {
     }, SYNC_INTERVAL_MS)
 
     const proactiveRefreshInterval = setInterval(() => {
-      if (navigator.onLine && isGoogleSyncEnabled() && isTokenExpired(10)) {
+      if (
+        navigator.onLine &&
+        isGoogleSyncEnabled() &&
+        shouldUseServerOAuth() &&
+        !serverSessionExpired &&
+        isTokenExpired(PROACTIVE_REFRESH_MARGIN_MINUTES)
+      ) {
         void refreshSilently(true)
       }
     }, PROACTIVE_REFRESH_INTERVAL_MS)
@@ -273,7 +405,7 @@ export function useGoogleSync() {
       clearInterval(syncInterval)
       clearInterval(proactiveRefreshInterval)
     }
-  }, [isConnected, triggerSync, refreshSilently])
+  }, [isConnected, serverSessionExpired, triggerSync, refreshSilently])
 
   const initiateOAuthLogin = useCallback(() => {
     initiateGoogleOAuthFlow({
