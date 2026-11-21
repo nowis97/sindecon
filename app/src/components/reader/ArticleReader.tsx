@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { MermaidViewer } from './MermaidViewer'
 import { AssetImage } from './AssetImage'
 import { PdfDocumentViewer } from './PdfDocumentViewer'
@@ -153,7 +153,6 @@ export function matchNaturalCallout(trimmed: string): Block | null {
 export interface PreparedTemplateDocument {
   docTitle: string | null
   docSubtitle: string | null
-  runningHeader: string
   bodyBlocks: Block[]
 }
 
@@ -175,7 +174,6 @@ export function prepareTemplateDocument(
   folderPath?: string,
 ): PreparedTemplateDocument {
   const subjectText = folderPath?.trim()
-  const runningHeader = `APUNTES 5TO-2  ·  ${subjectText ? subjectText.toUpperCase() : 'ASIGNATURA'}`
 
   if (blocks.length === 0) {
     return {
@@ -183,7 +181,6 @@ export function prepareTemplateDocument(
       docSubtitle: articleTitle?.trim()
         ? `${subjectText || 'Asignatura'} · Apuntes 5to-2`
         : null,
-      runningHeader,
       bodyBlocks: [],
     }
   }
@@ -236,7 +233,9 @@ export function prepareTemplateDocument(
 
     if (block.type === 'header') {
       inFullWidthSection = /ancho\s+completo|full\s*width|1\s*col(?:umna)?/i.test(block.text)
-      inBibliographySection = /^bibliograf[ií]a$|^referencias$|^fuentes$/i.test(block.text.trim())
+      inBibliographySection = /^(?:bibliograf[ií]a|referencias(?:\s+bibliogr[aá]ficas)?|fuentes(?:\s+bibliogr[aá]ficas)?)(?:\s*:)?$/i.test(
+        block.text.trim(),
+      )
       if (inBibliographySection) {
         bibCounter = 1
       }
@@ -272,7 +271,7 @@ export function prepareTemplateDocument(
           block.text = block.text.trim().replace(/^Asignatura/i, subjectText)
         }
       } else if (block.variant === 'bibliography') {
-        // Marcador explícito REF: preservado como bibliografía
+        // Marcador explícito REF: permanece en flujo de 2 columnas (llenando col 1 antes de pasar a col 2)
       } else if (block.variant === 'secondary') {
         // Marcador explícito > [!NOTA] preservado como nota secundaria
       } else if (block.variant === 'caption' || (isAfterVisual && looksLikeCaption)) {
@@ -301,7 +300,6 @@ export function prepareTemplateDocument(
   return {
     docTitle,
     docSubtitle,
-    runningHeader,
     bodyBlocks: enriched,
   }
 }
@@ -1295,6 +1293,66 @@ export function ArticleReader({
     return partitionBlocksIntoSheets(preparedDoc.bodyBlocks)
   }, [preparedDoc.bodyBlocks, isTwoColumns])
 
+  const sheetContainerRef = useRef<HTMLDivElement | null>(null)
+
+  useLayoutEffect(() => {
+    const container = sheetContainerRef.current
+    if (!container || isPrintView || !isTwoColumns) return
+
+    const syncSheetHeights = () => {
+      const isMobileViewport =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(max-width: 820px)').matches
+
+      const sheetEls = container.querySelectorAll<HTMLElement>(
+        '.article-reader-view.a4-sheet.layout-two-columns',
+      )
+      for (const sheetEl of sheetEls) {
+        const contentEl = sheetEl.querySelector<HTMLElement>('.a4-sheet-content')
+        if (!contentEl) continue
+
+        contentEl.style.height = ''
+        sheetEl.style.height = ''
+
+        if (isMobileViewport) continue
+
+        const sheetStyle = getComputedStyle(sheetEl)
+        const minSheetH = parseFloat(sheetStyle.minHeight) || 1122
+        const padBottom = parseFloat(sheetStyle.paddingBottom) || 68
+        const baseH = Math.max(240, Math.floor(minSheetH - contentEl.offsetTop - padBottom))
+
+        contentEl.style.height = `${baseH}px`
+
+        if (contentEl.scrollWidth > contentEl.clientWidth + 2) {
+          let low = baseH
+          let high = Math.ceil(baseH * 2.5)
+          contentEl.style.height = `${high}px`
+          while (contentEl.scrollWidth > contentEl.clientWidth + 2 && high < baseH * 8) {
+            low = high
+            high *= 2
+            contentEl.style.height = `${high}px`
+          }
+          for (let iter = 0; iter < 10; iter++) {
+            const mid = Math.ceil((low + high) / 2)
+            contentEl.style.height = `${mid}px`
+            if (contentEl.scrollWidth > contentEl.clientWidth + 2) {
+              low = mid
+            } else {
+              high = mid
+            }
+          }
+          contentEl.style.height = `${high}px`
+        }
+      }
+    }
+
+    syncSheetHeights()
+    if (typeof window === 'undefined') return
+    window.addEventListener('resize', syncSheetHeights)
+    return () => window.removeEventListener('resize', syncSheetHeights)
+  }, [sheets, isTwoColumns, isJustified, markdown, isPrintView, suppressDocHeader])
+
   return (
     <div
       className={
@@ -1374,12 +1432,11 @@ export function ArticleReader({
       ) : !markdown.trim() ? (
         <div className="a4-sheet-container">
           <div className={`article-reader-view a4-sheet empty ${alignmentClass}`}>
-            <header className="a4-sheet-running-header">{preparedDoc.runningHeader}</header>
             <p className="muted empty-reader">Este artículo está vacío. Toca "Editar" para redactar contenido.</p>
           </div>
         </div>
       ) : (
-        <div className="a4-sheet-container">
+        <div ref={sheetContainerRef} className="a4-sheet-container">
           {sheets.map((sheetBlocks, sheetIdx) => (
             <React.Fragment key={sheetIdx}>
               {sheetIdx > 0 && (
@@ -1391,7 +1448,6 @@ export function ArticleReader({
                 className={`article-reader-view a4-sheet ${isTwoColumns ? 'layout-two-columns' : 'layout-single-column'} ${alignmentClass}`}
                 data-sheet-index={sheetIdx}
               >
-                <header className="a4-sheet-running-header">{preparedDoc.runningHeader}</header>
                 {sheetIdx === 0 && !suppressDocHeader && preparedDoc.docTitle && (
                   <div className="a4-sheet-doc-header">
                     <h1 className="reader-doc-title">{preparedDoc.docTitle}</h1>

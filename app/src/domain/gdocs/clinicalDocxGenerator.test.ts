@@ -169,8 +169,7 @@ REF: Autor. Guía clínica. 2026.
     const numberingXml = await zip.file('word/numbering.xml')?.async('string')
 
     expect(docXml).toBeDefined()
-    expect(headerXml).toContain('APUNTES 5TO-2')
-    expect(headerXml).toContain('CARDIOLOGÍA')
+    expect(headerXml).toBeUndefined()
     expect(footerXml).toContain('Página')
 
     // Jerarquía de tamaños Word en half-points: Título 18pt (36), H1 14.5pt (29), H2 12.5pt (25), H3 11pt (22)
@@ -197,8 +196,12 @@ REF: Autor. Guía clínica. 2026.
     expect(docXml).toContain('F3EFE6')
     expect(docXml).toContain('FCE8E6')
     expect(docXml).toContain('F5F5F5')
-    // Alternancia de secciones continuas de 1 y 2 columnas
+    // Alternancia de secciones continuas de 1 y 2 columnas, manteniendo Bibliografía en flujo secuencial de 2 columnas
     expect(docXml).toContain('continuous')
     expect(docXml).toContain('w:num="2"')
+    const sectPrMatches = docXml?.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/g) ?? []
+    expect(sectPrMatches.length).toBeGreaterThanOrEqual(2)
+    const lastSectPr = sectPrMatches[sectPrMatches.length - 1]
+    expect(lastSectPr).toContain('w:num="2"')
   })
 })

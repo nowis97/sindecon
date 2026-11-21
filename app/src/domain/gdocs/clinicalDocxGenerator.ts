@@ -19,7 +19,6 @@ import {
   APUNTES_COLORS,
   CLINICAL_COLORS,
   createApuntesFooter,
-  createApuntesRunningHeader,
   createClinicalHeader,
   createClinicalHeading,
   createClinicalCallout,
@@ -113,7 +112,9 @@ function prepareGdocsSections(
 
     if (block.kind === 'heading') {
       inFullWidthSection = /ancho\s+completo|full\s*width|1\s*col(?:umna)?/i.test(block.text)
-      inBibliographySection = /^bibliograf[ií]a$|^referencias$|^fuentes$/i.test(block.text.trim())
+      inBibliographySection = /^(?:bibliograf[ií]a|referencias(?:\s+bibliogr[aá]ficas)?|fuentes(?:\s+bibliogr[aá]ficas)?)(?:\s*:)?$/i.test(
+        block.text.trim(),
+      )
       if (inBibliographySection) {
         bibCounter = 1
       }
@@ -148,7 +149,7 @@ function prepareGdocsSections(
           block.text = block.text.trim().replace(/^Asignatura/i, metadata.folderPath.trim())
         }
       } else if (block.variant === 'bibliography') {
-        // Marcador REF: preservado como bibliografía
+        // Marcador REF: permanece en flujo secuencial de 2 columnas (col 1 -> col 2)
       } else if (block.variant === 'secondary') {
         // Marcador > [!NOTA] preservado como nota secundaria
       } else if (block.variant === 'caption' || (isAfterVisual && looksLikeCaption)) {
@@ -235,6 +236,7 @@ async function renderBlocksToDocElements(
         docElements.push(
           new Paragraph({
             alignment: AlignmentType.JUSTIFIED,
+            keepLines: true,
             spacing: { before: 0, after: 60, line: 240 },
             indent: { left: 283, hanging: 283 },
             children: parseInlineFormatting(block.text, {
@@ -267,6 +269,7 @@ async function renderBlocksToDocElements(
           docElements.push(
             new Paragraph({
               alignment: AlignmentType.JUSTIFIED,
+              keepLines: true,
               spacing: { before: 0, after: 60, line: 240 },
               indent: { left: 283, hanging: 283 },
               children: [
@@ -476,12 +479,10 @@ export async function generateClinicalDocxBlob(
     subtitleOverride
   )
 
-  const runningHeader = createApuntesRunningHeader(metadata.folderPath)
   const runningFooter = createApuntesFooter()
 
   const docSections: ISectionOptions[] = [
     {
-      headers: { default: runningHeader },
       footers: { default: runningFooter },
       properties: {
         page: APUNTES_PAGE_PROPS,

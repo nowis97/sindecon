@@ -642,6 +642,7 @@ describe('Plantilla Apuntes 5to-2 - Callouts naturales, bloques ancho completo y
       '',
       '*FIGURA:* Tabla de ejemplo.',
       '',
+      '### Bibliografía',
       'REF: Autor 1. Guía 1.',
       'REF: Autor 2. Guía 2.',
     ].join('\n')
@@ -651,7 +652,6 @@ describe('Plantilla Apuntes 5to-2 - Callouts naturales, bloques ancho completo y
 
     expect(prepared.docTitle).toBe('Cefalea Aguda')
     expect(prepared.docSubtitle).toBe('Neurología · Apuntes 5to-2')
-    expect(prepared.runningHeader).toBe('APUNTES 5TO-2  ·  NEUROLOGÍA')
 
     const h1Sec = prepared.bodyBlocks[0]
     expect(h1Sec).toMatchObject({ type: 'header', level: 2, text: 'INTRODUCCIÓN' })
@@ -680,10 +680,16 @@ describe('Plantilla Apuntes 5to-2 - Callouts naturales, bloques ancho completo y
     const captionBlock = prepared.bodyBlocks.find((b) => b.type === 'paragraph' && b.variant === 'caption')
     expect(captionBlock).toMatchObject({ text: '*FIGURA:* Tabla de ejemplo.', fullWidth: true })
 
+    const bibHeading = prepared.bodyBlocks.find((b) => b.type === 'header' && /bibliograf/i.test(b.text))
+    expect(bibHeading).toMatchObject({ level: 3 })
+    expect(bibHeading && 'fullWidth' in bibHeading ? bibHeading.fullWidth : undefined).toBeUndefined()
+
     const bibRefs = prepared.bodyBlocks.filter((b) => b.type === 'paragraph' && b.variant === 'bibliography')
     expect(bibRefs).toHaveLength(2)
     expect(bibRefs[0]).toMatchObject({ text: 'Autor 1. Guía 1.' })
     expect(bibRefs[1]).toMatchObject({ text: 'Autor 2. Guía 2.' })
+    expect('fullWidth' in bibRefs[0] ? bibRefs[0].fullWidth : undefined).toBeUndefined()
+    expect('fullWidth' in bibRefs[1] ? bibRefs[1].fullWidth : undefined).toBeUndefined()
   })
 })
 

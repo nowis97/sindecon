@@ -1506,7 +1506,6 @@ function App() {
               <div key={node.id} className="print-bulk-article-item">
                 {bulkPrintState.options.includeHeader && (
                   <div className="print-article-header">
-                    <div className="print-running-header">{prepared.runningHeader}</div>
                     <h1 className="print-article-title">{prepared.docTitle || node.title}</h1>
                     {prepared.docSubtitle && (
                       <p className="print-article-subtitle">{prepared.docSubtitle}</p>
@@ -1560,7 +1559,6 @@ function App() {
           >
             {printOptions.includeHeader && (
               <div className="print-article-header">
-                <div className="print-running-header">{prepared.runningHeader}</div>
                 <h1 className="print-article-title">{prepared.docTitle || selected.title}</h1>
                 {prepared.docSubtitle && (
                   <p className="print-article-subtitle">{prepared.docSubtitle}</p>
