@@ -19,3 +19,6 @@ vite-dev.log
 # SO
 Thumbs.db
 Desktop.ini
+
+# Worktrees locales
+.worktrees/
