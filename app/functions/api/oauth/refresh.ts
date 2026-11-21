@@ -79,7 +79,7 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
     return jsonResponse({ error: 'upstream_unavailable' }, 502)
   }
 
-  if (!tokenData.access_token) {
+  if (!tokenData?.access_token) {
     return jsonResponse({ error: 'upstream_unavailable' }, 502)
   }
 

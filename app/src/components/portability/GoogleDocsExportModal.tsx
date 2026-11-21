@@ -576,7 +576,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
                       .then((resolvedToken) => {
                         if (!isMountedRef.current) return
                         if (resolvedToken) void executeExport(resolvedToken)
-                        else handleOAuthConnect()
+                        else setStatus('idle')
                       })
                       .catch((err: unknown) => {
                         if (!isMountedRef.current) return

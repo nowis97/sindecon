@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { onRequest as exchangeOnRequest } from './exchange'
-import { onRequest as refreshOnRequest } from './refresh'
-import { onRequest as logoutOnRequest } from './logout'
+import { onRequest as exchangeOnRequest } from '../../functions/api/oauth/exchange'
+import { onRequest as refreshOnRequest } from '../../functions/api/oauth/refresh'
+import { onRequest as logoutOnRequest } from '../../functions/api/oauth/logout'
 import {
   COOKIE_NAME,
   encryptCookiePayload,
   decryptCookiePayload,
   type OAuthEnv,
-} from './_shared'
+} from '../../functions/api/oauth/_shared'
 
 const TEST_ENV: OAuthEnv = {
   GOOGLE_CLIENT_ID: 'client-id.apps.googleusercontent.com',
@@ -240,6 +240,62 @@ describe('oauth endpoints (exchange, refresh, logout)', () => {
         persistent: false,
       })
       expect(res.headers.get('Set-Cookie')).toContain('Max-Age=0')
+    })
+
+    it('limpia cookie previa y devuelve persistent=false si Google omite refresh_token y no se puede resolver el email (fail-closed)', async () => {
+      const existingCookie = await encryptCookiePayload(
+        { rt: '1//0g-user-a-rt', email: 'userA@gmail.com', iat: 1000 },
+        TEST_ENV.OAUTH_COOKIE_SECRET!,
+      )
+
+      fetchMock
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              access_token: 'ya29.unknown-user-access',
+              expires_in: 3600,
+            }),
+            { status: 200 },
+          ),
+        )
+        .mockResolvedValueOnce(new Response('Internal Server Error', { status: 500 }))
+
+      const req = new Request('https://sindecon.pages.dev/api/oauth/exchange', {
+        method: 'POST',
+        headers: {
+          Origin: 'https://sindecon.pages.dev',
+          'Content-Type': 'application/json',
+          Cookie: `${COOKIE_NAME}=${encodeURIComponent(existingCookie)}`,
+        },
+        body: JSON.stringify({ code: '4/0AcvD-no-email' }),
+      })
+
+      const res = await exchangeOnRequest({ request: req, env: TEST_ENV })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({
+        access_token: 'ya29.unknown-user-access',
+        expires_in: 3600,
+        email: undefined,
+        persistent: false,
+      })
+      expect(res.headers.get('Set-Cookie')).toContain('Max-Age=0')
+    })
+
+    it('devuelve 401 oauth_exchange_failed si Google responde 200 con JSON literal null', async () => {
+      fetchMock.mockResolvedValueOnce(new Response('null', { status: 200 }))
+
+      const req = new Request('https://sindecon.pages.dev/api/oauth/exchange', {
+        method: 'POST',
+        headers: {
+          Origin: 'https://sindecon.pages.dev',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code: 'auth-code' }),
+      })
+
+      const res = await exchangeOnRequest({ request: req, env: TEST_ENV })
+      expect(res.status).toBe(401)
+      expect(await res.json()).toEqual({ error: 'oauth_exchange_failed' })
     })
 
     it('devuelve persistent=false sin Set-Cookie si no hay refresh_token ni cookie previa', async () => {
@@ -496,6 +552,28 @@ describe('oauth endpoints (exchange, refresh, logout)', () => {
       expect(await resNet.json()).toEqual({ error: 'upstream_unavailable' })
       expect(resNet.headers.get('Set-Cookie')).toBeNull()
     })
+
+    it('devuelve 502 SIN borrar cookie cuando Google responde 200 con JSON literal null', async () => {
+      const existingCookie = await encryptCookiePayload(
+        { rt: '1//0g-valid', iat: 1000 },
+        TEST_ENV.OAUTH_COOKIE_SECRET!,
+      )
+
+      fetchMock.mockResolvedValueOnce(new Response('null', { status: 200 }))
+
+      const req = new Request('https://sindecon.pages.dev/api/oauth/refresh', {
+        method: 'POST',
+        headers: {
+          Origin: 'https://sindecon.pages.dev',
+          Cookie: `${COOKIE_NAME}=${encodeURIComponent(existingCookie)}`,
+        },
+      })
+
+      const res = await refreshOnRequest({ request: req, env: TEST_ENV })
+      expect(res.status).toBe(502)
+      expect(await res.json()).toEqual({ error: 'upstream_unavailable' })
+      expect(res.headers.get('Set-Cookie')).toBeNull()
+    })
   })
 
   describe('POST /api/oauth/logout', () => {
@@ -534,6 +612,7 @@ describe('oauth endpoints (exchange, refresh, logout)', () => {
       const [, revokeInit] = fetchMock.mock.calls[0]!
       const revokeParams = new URLSearchParams(String(revokeInit?.body))
       expect(revokeParams.get('token')).toBe('1//0g-to-revoke')
+      expect(revokeInit?.signal).toBeInstanceOf(AbortSignal)
     })
 
     it('limpia la cookie sin llamar a Google si no hay cookie presente', async () => {

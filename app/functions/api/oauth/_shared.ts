@@ -74,7 +74,7 @@ export function validateSameOriginPost(request: Request): Response | null {
 
   const expectedOrigin = new URL(request.url).origin
   const originHeader = request.headers.get('Origin')
-  if (originHeader) {
+  if (originHeader !== null) {
     if (originHeader !== expectedOrigin) {
       return jsonResponse({ error: 'forbidden_origin' }, 403)
     }

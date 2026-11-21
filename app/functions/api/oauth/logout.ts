@@ -23,6 +23,7 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({ token: payload.rt }).toString(),
+          signal: AbortSignal.timeout(3000),
         })
       } catch {
         // Best-effort: el borrado local de la cookie siempre debe ejecutarse

@@ -10,7 +10,7 @@ import {
   validateSameOriginPost,
   validateEnv,
   jsonResponse,
-} from './_shared'
+} from '../../functions/api/oauth/_shared'
 
 describe('oauth _shared helpers', () => {
   const secret = 'super-secret-32-bytes-minimum-key-for-aes-gcm'
@@ -111,6 +111,18 @@ describe('oauth _shared helpers', () => {
       method: 'POST',
     })
     expect(validateSameOriginPost(missingHeadersReq)?.status).toBe(403)
+
+    const emptyOriginReq = new Request('https://sindecon.pages.dev/api/oauth/refresh', {
+      method: 'POST',
+      headers: { Origin: '' },
+    })
+    expect(validateSameOriginPost(emptyOriginReq)?.status).toBe(403)
+
+    const emptyOriginSameSiteReq = new Request('https://sindecon.pages.dev/api/oauth/refresh', {
+      method: 'POST',
+      headers: { Origin: '', 'Sec-Fetch-Site': 'same-origin' },
+    })
+    expect(validateSameOriginPost(emptyOriginSameSiteReq)?.status).toBe(403)
 
     const sameOriginReq = new Request('https://sindecon.pages.dev/api/oauth/refresh', {
       method: 'POST',

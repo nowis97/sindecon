@@ -99,7 +99,7 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
     return jsonResponse({ error: 'upstream_unavailable' }, 502)
   }
 
-  if (!tokenData.access_token) {
+  if (!tokenData?.access_token) {
     return jsonResponse({ error: 'oauth_exchange_failed' }, 401)
   }
 
@@ -116,10 +116,11 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
     if (existingRaw) {
       const existing = await decryptCookiePayload(existingRaw, envCheck.cookieSecret)
       if (existing) {
-        const sameUser =
-          !email ||
-          !existing.email ||
-          email.toLowerCase() === existing.email.toLowerCase()
+        const sameUser = Boolean(
+          email &&
+          existing.email &&
+          email.toLowerCase() === existing.email.toLowerCase(),
+        )
         if (sameUser) {
           refreshToken = existing.rt
           fallbackEmail = email || existing.email
