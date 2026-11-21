@@ -161,7 +161,7 @@ describe('oauth endpoints (exchange, refresh, logout)', () => {
 
     it('preserva refresh_token previo de la cookie si Google omite refresh_token y lee email de id_token', async () => {
       const existingCookie = await encryptCookiePayload(
-        { rt: '1//0g-existing-rt', email: 'prev@gmail.com', iat: 1000 },
+        { rt: '1//0g-existing-rt', email: 'JWT.User@gmail.com', iat: 1000 },
         TEST_ENV.OAUTH_COOKIE_SECRET!,
       )
 
@@ -202,6 +202,44 @@ describe('oauth endpoints (exchange, refresh, logout)', () => {
       )
       expect(decrypted?.rt).toBe('1//0g-existing-rt')
       expect(decrypted?.email).toBe('jwt.user@gmail.com')
+    })
+
+    it('limpia cookie previa y devuelve persistent=false si el email no coincide con la cookie y Google omite refresh_token', async () => {
+      const existingCookie = await encryptCookiePayload(
+        { rt: '1//0g-user-a-rt', email: 'userA@gmail.com', iat: 1000 },
+        TEST_ENV.OAUTH_COOKIE_SECRET!,
+      )
+
+      fetchMock.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: 'ya29.user-b-access',
+            expires_in: 3600,
+            id_token: makeFakeJwt({ email: 'userB@gmail.com' }),
+          }),
+          { status: 200 },
+        ),
+      )
+
+      const req = new Request('https://sindecon.pages.dev/api/oauth/exchange', {
+        method: 'POST',
+        headers: {
+          Origin: 'https://sindecon.pages.dev',
+          'Content-Type': 'application/json',
+          Cookie: `${COOKIE_NAME}=${encodeURIComponent(existingCookie)}`,
+        },
+        body: JSON.stringify({ code: '4/0AcvD-user-b' }),
+      })
+
+      const res = await exchangeOnRequest({ request: req, env: TEST_ENV })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({
+        access_token: 'ya29.user-b-access',
+        expires_in: 3600,
+        email: 'userB@gmail.com',
+        persistent: false,
+      })
+      expect(res.headers.get('Set-Cookie')).toContain('Max-Age=0')
     })
 
     it('devuelve persistent=false sin Set-Cookie si no hay refresh_token ni cookie previa', async () => {

@@ -1,4 +1,5 @@
 import {
+  buildClearCookieHeader,
   buildSessionSetCookieHeader,
   decryptCookiePayload,
   encryptCookiePayload,
@@ -108,14 +109,23 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
 
   let refreshToken = tokenData.refresh_token
   let fallbackEmail = email
+  let clearExistingCookie = false
   if (!refreshToken) {
-    // Google puede omitir refresh_token en re-autorizaciones; preservamos el previo de la cookie si sigue vigente.
+    // Google puede omitir refresh_token en re-autorizaciones; solo preservamos el previo si pertenece al mismo usuario.
     const existingRaw = readSessionCookie(context.request)
     if (existingRaw) {
       const existing = await decryptCookiePayload(existingRaw, envCheck.cookieSecret)
       if (existing) {
-        refreshToken = existing.rt
-        fallbackEmail = email || existing.email
+        const sameUser =
+          !email ||
+          !existing.email ||
+          email.toLowerCase() === existing.email.toLowerCase()
+        if (sameUser) {
+          refreshToken = existing.rt
+          fallbackEmail = email || existing.email
+        } else {
+          clearExistingCookie = true
+        }
       }
     }
   }
@@ -123,12 +133,18 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
   const expiresIn = typeof tokenData.expires_in === 'number' ? tokenData.expires_in : 3600
 
   if (!refreshToken) {
-    return jsonResponse({
-      access_token: tokenData.access_token,
-      expires_in: expiresIn,
-      email: fallbackEmail,
-      persistent: false,
-    })
+    return jsonResponse(
+      {
+        access_token: tokenData.access_token,
+        expires_in: expiresIn,
+        email: fallbackEmail,
+        persistent: false,
+      },
+      200,
+      clearExistingCookie
+        ? { 'Set-Cookie': buildClearCookieHeader(context.request.url) }
+        : undefined,
+    )
   }
 
   const encrypted = await encryptCookiePayload(
