@@ -3,13 +3,13 @@
 > **Sistema de Información y Notas para Decisiones Clínicas**  
 > *Base de conocimientos médica personal, offline-first, segura y ultrarrápida para profesionales y estudiantes de la salud.*
 
-[![Version](https://img.shields.io/badge/version-v0.8.0-blue.svg)](https://github.com/nowis97/sindecon/releases/tag/v0.8.0)
+[![Version](https://img.shields.io/badge/version-v1.0.0-blue.svg)](https://github.com/nowis97/sindecon/releases/tag/v1.0.0)
 [![PWA](https://img.shields.io/badge/PWA-Offline--First-emerald.svg)](https://vite-pwa-org.netlify.app/)
 [![React](https://img.shields.io/badge/React-19.2-61dafb.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8.2-646cff.svg)](https://vitejs.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6.svg)](https://www.typescriptlang.org/)
 [![Database](https://img.shields.io/badge/Dexie.js-IndexedDB-orange.svg)](https://dexie.org/)
-[![Tests](https://img.shields.io/badge/Vitest-115%20passed-success.svg)](https://vitest.dev/)
+[![Tests](https://img.shields.io/badge/Vitest-284%20passed-success.svg)](https://vitest.dev/)
 [![E2E](https://img.shields.io/badge/Playwright-31%20passed-success.svg)](https://playwright.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -159,23 +159,26 @@ sindecon/
 │   │   └── manifest.webmanifest      # Manifiesto de la PWA
 │   ├── src/
 │   │   ├── components/
+│   │   │   ├── auth/                 # Pantalla clínica de acceso y bloqueo de terminal
 │   │   │   ├── capture/              # Modal de Captura Rápida
-│   │   │   ├── common/               # Diálogos modales, Toasts y Error Boundary
-│   │   │   ├── dashboard/            # Panel de bienvenida y estadísticas
-│   │   │   ├── editor/               # MarkdownEditor (Milkdown) y SmartImport
-│   │   │   ├── navigation/           # MobileBottomBar (Dock de cristal móvil)
-│   │   │   ├── portability/          # Sincronización Google Drive y Backup
+│   │   │   ├── common/               # BaseModal, diálogos píldora, Toasts y Error Boundary
+│   │   │   ├── dashboard/            # Estación clínica principal, dock inferior y estadísticas
+│   │   │   ├── editor/               # MarkdownEditor (Milkdown) y SmartImportModal
+│   │   │   ├── flashcards/           # Generación, edición y repaso activo SM-2
+│   │   │   ├── navigation/           # MobileBottomBar (Dock móvil)
+│   │   │   ├── portability/          # Sincronización Google Drive, Google Docs, PDF y Backup ZIP
 │   │   │   ├── pwa/                  # UpdateToast (Aviso flotante de actualización)
-│   │   │   ├── reader/               # ArticleReader (Vista de lectura e impresión)
-│   │   │   ├── search/               # SearchBox, CommandPalette y TagInput
-│   │   │   └── tree/                 # TreeView (Árbol clínico con Drag & Drop)
+│   │   │   ├── reader/               # ArticleWorkspaceView, ArticleReader y PdfDocumentViewer
+│   │   │   ├── search/               # SearchBox, CommandPalette, TagInput y WikiLinkPicker
+│   │   │   ├── settings/             # AiSettingsModal (Gemini, Groq, OpenAI y WebLLM local)
+│   │   │   └── tree/                 # FolderExplorerView, TreeView y Breadcrumbs
 │   │   ├── db/                       # Capa de datos IndexedDB con Dexie.js
 │   │   │   ├── db.ts                 # Esquema de tablas y tipos
 │   │   │   ├── nodes.ts              # CRUD de carpetas y artículos
 │   │   │   ├── articles.ts           # Guardado de cuerpos Markdown
 │   │   │   ├── inbox.ts              # Inicialización de carpeta Inbox
 │   │   │   ├── templates.ts          # Sembrado y renderizado de plantillas
-│   │   │   └── exportImport.ts       # Exportación/Importación JSON/MD
+│   │   │   └── exportImport.ts       # Exportación/Importación ZIP, JSON, MD y marcas clínicas
 │   │   ├── domain/                   # Lógica pura de negocio (TypeScript puro)
 │   │   │   ├── tree.ts               # Validación de movimientos y jerarquías
 │   │   │   ├── merge.ts              # Resolución de conflictos en sincronización
@@ -187,7 +190,8 @@ sindecon/
 │   │   ├── pwa/                      # Persistencia y motor de sincronización PWA
 │   │   ├── App.tsx                   # Componente raíz y orquestador del layout
 │   │   ├── main.tsx                  # Punto de entrada de React
-│   │   └── index.css                 # Sistema de diseño, temas y animaciones
+│   │   ├── tailwind.css              # Tokens clínicos (.clinical-login / .clinical-home)
+│   │   └── index.css                 # Estilos base, lector e impresión clinical-A4
 │   ├── package.json                  # Dependencias y scripts
 │   └── vite.config.ts                # Configuración de Vite, PWA y Workbox
 ├── openspec/                         # Especificaciones y control de cambios OpenSpec
