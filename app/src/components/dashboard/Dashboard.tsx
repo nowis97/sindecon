@@ -395,7 +395,7 @@ export function Dashboard({
 
   return (
     <div
-      className="clinical-home min-h-full w-full font-sans antialiased pb-28 transition-colors duration-150"
+      className="clinical-home min-h-dvh w-full font-sans antialiased pb-28 transition-colors duration-150"
       data-home-theme={theme}
     >
       <div className="max-w-[1220px] mx-auto px-4 pt-4 pb-6 sm:px-6 sm:pt-5 sm:pb-8">
