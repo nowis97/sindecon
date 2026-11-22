@@ -9,7 +9,7 @@
 [![Vite](https://img.shields.io/badge/Vite-8.2-646cff.svg)](https://vitejs.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178c6.svg)](https://www.typescriptlang.org/)
 [![Database](https://img.shields.io/badge/Dexie.js-IndexedDB-orange.svg)](https://dexie.org/)
-[![Tests](https://img.shields.io/badge/Vitest-284%20passed-success.svg)](https://vitest.dev/)
+[![Tests](https://img.shields.io/badge/Vitest-355%20passed-success.svg)](https://vitest.dev/)
 [![E2E](https://img.shields.io/badge/Playwright-31%20passed-success.svg)](https://playwright.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -239,17 +239,17 @@ sindecon/
 
 ---
 
-## 🌐 Despliegue en Cloudflare Pages
+## 🌐 Despliegue en Cloudflare (Workers + Static Assets)
 
-El proyecto está 100% optimizado para desplegarse como sitio estático en **Cloudflare Pages**:
+El proyecto está configurado para desplegarse en **Cloudflare Workers** mediante `wrangler.jsonc` + `worker.ts` (o en Cloudflare Pages vía `app/functions/`):
 
 | Configuración | Valor |
 | :--- | :--- |
-| **Framework preset** | `Vite` |
 | **Root directory** | `app` |
 | **Build command** | `npm run build` |
-| **Build output directory** | `dist` |
-| **Node.js version** | `20` o superior |
+| **Deploy command** | `npx wrangler deploy` |
+| **Static Assets (`wrangler.jsonc`)** | `./dist` (`single-page-application`, `run_worker_first: ["/api/*"]`) |
+| **Node.js version** | `22` (fijada en `.node-version`) |
 
 ### Cabeceras HTTP de Cloudflare (`app/public/_headers`)
 El archivo `_headers` se copia automáticamente a `dist/` en cada compilación:

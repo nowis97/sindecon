@@ -32,7 +32,11 @@ import {
   DEFAULT_LOCAL_MODEL,
   AVAILABLE_LOCAL_MODELS,
 } from '../../domain/ai/webLlmClient'
-import { getStoredToken, isGoogleSyncEnabled, uploadAiConfigToDrive } from '../../pwa/googleDrive'
+import {
+  ensureValidAccessToken,
+  isGoogleSyncEnabled,
+  uploadAiConfigToDrive,
+} from '../../pwa/googleDrive'
 import {
   BaseModal,
   PILL_BTN_PRIMARY,
@@ -124,13 +128,13 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
     }
     await saveAiConfig(enrichedConfig)
 
+    // Si Google Drive está conectado, subimos inmediatamente a appDataFolder (refrescando si expiró)
     if (isGoogleSyncEnabled()) {
-      const token = getStoredToken()
-      if (token) {
-        uploadAiConfigToDrive(token, enrichedConfig).catch((err) => {
+      void ensureValidAccessToken()
+        .then((token) => (token ? uploadAiConfigToDrive(token, enrichedConfig) : null))
+        .catch((err) => {
           console.warn('Error subiendo AI config a Google Drive al guardar:', err)
         })
-      }
     }
 
     setSaved(true)

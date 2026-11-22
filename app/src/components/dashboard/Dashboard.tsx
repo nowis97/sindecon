@@ -40,7 +40,7 @@ import type { MergeReport } from '../../domain/merge'
 import { childrenOf } from '../../domain/tree'
 import { useAllTags, useArticlesWithTag } from '../../hooks/useSearch'
 import type { Theme } from '../../hooks/useTheme'
-import type { SyncProgress, SyncState } from '../../pwa/syncEngine'
+import { getSyncStatusDetails, type SyncProgress, type SyncState } from '../../pwa/syncEngine'
 import { AlertDialog } from '../common/DialogModal'
 
 export interface DashboardProps {
@@ -69,6 +69,7 @@ export interface DashboardProps {
   onToggleTemplatesFolder?: () => void
   isGoogleConnected?: boolean
   isGoogleSessionExpired?: boolean
+  googleHasPendingChanges?: boolean
   googleSyncState?: SyncState
   googleSyncProgress?: SyncProgress | null
   googleLastSyncedAt?: Date | null
@@ -127,6 +128,7 @@ export function Dashboard({
   onToggleTemplatesFolder,
   isGoogleConnected = false,
   isGoogleSessionExpired = false,
+  googleHasPendingChanges = false,
   googleSyncState = 'idle',
   googleSyncProgress = null,
   googleLastSyncedAt = null,
@@ -318,69 +320,66 @@ export function Dashboard({
     toggleFolderExpand(folderId)
   }
 
-  // Estado visual para el botón Drive superior
+  // Estado visual para el botón Drive superior (sincronizado con getSyncStatusDetails)
   const driveSummary = useMemo(() => {
-    if (!isGoogleConnected) {
-      return {
-        label: 'Drive',
+    const details = getSyncStatusDetails({
+      isConnected: isGoogleConnected,
+      isSessionExpired: isGoogleSessionExpired,
+      hasPendingChanges: googleHasPendingChanges,
+      syncState: googleSyncState,
+      syncProgress: googleSyncProgress,
+      lastSyncedAt: googleLastSyncedAt,
+    })
+
+    const styleMap: Record<string, { dotClass: string; pillClass: string }> = {
+      disconnected: {
         dotClass: 'bg-[var(--cl-muted)]',
         pillClass:
           'border-[var(--cl-border)] bg-[var(--cl-surface)] text-[var(--cl-fg-2)] hover:bg-[var(--cl-surface-warm)]',
-        title: 'Conectar sincronización y backup con Google Drive',
-      }
-    }
-    if (isGoogleSessionExpired) {
-      return {
-        label: 'Drive',
-        dotClass: 'bg-[var(--cl-warn)]',
-        pillClass:
-          'border-[var(--cl-warn-border)] bg-[var(--cl-warn-soft)] text-[var(--cl-warn)]',
-        title: 'Sesión de Google Drive en pausa. Clic para reconectar.',
-      }
-    }
-    if (googleSyncState === 'syncing' || googleSyncState === 'checking') {
-      const pct =
-        googleSyncProgress?.percent !== undefined ? `${Math.round(googleSyncProgress.percent)}%` : ''
-      return {
-        label: pct ? `Drive ${pct}` : 'Sync…',
+      },
+      syncing: {
         dotClass: 'bg-[var(--cl-diagnostic)] animate-pulse',
         pillClass:
           'border-[var(--cl-accent-border)] bg-[var(--cl-accent-soft)] text-[var(--cl-diagnostic)]',
-        title: googleSyncProgress?.message || 'Sincronizando cambios con Google Drive…',
-      }
-    }
-    if (googleSyncState === 'error') {
-      return {
-        label: 'Error Drive',
-        dotClass: 'bg-[var(--cl-danger)]',
-        pillClass:
-          'border-[var(--cl-danger-border)] bg-[var(--cl-danger-soft)] text-[var(--cl-danger)]',
-        title: 'Error al sincronizar con Google Drive. Clic para revisar.',
-      }
-    }
-    if (googleSyncState === 'offline') {
-      return {
-        label: 'Offline',
+      },
+      paused: {
         dotClass: 'bg-[var(--cl-warn)]',
         pillClass:
           'border-[var(--cl-warn-border)] bg-[var(--cl-warn-soft)] text-[var(--cl-warn)]',
-        title: 'Sin conexión. Los cambios se guardan localmente.',
-      }
+      },
+      pending: {
+        dotClass: 'bg-[var(--cl-warn)]',
+        pillClass:
+          'border-[var(--cl-warn-border)] bg-[var(--cl-warn-soft)] text-[var(--cl-warn)]',
+      },
+      offline: {
+        dotClass: 'bg-[var(--cl-muted)]',
+        pillClass:
+          'border-[var(--cl-border)] bg-[var(--cl-surface)] text-[var(--cl-muted)]',
+      },
+      error: {
+        dotClass: 'bg-[var(--cl-danger)]',
+        pillClass:
+          'border-[var(--cl-danger-border)] bg-[var(--cl-danger-soft)] text-[var(--cl-danger)]',
+      },
+      synced: {
+        dotClass: 'bg-[var(--cl-success)]',
+        pillClass:
+          'border-[var(--cl-success-border)] bg-[var(--cl-success-soft)] text-[var(--cl-success)]',
+      },
     }
+
+    const styles = styleMap[details.status] || styleMap.disconnected
     return {
-      label: googleLastSyncedAt
-        ? `Drive ${googleLastSyncedAt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`
-        : 'Drive al día',
-      dotClass: 'bg-[var(--cl-success)]',
-      pillClass:
-        'border-[var(--cl-success-border)] bg-[var(--cl-success-soft)] text-[var(--cl-success)]',
-      title: googleLastSyncedAt
-        ? `Última copia en Google Drive: ${googleLastSyncedAt.toLocaleString()}`
-        : 'Sincronizado con Google Drive',
+      label: details.label,
+      title: details.title,
+      dotClass: styles.dotClass,
+      pillClass: styles.pillClass,
     }
   }, [
     isGoogleConnected,
     isGoogleSessionExpired,
+    googleHasPendingChanges,
     googleSyncState,
     googleSyncProgress,
     googleLastSyncedAt,

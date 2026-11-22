@@ -26,9 +26,11 @@ interface GoogleDriveModalProps {
   onClose: () => void
   isConnected: boolean
   isSessionExpired?: boolean
+  hasPendingChanges?: boolean
   syncState: SyncState
   syncProgress?: SyncProgress | null
   lastSyncedAt: Date | null
+  lastCheckedAt?: Date | null
   userEmail: string | null
   errorMessage: string | null
   onTriggerSync: () => void
@@ -42,9 +44,11 @@ export function GoogleDriveModal({
   onClose,
   isConnected,
   isSessionExpired = false,
+  hasPendingChanges = false,
   syncState,
   syncProgress,
   lastSyncedAt,
+  lastCheckedAt = null,
   userEmail,
   errorMessage,
   onTriggerSync,
@@ -72,17 +76,24 @@ export function GoogleDriveModal({
 
   const getStatusLabel = () => {
     if (syncState === 'syncing') return 'Sincronizando cambios…'
-    if (syncState === 'offline') return 'Sin conexión (Offline-First)'
+    if (syncState === 'offline') {
+      return hasPendingChanges ? 'Sin conexión (cambios pendientes)' : 'Sin conexión (Offline-First)'
+    }
     if (syncState === 'error') return 'Error en sincronización'
-    if (isSessionExpired) return 'Sesión en pausa (token expirado)'
+    if (isSessionExpired) {
+      return hasPendingChanges
+        ? 'Sesión en pausa (cambios sin respaldar)'
+        : 'Sesión en pausa (token expirado)'
+    }
+    if (hasPendingChanges) return 'Cambios locales pendientes de respaldo'
     return 'Al día y sincronizado'
   }
 
   const getStatusDotClass = () => {
     if (syncState === 'syncing') return 'bg-[var(--ch-accent)] animate-pulse'
-    if (syncState === 'offline') return 'bg-slate-400'
+    if (syncState === 'offline') return hasPendingChanges ? 'bg-amber-500' : 'bg-slate-400'
     if (syncState === 'error') return 'bg-red-500'
-    if (isSessionExpired) return 'bg-amber-500'
+    if (isSessionExpired || hasPendingChanges) return 'bg-amber-500'
     return 'bg-emerald-500'
   }
 
@@ -160,10 +171,30 @@ export function GoogleDriveModal({
             <div className="flex items-center justify-between gap-2 border-t border-[var(--ch-border-subtle)] pt-2">
               <span className="text-[var(--ch-text-muted)]">Última sincronización:</span>
               <span className="font-mono text-[11px] text-[var(--ch-text-secondary)]">
-                {lastSyncedAt ? lastSyncedAt.toLocaleString() : 'Pendiente de sincronizar'}
+                {lastSyncedAt ? lastSyncedAt.toLocaleString() : 'Sin respaldos aún'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[var(--ch-text-muted)]">Última consulta:</span>
+              <span className="font-mono text-[11px] text-[var(--ch-text-secondary)]">
+                {lastCheckedAt ? lastCheckedAt.toLocaleString() : 'Sin consultas aún'}
               </span>
             </div>
           </div>
+
+          {hasPendingChanges && syncState !== 'syncing' && (
+            <div className="flex items-start gap-2.5 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-3.5 py-2.5 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+              <span>
+                Tienes cambios locales que aún no se respaldan en Google Drive.{' '}
+                {syncState === 'offline'
+                  ? 'Se subirán automáticamente cuando recuperes conexión.'
+                  : isSessionExpired
+                    ? 'Reconecta tu cuenta para respaldarlos.'
+                    : 'Se respaldarán automáticamente en unos segundos o puedes sincronizar ahora.'}
+              </span>
+            </div>
+          )}
 
           {isSessionExpired && (
             <div className="flex items-start gap-2.5 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-3.5 py-2.5 text-xs leading-relaxed text-[var(--ch-text-secondary)]">

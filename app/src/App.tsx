@@ -106,9 +106,11 @@ function App() {
   const {
     isConnected: isGoogleConnected,
     isSessionExpired: isGoogleSessionExpired,
+    hasPendingChanges: googleHasPendingChanges,
     syncState: googleSyncState,
     syncProgress: googleSyncProgress,
     lastSyncedAt: googleLastSyncedAt,
+    lastCheckedAt: googleLastCheckedAt,
     errorMessage: googleErrorMessage,
     userEmail: googleUserEmail,
     connectWithToken: connectGoogleToken,
@@ -765,6 +767,7 @@ function App() {
               onToggleTemplatesFolder={toggleTemplatesFolder}
               isGoogleConnected={isGoogleConnected}
               isGoogleSessionExpired={isGoogleSessionExpired}
+              googleHasPendingChanges={googleHasPendingChanges}
               googleSyncState={googleSyncState}
               googleSyncProgress={googleSyncProgress}
               googleLastSyncedAt={googleLastSyncedAt}
@@ -866,9 +869,11 @@ function App() {
         onClose={() => setIsGoogleModalOpen(false)}
         isConnected={isGoogleConnected}
         isSessionExpired={isGoogleSessionExpired}
+        hasPendingChanges={googleHasPendingChanges}
         syncState={googleSyncState}
         syncProgress={googleSyncProgress}
         lastSyncedAt={googleLastSyncedAt}
+        lastCheckedAt={googleLastCheckedAt}
         userEmail={googleUserEmail}
         errorMessage={googleErrorMessage}
         onTriggerSync={() => void triggerGoogleSync()}

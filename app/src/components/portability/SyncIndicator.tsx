@@ -1,9 +1,10 @@
 import { Cloud } from 'lucide-react'
-import type { SyncState, SyncProgress } from '../../pwa/syncEngine'
+import { getSyncStatusDetails, type SyncState, type SyncProgress } from '../../pwa/syncEngine'
 
 interface SyncIndicatorProps {
   isConnected: boolean
   isSessionExpired?: boolean
+  hasPendingChanges?: boolean
   syncState: SyncState
   syncProgress?: SyncProgress | null
   lastSyncedAt: Date | null
@@ -13,84 +14,59 @@ interface SyncIndicatorProps {
 export function SyncIndicator({
   isConnected,
   isSessionExpired = false,
+  hasPendingChanges = false,
   syncState,
   syncProgress,
   lastSyncedAt,
   onClick,
 }: SyncIndicatorProps) {
-  const getStatusDetails = () => {
-    if (!isConnected) {
-      return {
-        dotClass: 'bg-slate-400',
-        pillClass:
-          'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)]',
-        label: 'Drive',
-        title:
-          'Google Drive no conectado. Haz clic para activar sincronización y backup automático.',
-      }
-    }
+  const { status, label, title } = getSyncStatusDetails({
+    isConnected,
+    isSessionExpired,
+    hasPendingChanges,
+    syncState,
+    syncProgress,
+    lastSyncedAt,
+  })
 
-    if (isSessionExpired) {
-      return {
-        dotClass: 'bg-amber-500',
-        pillClass:
-          'border-amber-500/35 bg-amber-500/12 text-amber-800 dark:text-amber-300',
-        label: 'Drive (pausa)',
-        title:
-          'Sesión de Google Drive en pausa (token expirado). Haz clic para reconectar y sincronizar.',
-      }
-    }
-
-    switch (syncState) {
-      case 'syncing':
-      case 'checking': {
-        const percent =
-          syncProgress?.percent !== undefined ? Math.round(syncProgress.percent) : null
-        return {
-          dotClass: 'bg-[var(--ch-accent)] animate-pulse',
-          pillClass:
-            'border-[var(--ch-accent)]/35 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]',
-          label: percent !== null ? `Sync ${percent}%` : 'Sincronizando…',
-          title: syncProgress?.message
-            ? `${syncProgress.message} (${percent ?? 0}%)`
-            : 'Sincronizando cambios en segundo plano con Google Drive…',
-        }
-      }
-      case 'offline':
-        return {
-          dotClass: 'bg-slate-400',
-          pillClass:
-            'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-muted)]',
-          label: 'Offline',
-          title: 'Modo Offline. Los cambios se guardan localmente y se sincronizarán al reconectar.',
-        }
-      case 'error':
-        return {
-          dotClass: 'bg-red-500',
-          pillClass: 'border-red-500/35 bg-red-500/12 text-red-700 dark:text-red-300',
-          label: 'Error Sync',
-          title: 'Error de sincronización con Google Drive. Haz clic para ver detalles y reintentar.',
-        }
-      case 'idle':
-      default:
-        return {
-          dotClass: 'bg-emerald-500',
-          pillClass:
-            'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-          label: lastSyncedAt
-            ? `Sync ${lastSyncedAt.toLocaleTimeString(undefined, {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}`
-            : 'Al día',
-          title: lastSyncedAt
-            ? `Última sincronización con Google Drive: ${lastSyncedAt.toLocaleString()}`
-            : 'Sincronizado con Google Drive (Local-First)',
-        }
-    }
+  const styleByStatus: Record<string, { dotClass: string; pillClass: string }> = {
+    disconnected: {
+      dotClass: 'bg-slate-400',
+      pillClass:
+        'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)]',
+    },
+    syncing: {
+      dotClass: 'bg-[var(--ch-accent)] animate-pulse',
+      pillClass:
+        'border-[var(--ch-accent)]/35 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]',
+    },
+    paused: {
+      dotClass: 'bg-amber-500',
+      pillClass:
+        'border-amber-500/35 bg-amber-500/12 text-amber-800 dark:text-amber-300',
+    },
+    pending: {
+      dotClass: 'bg-amber-500',
+      pillClass:
+        'border-amber-500/35 bg-amber-500/12 text-amber-800 dark:text-amber-300',
+    },
+    offline: {
+      dotClass: 'bg-slate-400',
+      pillClass:
+        'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-muted)]',
+    },
+    error: {
+      dotClass: 'bg-red-500',
+      pillClass: 'border-red-500/35 bg-red-500/12 text-red-700 dark:text-red-300',
+    },
+    synced: {
+      dotClass: 'bg-emerald-500',
+      pillClass:
+        'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    },
   }
 
-  const { dotClass, pillClass, label, title } = getStatusDetails()
+  const { dotClass, pillClass } = styleByStatus[status] || styleByStatus.disconnected
 
   return (
     <button

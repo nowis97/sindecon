@@ -50,16 +50,55 @@ const GDRIVE_EMAIL_KEY = 'cuaderno-gdrive-email'
 const GDRIVE_CLIENT_ID_KEY = 'cuaderno-gdrive-client-id'
 const GDRIVE_ENABLED_KEY = 'cuaderno-gdrive-enabled'
 
+export const GOOGLE_AUTH_CHANGE_EVENT = 'sindecon-google-auth-change'
+
 // Client ID configurado mediante variable de entorno VITE_GOOGLE_CLIENT_ID o localStorage
 export const DEFAULT_GOOGLE_CLIENT_ID =
   (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || ''
 
+function getDefaultGoogleClientId(): string {
+  const envVal = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  return typeof envVal === 'string' ? envVal : DEFAULT_GOOGLE_CLIENT_ID
+}
+
+let bffUnavailableInSession = false
+let inFlightRefreshPromise: Promise<string | null> | null = null
+
+export function resetOAuthRuntimeStateForTests(): void {
+  bffUnavailableInSession = false
+  inFlightRefreshPromise = null
+}
+
+function notifyGoogleAuthChange(): void {
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.dispatchEvent === 'function' &&
+    typeof Event === 'function'
+  ) {
+    window.dispatchEvent(new Event(GOOGLE_AUTH_CHANGE_EVENT))
+  }
+}
+
 export function getStoredClientId(): string {
-  return localStorage.getItem(GDRIVE_CLIENT_ID_KEY) || DEFAULT_GOOGLE_CLIENT_ID
+  return localStorage.getItem(GDRIVE_CLIENT_ID_KEY) || getDefaultGoogleClientId()
 }
 
 export function setStoredClientId(clientId: string) {
-  localStorage.setItem(GDRIVE_CLIENT_ID_KEY, clientId)
+  if (clientId) {
+    localStorage.setItem(GDRIVE_CLIENT_ID_KEY, clientId)
+  } else {
+    localStorage.removeItem(GDRIVE_CLIENT_ID_KEY)
+  }
+}
+
+export function shouldUseServerOAuth(): boolean {
+  if (bffUnavailableInSession) return false
+  const defaultId = getDefaultGoogleClientId()
+  const storedCustom = localStorage.getItem(GDRIVE_CLIENT_ID_KEY)
+  if (storedCustom && storedCustom !== defaultId) {
+    return false
+  }
+  return true
 }
 
 export function isGoogleSyncEnabled(): boolean {
@@ -89,7 +128,7 @@ export function getStoredToken(): string | null {
   if (expiryStr) {
     const expiry = Number.parseInt(expiryStr, 10)
     if (Date.now() > expiry) {
-      // Token expirado: NO borramos email ni la bandera gdrive-enabled para permitir renovación silenciosa
+      // Token expirado: NO borramos email ni la bandera gdrive-enabled para permitir renovación
       localStorage.removeItem(GDRIVE_TOKEN_KEY)
       return null
     }
@@ -104,6 +143,7 @@ export function setStoredToken(token: string, expiresInSeconds = 3600, email?: s
   if (email) {
     localStorage.setItem(GDRIVE_EMAIL_KEY, email)
   }
+  notifyGoogleAuthChange()
 }
 
 export function getStoredEmail(): string | null {
@@ -117,54 +157,238 @@ export function clearStoredToken(disconnectExplicit = false) {
     localStorage.removeItem(GDRIVE_EMAIL_KEY)
     localStorage.removeItem(GDRIVE_ENABLED_KEY)
   }
+  notifyGoogleAuthChange()
 }
 
 /**
- * Solicita silenciosamente un nuevo Access Token a Google Identity Services (GIS)
- * sin abrir pop-ups ni requerir clics del usuario si ya ha concedido permisos previamente.
+ * Canjea un authorization code de GIS en el BFF para guardar el refresh_token en cookie HttpOnly.
  */
-export function requestSilentAccessToken(
-  clientId: string,
-  onSuccess: (token: string, expiresIn: number) => void,
-  onError?: (err: string) => void,
-): void {
-  const win = window as unknown as {
-    google?: {
-      accounts?: {
-        oauth2?: {
-          initTokenClient: (config: {
-            client_id: string
-            scope: string
-            prompt?: string
-            callback: (res: { access_token?: string; expires_in?: number; error?: string }) => void
-          }) => { requestAccessToken: (opts?: { prompt?: string }) => void }
-        }
-      }
+export async function exchangeOAuthCode(code: string): Promise<{
+  accessToken: string
+  expiresIn: number
+  email?: string
+  persistent: boolean
+} | null> {
+  const res = await fetch('/api/oauth/exchange', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  })
+
+  if (res.status === 404 || res.status === 405) {
+    bffUnavailableInSession = true
+    return null
+  }
+
+  if (!res.ok) {
+    throw new Error(`No se pudo completar la autenticación con Google (${res.status})`)
+  }
+
+  const data = (await res.json()) as {
+    access_token?: string
+    expires_in?: number
+    email?: string
+    persistent?: boolean
+  }
+
+  if (!data.access_token) {
+    throw new Error('Google no devolvió un token de acceso válido')
+  }
+
+  return {
+    accessToken: data.access_token,
+    expiresIn: typeof data.expires_in === 'number' ? data.expires_in : 3600,
+    email: data.email,
+    persistent: Boolean(data.persistent),
+  }
+}
+
+/**
+ * Devuelve un access_token vigente desde localStorage o lo renueva silenciosamente vía BFF (single-flight).
+ */
+export async function ensureValidAccessToken(forceRefresh = false): Promise<string | null> {
+  if (!forceRefresh) {
+    const existing = getStoredToken()
+    if (existing && !isTokenExpired(2)) {
+      return existing
     }
   }
 
-  if (!win.google?.accounts?.oauth2) {
-    onError?.('Google Identity Services no está listo')
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return null
+  }
+
+  if (!shouldUseServerOAuth()) {
+    return null
+  }
+
+  if (inFlightRefreshPromise) {
+    return await inFlightRefreshPromise
+  }
+
+  inFlightRefreshPromise = (async () => {
+    try {
+      const res = await fetch('/api/oauth/refresh', {
+        method: 'POST',
+        credentials: 'same-origin',
+      })
+
+      if (res.status === 404 || res.status === 405) {
+        bffUnavailableInSession = true
+        return null
+      }
+
+      if (res.status === 401) {
+        clearStoredToken(false)
+        return null
+      }
+
+      if (!res.ok) {
+        throw new Error(`Error temporal renovando sesión de Google (${res.status})`)
+      }
+
+      const data = (await res.json()) as {
+        access_token?: string
+        expires_in?: number
+        email?: string
+      }
+
+      if (!data.access_token) {
+        return null
+      }
+
+      setStoredToken(
+        data.access_token,
+        typeof data.expires_in === 'number' ? data.expires_in : 3600,
+        data.email,
+      )
+      return data.access_token
+    } finally {
+      inFlightRefreshPromise = null
+    }
+  })()
+
+  return await inFlightRefreshPromise
+}
+
+/**
+ * Revoca la sesión persistente en el servidor BFF en best-effort.
+ */
+export async function revokeServerOAuthSession(): Promise<void> {
+  if (!shouldUseServerOAuth()) return
+  try {
+    await fetch('/api/oauth/logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+    })
+  } catch {
+    // Best-effort en logout local
+  }
+}
+
+interface GisOAuth2Namespace {
+  initTokenClient: (config: {
+    client_id: string
+    scope: string
+    prompt?: string
+    login_hint?: string
+    callback: (res: { access_token?: string; expires_in?: number; error?: string }) => void
+  }) => { requestAccessToken: (opts?: { prompt?: string; login_hint?: string }) => void }
+  initCodeClient?: (config: {
+    client_id: string
+    scope: string
+    ux_mode?: 'popup' | 'redirect'
+    prompt?: string
+    login_hint?: string
+    callback: (res: { code?: string; error?: string }) => void
+  }) => { requestCode: () => void }
+}
+
+function triggerLegacyTokenFlow(
+  oauth2: GisOAuth2Namespace,
+  clientId: string,
+  storedEmail: string | null,
+  callbacks: {
+    onSuccess: (token: string, expiresIn: number, email?: string) => void
+    onError: (message: string) => void
+  },
+): void {
+  const client = oauth2.initTokenClient({
+    client_id: clientId,
+    scope: GOOGLE_DRIVE_SCOPES,
+    login_hint: storedEmail || undefined,
+    callback: (response) => {
+      if (response.access_token) {
+        callbacks.onSuccess(response.access_token, response.expires_in || 3600)
+      } else if (response.error) {
+        callbacks.onError(`Error de Google: ${response.error}`)
+      }
+    },
+  })
+  client.requestAccessToken()
+}
+
+/**
+ * Inicia el flujo OAuth con Google: usa Authorization Code + BFF si está disponible y cae al Token Client implícito si no.
+ */
+export function initiateGoogleOAuthFlow(callbacks: {
+  onSuccess: (token: string, expiresIn: number, email?: string) => void
+  onError: (message: string) => void
+}): void {
+  const win =
+    typeof window === 'undefined'
+      ? undefined
+      : (window as unknown as {
+          google?: { accounts?: { oauth2?: GisOAuth2Namespace } }
+        })
+
+  const clientId = getStoredClientId()
+  if (!clientId) {
+    callbacks.onError('No hay Client ID de Google configurado')
     return
   }
 
-  try {
-    const client = win.google.accounts.oauth2.initTokenClient({
+  const oauth2 = win?.google?.accounts?.oauth2
+  if (!oauth2) {
+    callbacks.onError('Google Identity Services no está disponible en este navegador')
+    return
+  }
+
+  const storedEmail = getStoredEmail()
+
+  if (shouldUseServerOAuth() && typeof oauth2.initCodeClient === 'function') {
+    const codeClient = oauth2.initCodeClient({
       client_id: clientId,
       scope: GOOGLE_DRIVE_SCOPES,
-      prompt: '',
+      ux_mode: 'popup',
+      login_hint: storedEmail || undefined,
+      prompt: storedEmail ? 'consent' : 'select_account consent',
       callback: (response) => {
-        if (response.access_token) {
-          onSuccess(response.access_token, response.expires_in || 3600)
-        } else if (response.error) {
-          onError?.(response.error)
+        if (response.error) {
+          callbacks.onError(`Error de Google: ${response.error}`)
+          return
         }
+        if (!response.code) return
+
+        void exchangeOAuthCode(response.code)
+          .then((session) => {
+            if (session === null) {
+              triggerLegacyTokenFlow(oauth2, clientId, storedEmail, callbacks)
+              return
+            }
+            callbacks.onSuccess(session.accessToken, session.expiresIn, session.email)
+          })
+          .catch((err: unknown) => {
+            callbacks.onError((err as Error).message || 'Error al iniciar sesión con Google')
+          })
       },
     })
-    client.requestAccessToken({ prompt: '' })
-  } catch (err) {
-    onError?.((err as Error).message)
+    codeClient.requestCode()
+    return
   }
+
+  triggerLegacyTokenFlow(oauth2, clientId, storedEmail, callbacks)
 }
 
 /**
@@ -563,7 +787,7 @@ export async function uploadAppDataFile(
 }
 
 /**
- * Obtiene el email del usuario usando Google UserInfo endpoint.
+ * Obtiene el email del usuario usando Google UserInfo y fallback a Drive About API.
  */
 export async function fetchGoogleUserEmail(token: string): Promise<string | null> {
   try {
@@ -572,11 +796,25 @@ export async function fetchGoogleUserEmail(token: string): Promise<string | null
     })
     if (res.ok) {
       const data = (await res.json()) as { email?: string }
-      return data.email ?? null
+      if (data.email) return data.email
+    }
+  } catch {
+    // Continuar con fallback de Drive API
+  }
+
+  try {
+    const aboutRes = await fetch(
+      'https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)',
+      { headers: { Authorization: `Bearer ${token}` } },
+    )
+    if (aboutRes.ok) {
+      const aboutData = (await aboutRes.json()) as { user?: { emailAddress?: string } }
+      return aboutData.user?.emailAddress ?? null
     }
   } catch {
     // Ignorar si falla
   }
+
   return null
 }
 

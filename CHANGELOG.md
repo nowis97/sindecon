@@ -17,4 +17,5 @@ All notable changes to SINDECON are documented in this file.
 
 ### Fixed
 - **Resiliencia en Backup ZIP de Marcas Clínicas**: Sanitización segura al leer y restaurar marcas clínicas desde `localStorage` o `_clinical_marks.json`, evitando fallos de exportación/importación ante JSON corrupto o estructuras no tabulares.
+- **Integración OAuth y Estado de Sincronización en UI**: Unificación del indicador de estado pendiente (`Pendiente`, `Última consulta`, reintento con refresco silencioso BFF y fix en `getDefaultGoogleClientId` para respetar overrides vacíos en `VITE_GOOGLE_CLIENT_ID`).
 - **Contrato de Importación Masiva**: Corrección de propiedades pasadas a `importBulkArticles` en `BulkImportModal.tsx`.

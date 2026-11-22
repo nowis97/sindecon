@@ -1,0 +1,5 @@
+# Variables locales para probar Cloudflare Pages Functions con `npx wrangler pages dev`
+# Copia este archivo a `app/.dev.vars` (nunca lo subas a git).
+GOOGLE_CLIENT_ID=tu-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-tu-client-secret
+OAUTH_COOKIE_SECRET=cambia-esto-por-una-clave-aleatoria-de-al-menos-32-caracteres
