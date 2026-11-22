@@ -1,4 +1,12 @@
 import { useRef, useState } from 'react'
+import {
+  Archive,
+  Upload,
+  FileInput,
+  Printer,
+  Cloud,
+  Smartphone,
+} from 'lucide-react'
 import { exportToZip, importFromZip } from '../../db/exportImport'
 import type { MergeReport } from '../../domain/merge'
 import { AlertDialog } from '../common/DialogModal'
@@ -54,63 +62,81 @@ export function PortabilityBar({
 
   return (
     <>
-      <div className="portability">
+      <div className="grid grid-cols-2 gap-1.5 border-b border-[var(--ch-border-subtle)] px-3 py-2.5">
         <button
           type="button"
           onClick={onExport}
           disabled={busy}
           title="Exportar todo el cuaderno médico a un archivo .zip"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--ch-text-primary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)] disabled:opacity-45"
         >
-          {busy ? 'Exportando…' : 'Exportar backup'}
+          <Archive className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
+          <span className="truncate">{busy ? 'Exportando…' : 'Backup .zip'}</span>
         </button>
+
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={busy}
           title="Importar y fusionar backup completo desde un archivo .zip de SINDECON"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--ch-text-primary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)] disabled:opacity-45"
         >
-          Importar backup
+          <Upload className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
+          <span className="truncate">Restaurar .zip</span>
         </button>
+
         {onBulkImportMarkdown && (
           <button
             type="button"
             onClick={onBulkImportMarkdown}
             disabled={busy}
             title="Importación masiva de archivos Markdown (.md) y carpetas"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--ch-text-primary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)] disabled:opacity-45"
           >
-            📥 Importar .md
+            <FileInput className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
+            <span className="truncate">Importar .md</span>
           </button>
         )}
+
         {onBulkExportPdf && (
           <button
             type="button"
             onClick={onBulkExportPdf}
             disabled={busy}
             title="Exportar múltiples artículos clínicos seleccionados a documento PDF"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--ch-text-primary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)] disabled:opacity-45"
           >
-            🖨️ Exportar PDF
+            <Printer className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
+            <span className="truncate">Compendio PDF</span>
           </button>
         )}
+
         {onOpenGoogleDriveSync && (
           <button
             type="button"
-            className="btn-gdrive-sync-trigger"
             onClick={onOpenGoogleDriveSync}
             title="Configurar sincronización en Google Drive"
+            className={`inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--ch-text-primary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)] ${
+              canInstallPwa && onInstallPwa ? '' : 'col-span-2'
+            }`}
           >
-            ☁️ Nube
+            <Cloud className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
+            <span className="truncate">Sincronización Google Drive</span>
           </button>
         )}
+
         {canInstallPwa && onInstallPwa && (
           <button
             type="button"
-            className="btn-install-pwa-trigger"
             onClick={onInstallPwa}
             title="Instalar SINDECON en este dispositivo (pantalla completa y offline)"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--ch-accent)]/40 bg-[var(--ch-accent-soft)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--ch-accent)] transition hover:opacity-90"
           >
-            📲 Instalar
+            <Smartphone className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Instalar App</span>
           </button>
         )}
+
         <input
           ref={fileRef}
           type="file"
@@ -126,7 +152,7 @@ export function PortabilityBar({
       {report && (
         <AlertDialog
           isOpen={true}
-          title="📥 Importación Completada"
+          title="Importación Completada"
           onClose={() => setReport(null)}
           content={
             <div className="import-report-dialog">
@@ -161,7 +187,7 @@ export function PortabilityBar({
       {errorMsg && (
         <AlertDialog
           isOpen={true}
-          title="⚠️ Error al importar"
+          title="Error al importar"
           onClose={() => setErrorMsg(null)}
           content={<p className="dialog-error-text">{errorMsg}</p>}
         />

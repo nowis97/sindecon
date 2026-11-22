@@ -18,6 +18,27 @@ import {
 // backup de hoy lo lea la app de mañana.
 export const EXPORT_FORMAT_VERSION = 1
 
+function sanitizeMarksRecord(input: unknown): Record<string, string> {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return {}
+  const clean: Record<string, string> = {}
+  for (const [key, value] of Object.entries(input)) {
+    if (typeof key === 'string' && typeof value === 'string') {
+      clean[key] = value
+    }
+  }
+  return clean
+}
+
+function readLocalMarksRecord(): Record<string, string> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.localStorage.getItem('sindecon_article_marks')
+    return raw ? sanitizeMarksRecord(JSON.parse(raw)) : {}
+  } catch {
+    return {}
+  }
+}
+
 /** Id determinista para carpetas implícitas (zips editados a mano). */
 export function idFromPath(path: string): string {
   let h = 0x811c9dc5
@@ -60,6 +81,15 @@ export async function buildExportZip(): Promise<JSZip> {
   )
   if (flashcards.length > 0) {
     zip.file('_flashcards.json', JSON.stringify(flashcards, null, 2))
+  }
+
+  const clinicalMarksMeta = await db.meta.get('clinical_marks')
+  const mergedMarks = {
+    ...sanitizeMarksRecord(clinicalMarksMeta?.value),
+    ...readLocalMarksRecord(),
+  }
+  if (Object.keys(mergedMarks).length > 0) {
+    zip.file('_clinical_marks.json', JSON.stringify(mergedMarks, null, 2))
   }
 
   // assets → archivos; mapa para reescribir asset:// en el markdown
@@ -295,6 +325,29 @@ export async function importFromZip(
       }
     } catch (e) {
       console.warn('No se pudieron restaurar algunas flashcards del zip:', e)
+    }
+  }
+
+  // 7) Marcas clínicas opcionales (⚠ Prioridad, 🛑 Crítico, ☑ Verificado).
+  const clinicalMarksFile = zip.file('_clinical_marks.json')
+  if (clinicalMarksFile) {
+    try {
+      const importedMarks = sanitizeMarksRecord(
+        JSON.parse(await clinicalMarksFile.async('string')),
+      )
+      if (Object.keys(importedMarks).length > 0) {
+        const existingMeta = await db.meta.get('clinical_marks')
+        const merged = {
+          ...sanitizeMarksRecord(existingMeta?.value),
+          ...importedMarks,
+        }
+        await db.meta.put({ key: 'clinical_marks', value: merged })
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('sindecon_article_marks', JSON.stringify(merged))
+        }
+      }
+    } catch (e) {
+      console.warn('No se pudieron restaurar las marcas clínicas del zip:', e)
     }
   }
 

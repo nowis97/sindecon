@@ -1,4 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Sparkles,
+  ClipboardPaste,
+  FileUp,
+  FileText,
+  Plus,
+  RefreshCw,
+  FilePlus,
+  Inbox,
+  FileOutput,
+  Eye,
+  AlertTriangle,
+} from 'lucide-react'
 import type { NodeRow } from '../../db/db'
 import {
   processImportText,
@@ -6,6 +19,12 @@ import {
   extractSuggestedTitle,
 } from '../../domain/smartImport'
 import { ArticleReader } from '../reader/ArticleReader'
+import {
+  BaseModal,
+  PILL_BTN_PRIMARY,
+  PILL_BTN_SECONDARY,
+  CLINICAL_FIELD_CLASS,
+} from '../common/DialogModal'
 
 export interface SmartImportModalProps {
   isOpen: boolean
@@ -53,7 +72,6 @@ export function SmartImportModal({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const wasOpenRef = useRef(false)
 
-  // Reset solo cuando el modal pasa de cerrado a abierto y soporte para tecla Escape
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
       setInputText('')
@@ -64,36 +82,20 @@ export function SmartImportModal({
       setEnrichCallouts(true)
     }
     wasOpenRef.current = isOpen
+  }, [isOpen, currentArticle, currentFolderId])
 
-    if (!isOpen) return
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, currentArticle, currentFolderId, onClose])
-
-  // Markdown procesado en tiempo real
   const processedMarkdown = useMemo(() => {
     if (!inputText.trim()) return ''
     return processImportText(inputText, { enrichCallouts })
   }, [inputText, enrichCallouts])
 
-  // Título sugerido derivado reactivamente
   const suggestedTitle = useMemo(() => {
     if (!processedMarkdown) return ''
     return extractSuggestedTitle(processedMarkdown)
   }, [processedMarkdown])
 
   const effectiveTitle = customTitle !== null ? customTitle : suggestedTitle
-
-  if (!isOpen) return null
-
-  const folders = nodes.filter((n) => n.kind === 'folder')
+  const folders = nodes.filter((n) => n.kind === 'folder' && n.deleted_at === null)
 
   const handleFileUpload = async (file: File) => {
     setIsProcessing(true)
@@ -112,7 +114,7 @@ export function SmartImportModal({
       } else {
         throw new Error('Formato no soportado. Sube un archivo .docx, .md o .txt')
       }
-      setActiveTab('paste') // Cambiar a pestaña de edición/preview
+      setActiveTab('paste')
     } catch (e) {
       setErrorMessage((e as Error).message)
     } finally {
@@ -150,260 +152,19 @@ export function SmartImportModal({
   }
 
   return (
-    <div
-      className="dialog-overlay"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="dialog-modal smart-import-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="dialog-header">
-          <h3>📋 Importar Texto Markdown (Copiar y Pegar)</h3>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      closeOnBackdrop={!isProcessing}
+      title="Importador Clínico Inteligente"
+      subtitle="Convierte apuntes de ChatGPT, Claude, Word (.docx) o Markdown con callouts médicos."
+      icon={<Sparkles className="h-5 w-5" />}
+      maxWidthClass="max-w-3xl"
+      footer={
+        <>
           <button
             type="button"
-            className="dialog-btn-close"
-            onClick={onClose}
-            aria-label="Cerrar"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="dialog-body smart-import-body">
-          <div className="smart-import-tabs">
-            <button
-              type="button"
-              className={`import-tab-btn ${activeTab === 'paste' ? 'active' : ''}`}
-              onClick={() => setActiveTab('paste')}
-            >
-              📋 Pegar Texto en Markdown / ChatGPT
-            </button>
-            <button
-              type="button"
-              className={`import-tab-btn ${activeTab === 'file' ? 'active' : ''}`}
-              onClick={() => setActiveTab('file')}
-            >
-              📁 Subir Word (.docx) / Markdown
-            </button>
-          </div>
-
-          {activeTab === 'file' ? (
-            <div
-              className="smart-import-dropzone"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <span className="dropzone-icon">📄</span>
-              <strong>Haz clic para seleccionar o arrastra un archivo Word (.docx) o .md</strong>
-              <p>El archivo se procesará 100% en tu navegador (Local-First).</p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".docx,.md,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) void handleFileUpload(file)
-                }}
-              />
-            </div>
-          ) : (
-            <div className="smart-import-input-area">
-              <textarea
-                className="smart-import-textarea"
-                placeholder="Pega aquí tu texto en Markdown (admite ```markdown inicial), respuestas de ChatGPT, Claude o apuntes clínicos…"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                rows={7}
-                autoFocus
-              />
-            </div>
-          )}
-
-          {/* Opciones de Procesamiento Inteligente */}
-          <div className="smart-import-options-row">
-            <label className="import-option-checkbox">
-              <input
-                type="checkbox"
-                checked={enrichCallouts}
-                onChange={(e) => setEnrichCallouts(e.target.checked)}
-              />
-              <span>Detectar automáticamente Callouts clínicos (Advertencias, Dosis, Perlas)</span>
-            </label>
-          </div>
-
-          {/* Destino de la Importación */}
-          <div className="smart-import-destination-box">
-            <span className="destination-title">¿Dónde deseas aplicar este contenido?</span>
-            <div className="destination-options-grid">
-              {currentArticle && (
-                <>
-                  <label className={`dest-card ${destination === 'append' ? 'active' : ''}`}>
-                    <input
-                      type="radio"
-                      name="import-dest"
-                      value="append"
-                      checked={destination === 'append'}
-                      onChange={() => setDestination('append')}
-                    />
-                    <div className="dest-card-info">
-                      <strong>➕ Añadir al final</strong>
-                      <span>Se anexa al artículo "{currentArticle.title}"</span>
-                    </div>
-                  </label>
-
-                  <label className={`dest-card ${destination === 'replace' ? 'active' : ''}`}>
-                    <input
-                      type="radio"
-                      name="import-dest"
-                      value="replace"
-                      checked={destination === 'replace'}
-                      onChange={() => setDestination('replace')}
-                    />
-                    <div className="dest-card-info">
-                      <strong>🔄 Reemplazar</strong>
-                      <span>Sobrescribe el contenido de "{currentArticle.title}"</span>
-                    </div>
-                  </label>
-                </>
-              )}
-
-              <label className={`dest-card ${destination === 'new-article' ? 'active' : ''}`}>
-                <input
-                  type="radio"
-                  name="import-dest"
-                  value="new-article"
-                  checked={destination === 'new-article'}
-                  onChange={() => setDestination('new-article')}
-                />
-                <div className="dest-card-info">
-                  <strong>📄 Crear nuevo artículo</strong>
-                  <span>Crea una nota independiente</span>
-                </div>
-              </label>
-
-              <label className={`dest-card ${destination === 'inbox' ? 'active' : ''}`}>
-                <input
-                  type="radio"
-                  name="import-dest"
-                  value="inbox"
-                  checked={destination === 'inbox'}
-                  onChange={() => setDestination('inbox')}
-                />
-                <div className="dest-card-info">
-                  <strong>📥 Guardar en Inbox</strong>
-                  <span>Para clasificar y revisar después</span>
-                </div>
-              </label>
-
-              <label className={`dest-card ${destination === 'gdocs' ? 'active' : ''}`}>
-                <input
-                  type="radio"
-                  name="import-dest"
-                  value="gdocs"
-                  checked={destination === 'gdocs'}
-                  onChange={() => setDestination('gdocs')}
-                />
-                <div className="dest-card-info">
-                  <strong>📄 Exportar a Google Docs</strong>
-                  <span>Crear Google Doc con formato clínico</span>
-                </div>
-              </label>
-            </div>
-
-            {destination === 'new-article' && (
-              <div className="new-article-meta-row">
-                <div className="field-group">
-                  <label className="dialog-label">Título del nuevo artículo:</label>
-                  <input
-                    type="text"
-                    className="dialog-input"
-                    value={customTitle !== null ? customTitle : suggestedTitle}
-                    onChange={(e) => setCustomTitle(e.target.value)}
-                    placeholder={suggestedTitle || 'ej. Guía Diagnóstica...'}
-                  />
-                </div>
-                <div className="field-group">
-                  <label className="dialog-label">Carpeta / Especialidad:</label>
-                  <select
-                    className="dialog-input"
-                    value={targetFolderId || ''}
-                    onChange={(e) => setTargetFolderId(e.target.value || null)}
-                  >
-                    <option value="">(Raíz / Sin Carpeta)</option>
-                    {folders.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        📁 {f.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {destination === 'gdocs' && (
-              <div className="new-article-meta-row">
-                <div className="field-group">
-                  <label className="dialog-label">Título del documento:</label>
-                  <input
-                    type="text"
-                    className="dialog-input"
-                    value={customTitle !== null ? customTitle : suggestedTitle}
-                    onChange={(e) => setCustomTitle(e.target.value)}
-                    placeholder={suggestedTitle || 'Nota ChatGPT'}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Vista Previa del Contenido Procesado */}
-          {processedMarkdown && (
-            <div className="smart-import-preview-section">
-              <div className="preview-header">
-                <strong>👁️ Vista Previa del Contenido Formateado</strong>
-                <div className="preview-toggle-buttons">
-                  <button
-                    type="button"
-                    className={`btn-preview-mode ${previewMode === 'rendered' ? 'active' : ''}`}
-                    onClick={() => setPreviewMode('rendered')}
-                  >
-                    Visual
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn-preview-mode ${previewMode === 'raw' ? 'active' : ''}`}
-                    onClick={() => setPreviewMode('raw')}
-                  >
-                    Markdown
-                  </button>
-                </div>
-              </div>
-
-              <div className="preview-viewport">
-                {previewMode === 'rendered' ? (
-                  <ArticleReader
-                    markdown={processedMarkdown}
-                    onWikiLinkClick={() => {}}
-                  />
-                ) : (
-                  <pre className="preview-raw-code">{processedMarkdown}</pre>
-                )}
-              </div>
-            </div>
-          )}
-
-          {errorMessage && (
-            <div className="dialog-error-text">⚠️ {errorMessage}</div>
-          )}
-        </div>
-
-        <div className="dialog-footer">
-          <button
-            type="button"
-            className="btn-dialog-secondary"
+            className={PILL_BTN_SECONDARY}
             onClick={onClose}
             disabled={isProcessing}
           >
@@ -411,18 +172,313 @@ export function SmartImportModal({
           </button>
           <button
             type="button"
-            className="btn-dialog-primary"
+            className={PILL_BTN_PRIMARY}
             onClick={handleApply}
             disabled={!processedMarkdown.trim() || isProcessing}
           >
-            {isProcessing
-              ? 'Procesando…'
-              : destination === 'gdocs'
-                ? 'Exportar a Google Docs'
-                : '🪄 Aplicar Importación'}
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>
+              {isProcessing
+                ? 'Procesando…'
+                : destination === 'gdocs'
+                  ? 'Exportar a Google Docs'
+                  : 'Aplicar Importación'}
+            </span>
+          </button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {/* Source Mode Switcher */}
+        <div className="inline-flex self-start rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('paste')}
+            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+              activeTab === 'paste'
+                ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+            }`}
+          >
+            <ClipboardPaste className="h-3.5 w-3.5" />
+            <span>Pegar Markdown / ChatGPT</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('file')}
+            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+              activeTab === 'file'
+                ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+            }`}
+          >
+            <FileUp className="h-3.5 w-3.5" />
+            <span>Subir Word (.docx) / .md</span>
           </button>
         </div>
+
+        {/* Input / File Area */}
+        {activeTab === 'file' ? (
+          <div
+            className="flex cursor-pointer flex-col items-center rounded-2xl border-2 border-dashed border-[var(--ch-border-strong)] bg-[var(--ch-bg-secondary)]/60 p-7 text-center transition hover:border-[var(--ch-accent)]"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
+              <FileText className="h-5 w-5" />
+            </span>
+            <strong className="font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+              Haz clic para seleccionar un archivo Word (.docx) o .md
+            </strong>
+            <p className="mt-1 text-xs text-[var(--ch-text-muted)]">
+              El documento se procesará 100% en tu navegador (Local-First).
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".docx,.md,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) void handleFileUpload(file)
+              }}
+            />
+          </div>
+        ) : (
+          <textarea
+            className="w-full rounded-2xl border border-[var(--ch-border-strong)] bg-[var(--ch-bg-primary)] p-3.5 font-mono text-xs leading-relaxed text-[var(--ch-text-primary)] outline-none transition placeholder:text-[var(--ch-text-muted)] focus:border-[var(--ch-accent)] focus:ring-2 focus:ring-[var(--ch-accent)]/20"
+            placeholder="Pega aquí tu texto en Markdown, respuestas de ChatGPT, Claude o apuntes clínicos…"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            rows={6}
+            autoFocus
+          />
+        )}
+
+        <label className="flex cursor-pointer items-center gap-2.5 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 px-3.5 py-2.5 text-xs font-medium text-[var(--ch-text-primary)]">
+          <input
+            type="checkbox"
+            checked={enrichCallouts}
+            onChange={(e) => setEnrichCallouts(e.target.checked)}
+            className="h-4 w-4 accent-[var(--ch-accent)]"
+          />
+          <span>Detectar automáticamente bloques clínicos (Advertencias, Dosis y Perlas)</span>
+        </label>
+
+        {/* Destination Cards */}
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-semibold text-[var(--ch-text-secondary)]">
+            ¿Dónde deseas aplicar este contenido?
+          </span>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {currentArticle && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setDestination('append')}
+                  className={`flex items-start gap-2.5 rounded-2xl border p-3 text-left transition ${
+                    destination === 'append'
+                      ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)]'
+                      : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 hover:border-[var(--ch-accent)]/50'
+                  }`}
+                >
+                  <Plus className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+                  <div className="min-w-0">
+                    <strong className="block text-xs font-semibold text-[var(--ch-text-primary)]">
+                      Añadir al final
+                    </strong>
+                    <span className="block truncate text-[11px] text-[var(--ch-text-muted)]">
+                      Anexar a «{currentArticle.title}»
+                    </span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDestination('replace')}
+                  className={`flex items-start gap-2.5 rounded-2xl border p-3 text-left transition ${
+                    destination === 'replace'
+                      ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)]'
+                      : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 hover:border-[var(--ch-accent)]/50'
+                  }`}
+                >
+                  <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+                  <div className="min-w-0">
+                    <strong className="block text-xs font-semibold text-[var(--ch-text-primary)]">
+                      Reemplazar artículo
+                    </strong>
+                    <span className="block truncate text-[11px] text-[var(--ch-text-muted)]">
+                      Sobrescribir «{currentArticle.title}»
+                    </span>
+                  </div>
+                </button>
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setDestination('new-article')}
+              className={`flex items-start gap-2.5 rounded-2xl border p-3 text-left transition ${
+                destination === 'new-article'
+                  ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)]'
+                  : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 hover:border-[var(--ch-accent)]/50'
+              }`}
+            >
+              <FilePlus className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+              <div className="min-w-0">
+                <strong className="block text-xs font-semibold text-[var(--ch-text-primary)]">
+                  Crear nuevo artículo
+                </strong>
+                <span className="block text-[11px] text-[var(--ch-text-muted)]">
+                  Ficha clínica independiente
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDestination('inbox')}
+              className={`flex items-start gap-2.5 rounded-2xl border p-3 text-left transition ${
+                destination === 'inbox'
+                  ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)]'
+                  : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 hover:border-[var(--ch-accent)]/50'
+              }`}
+            >
+              <Inbox className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+              <div className="min-w-0">
+                <strong className="block text-xs font-semibold text-[var(--ch-text-primary)]">
+                  Guardar en Inbox
+                </strong>
+                <span className="block text-[11px] text-[var(--ch-text-muted)]">
+                  Clasificar después
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDestination('gdocs')}
+              className={`flex items-start gap-2.5 rounded-2xl border p-3 text-left transition ${
+                destination === 'gdocs'
+                  ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)]'
+                  : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 hover:border-[var(--ch-accent)]/50'
+              }`}
+            >
+              <FileOutput className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+              <div className="min-w-0">
+                <strong className="block text-xs font-semibold text-[var(--ch-text-primary)]">
+                  Exportar a Google Docs
+                </strong>
+                <span className="block text-[11px] text-[var(--ch-text-muted)]">
+                  Formato clínico directo
+                </span>
+              </div>
+            </button>
+          </div>
+
+          {destination === 'new-article' && (
+            <div className="mt-2 grid grid-cols-1 gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 p-3.5 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-semibold text-[var(--ch-text-secondary)]">
+                  Título del nuevo artículo
+                </label>
+                <input
+                  type="text"
+                  className={CLINICAL_FIELD_CLASS}
+                  value={customTitle !== null ? customTitle : suggestedTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  placeholder={suggestedTitle || 'ej. Guía Diagnóstica…'}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-semibold text-[var(--ch-text-secondary)]">
+                  Carpeta / Especialidad
+                </label>
+                <select
+                  className={CLINICAL_FIELD_CLASS}
+                  value={targetFolderId || ''}
+                  onChange={(e) => setTargetFolderId(e.target.value || null)}
+                >
+                  <option value="">(Raíz / Sin Carpeta)</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {destination === 'gdocs' && (
+            <div className="mt-2 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 p-3.5">
+              <label className="mb-1 block text-[11px] font-semibold text-[var(--ch-text-secondary)]">
+                Título del documento
+              </label>
+              <input
+                type="text"
+                className={CLINICAL_FIELD_CLASS}
+                value={customTitle !== null ? customTitle : suggestedTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+                placeholder={suggestedTitle || 'Nota Clínica'}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Live Processed Preview */}
+        {processedMarkdown && (
+          <div className="overflow-hidden rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)]">
+            <div className="flex items-center justify-between border-b border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/70 px-4 py-2">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--ch-text-primary)]">
+                <Eye className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+                <span>Vista Previa Formateada</span>
+              </span>
+              <div className="inline-flex rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode('rendered')}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
+                    previewMode === 'rendered'
+                      ? 'bg-[var(--ch-accent)] text-white'
+                      : 'text-[var(--ch-text-muted)]'
+                  }`}
+                >
+                  Visual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode('raw')}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
+                    previewMode === 'raw'
+                      ? 'bg-[var(--ch-accent)] text-white'
+                      : 'text-[var(--ch-text-muted)]'
+                  }`}
+                >
+                  Markdown
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto p-4">
+              {previewMode === 'rendered' ? (
+                <ArticleReader markdown={processedMarkdown} onWikiLinkClick={() => {}} />
+              ) : (
+                <pre className="whitespace-pre-wrap font-mono text-xs text-[var(--ch-text-secondary)]">
+                  {processedMarkdown}
+                </pre>
+              )}
+            </div>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="flex items-center gap-2 rounded-2xl border border-red-500/35 bg-red-500/10 px-3.5 py-2.5 text-xs font-medium text-red-700 dark:text-red-300">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
       </div>
-    </div>
+    </BaseModal>
   )
 }

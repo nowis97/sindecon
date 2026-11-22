@@ -1,3 +1,4 @@
+import { Folder, Search, Camera, Inbox, Sun, Moon } from 'lucide-react'
 import type { Theme } from '../../hooks/useTheme'
 
 interface MobileBottomBarProps {
@@ -29,7 +30,9 @@ export function MobileBottomBar({
         onClick={onToggleSidebar}
         title="Temas y carpetas"
       >
-        <span className="bottom-nav-icon">📁</span>
+        <span className="bottom-nav-icon flex items-center justify-center">
+          <Folder className="h-4 w-4" />
+        </span>
         <span className="bottom-nav-label">Temas</span>
       </button>
 
@@ -39,7 +42,9 @@ export function MobileBottomBar({
         onClick={onOpenSearch}
         title="Buscar artículos"
       >
-        <span className="bottom-nav-icon">🔍</span>
+        <span className="bottom-nav-icon flex items-center justify-center">
+          <Search className="h-4 w-4" />
+        </span>
         <span className="bottom-nav-label">Buscar</span>
       </button>
 
@@ -50,7 +55,9 @@ export function MobileBottomBar({
         title="Captura rápida al Inbox"
         aria-label="Captura rápida"
       >
-        <span className="fab-icon">⚡</span>
+        <span className="fab-icon flex items-center justify-center">
+          <Camera className="h-5 w-5" />
+        </span>
       </button>
 
       <button
@@ -59,7 +66,9 @@ export function MobileBottomBar({
         onClick={onOpenInbox}
         title="Bandeja Inbox"
       >
-        <span className="bottom-nav-icon">📥</span>
+        <span className="bottom-nav-icon flex items-center justify-center">
+          <Inbox className="h-4 w-4" />
+        </span>
         <span className="bottom-nav-label">Inbox</span>
         {inboxCount > 0 && (
           <span className="bottom-nav-badge">{inboxCount}</span>
@@ -73,7 +82,9 @@ export function MobileBottomBar({
         title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
         aria-label="Cambiar tema"
       >
-        <span className="bottom-nav-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
+        <span className="bottom-nav-icon flex items-center justify-center">
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </span>
         <span className="bottom-nav-label">{theme === 'dark' ? 'Claro' : 'Oscuro'}</span>
       </button>
     </nav>

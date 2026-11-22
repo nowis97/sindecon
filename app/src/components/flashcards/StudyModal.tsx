@@ -1,8 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import {
+  BrainCircuit,
+  BookOpen,
+  X,
+  CheckCircle2,
+  Eye,
+  RotateCw,
+  Sparkles,
+} from 'lucide-react'
 import type { FlashcardRow } from '../../db/db'
 import { calculateNextSm2, getRatingIntervalLabels, type Sm2Rating } from '../../domain/sm2'
 import { updateFlashcard } from '../../db/flashcards'
 import { FlashcardMarkdown } from './FlashcardMarkdown'
+import { PILL_BTN_PRIMARY, PILL_BTN_SECONDARY } from '../common/DialogModal'
 
 interface StudyModalProps {
   isOpen: boolean
@@ -33,7 +43,6 @@ export const StudyModal: React.FC<StudyModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      // Barajar aleatoriamente para repasar de forma no lineal
       const shuffled = [...cards].sort(() => Math.random() - 0.5)
       setDeck(shuffled)
       setCurrentIndex(0)
@@ -54,7 +63,6 @@ export const StudyModal: React.FC<StudyModalProps> = ({
         ...nextSm2,
       })
 
-      // Actualizar métricas de sesión
       setSessionStats((prev) => ({
         ...prev,
         again: rating === 1 ? prev.again + 1 : prev.again,
@@ -71,14 +79,13 @@ export const StudyModal: React.FC<StudyModalProps> = ({
         if (onSessionComplete) onSessionComplete()
       }
     },
-    [currentCard, currentIndex, deck.length, onSessionComplete]
+    [currentCard, currentIndex, deck.length, onSessionComplete],
   )
 
   const handleFlip = useCallback(() => {
     setIsFlipped((f) => !f)
   }, [])
 
-  // Atajos de teclado para estudio rápido
   useEffect(() => {
     if (!isOpen || isFinished) return
 
@@ -91,16 +98,16 @@ export const StudyModal: React.FC<StudyModalProps> = ({
       } else if (isFlipped) {
         if (e.key === '1') {
           e.preventDefault()
-          handleRate(1)
+          void handleRate(1)
         } else if (e.key === '2') {
           e.preventDefault()
-          handleRate(2)
+          void handleRate(2)
         } else if (e.key === '3') {
           e.preventDefault()
-          handleRate(3)
+          void handleRate(3)
         } else if (e.key === '4') {
           e.preventDefault()
-          handleRate(4)
+          void handleRate(4)
         }
       } else if (e.key === 'Escape') {
         onClose()
@@ -114,115 +121,169 @@ export const StudyModal: React.FC<StudyModalProps> = ({
   if (!isOpen) return null
 
   const intervals = currentCard ? getRatingIntervalLabels(currentCard) : null
-  const progressPercent = deck.length > 0 ? ((currentIndex) / deck.length) * 100 : 0
+  const progressPercent = deck.length > 0 ? (currentIndex / deck.length) * 100 : 0
 
   return (
-    <div className="study-modal-overlay" onClick={onClose}>
-      <div className="study-modal-container" onClick={(e) => e.stopPropagation()}>
-        {/* Cabecera de Estudio */}
-        <div className="study-modal-header">
-          <div className="study-header-left">
-            <span className="study-badge">🧠 Repaso Activo SM-2</span>
-            {!isFinished && deck.length > 0 && (
-              <span className="study-counter">
-                Tarjeta {currentIndex + 1} de {deck.length}
-              </span>
-            )}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-xs sm:p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Repaso Activo SM-2"
+    >
+      <div
+        className="clinical-home flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-[22px] border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-primary)] shadow-[var(--ch-shadow-modal)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--ch-border-subtle)] px-5 py-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
+              <BrainCircuit className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h3 className="font-serif text-lg font-semibold tracking-tight text-[var(--ch-text-primary)]">
+                Repaso Activo SM-2
+              </h3>
+              <p className="mt-0.5 text-xs text-[var(--ch-text-muted)]">
+                {!isFinished && deck.length > 0
+                  ? `Tarjeta ${currentIndex + 1} de ${deck.length}`
+                  : isFinished
+                    ? 'Sesión de repaso completada'
+                    : 'Cola de estudio clínico'}
+              </p>
+            </div>
           </div>
-          <div className="study-header-right">
+
+          <div className="flex shrink-0 items-center gap-2">
             {currentCard && currentCard.node_id && onOpenArticle && (
               <button
                 type="button"
-                className="btn-study-article-link"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-3 text-xs font-semibold text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)]"
                 onClick={() => {
                   onClose()
                   onOpenArticle(currentCard.node_id)
                 }}
                 title="Abrir apunte completo de este tema"
               >
-                📖 Ver Artículo
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Ver Artículo</span>
               </button>
             )}
-            <button className="btn-close" onClick={onClose}>
-              ✕
+            <button
+              type="button"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-muted)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)]"
+              onClick={onClose}
+              aria-label="Cerrar repaso"
+            >
+              <X className="h-4 w-4" />
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Barra de Progreso */}
+        {/* Progress Bar */}
         {!isFinished && (
-          <div className="study-progress-track">
+          <div className="h-1.5 w-full shrink-0 bg-[var(--ch-bg-secondary)]">
             <div
-              className="study-progress-fill"
+              className="h-full bg-[var(--ch-accent)] transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
         )}
 
-        {/* Pantalla de Fin de Sesión */}
+        {/* Session Complete Screen */}
         {isFinished ? (
-          <div className="study-finished-screen">
-            <div className="finished-badge-icon">🎉</div>
-            <h2>¡Sesión de Repaso Completada!</h2>
-            <p className="finished-subtitle">
+          <div className="flex-1 overflow-y-auto px-6 py-8 text-center">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
+              <CheckCircle2 className="h-8 w-8" />
+            </div>
+            <h2 className="font-serif text-xl font-semibold text-[var(--ch-text-primary)]">
+              ¡Sesión de Repaso Completada!
+            </h2>
+            <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-[var(--ch-text-secondary)]">
               Has repasado {sessionStats.total} tarjeta{sessionStats.total === 1 ? '' : 's'} hoy. Tu memoria a largo plazo te lo agradecerá en la práctica clínica.
             </p>
 
-            <div className="study-stats-grid">
-              <div className="stat-card again">
-                <span className="stat-number">{sessionStats.again}</span>
-                <span className="stat-label">🔴 Otra vez</span>
+            <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <div className="rounded-2xl border border-red-500/25 bg-red-500/8 p-3">
+                <span className="block font-mono text-xl font-bold text-red-600 dark:text-red-400">
+                  {sessionStats.again}
+                </span>
+                <span className="text-[11px] font-semibold text-[var(--ch-text-secondary)]">
+                  Otra vez
+                </span>
               </div>
-              <div className="stat-card hard">
-                <span className="stat-number">{sessionStats.hard}</span>
-                <span className="stat-label">🟡 Difícil</span>
+              <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 p-3">
+                <span className="block font-mono text-xl font-bold text-amber-700 dark:text-amber-300">
+                  {sessionStats.hard}
+                </span>
+                <span className="text-[11px] font-semibold text-[var(--ch-text-secondary)]">
+                  Difícil
+                </span>
               </div>
-              <div className="stat-card good">
-                <span className="stat-number">{sessionStats.good}</span>
-                <span className="stat-label">🟢 Bueno</span>
+              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-3">
+                <span className="block font-mono text-xl font-bold text-emerald-700 dark:text-emerald-300">
+                  {sessionStats.good}
+                </span>
+                <span className="text-[11px] font-semibold text-[var(--ch-text-secondary)]">
+                  Bueno
+                </span>
               </div>
-              <div className="stat-card easy">
-                <span className="stat-number">{sessionStats.easy}</span>
-                <span className="stat-label">🔵 Fácil</span>
+              <div className="rounded-2xl border border-[var(--ch-accent)]/30 bg-[var(--ch-accent-soft)] p-3">
+                <span className="block font-mono text-xl font-bold text-[var(--ch-accent)]">
+                  {sessionStats.easy}
+                </span>
+                <span className="text-[11px] font-semibold text-[var(--ch-text-secondary)]">
+                  Fácil
+                </span>
               </div>
             </div>
 
-            <button type="button" className="btn-primary btn-finished-action" onClick={onClose}>
-              ✓ Concluir y Volver
+            <button
+              type="button"
+              className={`${PILL_BTN_PRIMARY} mt-6`}
+              onClick={onClose}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>Concluir y Volver</span>
             </button>
           </div>
         ) : !currentCard ? (
-          <div className="study-empty-state">
-            <span className="empty-icon">✨</span>
-            <p>No hay tarjetas pendientes para repasar en este momento.</p>
-            <button type="button" className="btn-secondary" onClick={onClose}>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
+              <Sparkles className="h-6 w-6" />
+            </span>
+            <p className="text-sm text-[var(--ch-text-secondary)]">
+              No hay tarjetas pendientes para repasar en este momento.
+            </p>
+            <button type="button" className={PILL_BTN_SECONDARY} onClick={onClose}>
               Cerrar
             </button>
           </div>
         ) : (
-          /* Escenario de Tarjeta Flip 3D */
-          <div className="study-card-arena">
+          <div className="study-card-arena min-h-0 flex-1 overflow-y-auto">
             <div
               className={`flashcard-3d-wrapper ${isFlipped ? 'is-flipped' : ''}`}
               onClick={handleFlip}
             >
-              {/* Cara Frontal (Pregunta) */}
+              {/* Front Face */}
               <div className="flashcard-face flashcard-front">
                 <div className="flashcard-tag-row">
                   <span className="card-prompt-badge">PREGUNTA (Toca o pulsa Espacio)</span>
                   <span className="card-reps-badge">
-                    {currentCard.reps === 0 ? '✨ Nueva' : `Racha: ${currentCard.reps}`}
+                    {currentCard.reps === 0 ? 'Nueva' : `Racha: ${currentCard.reps}`}
                   </span>
                 </div>
                 <div className="flashcard-body-text">
                   <FlashcardMarkdown content={currentCard.front} />
                 </div>
-                <div className="flashcard-flip-prompt">
-                  <span>🔄 Toca para voltear y ver respuesta</span>
+                <div className="flashcard-flip-prompt inline-flex items-center gap-1.5">
+                  <RotateCw className="h-3.5 w-3.5" />
+                  <span>Toca para voltear y ver respuesta</span>
                 </div>
               </div>
 
-              {/* Cara Trasera (Respuesta) */}
+              {/* Back Face */}
               <div className="flashcard-face flashcard-back">
                 <div className="flashcard-tag-row">
                   <span className="card-answer-badge">RESPUESTA CLÍNICA</span>
@@ -233,53 +294,76 @@ export const StudyModal: React.FC<StudyModalProps> = ({
               </div>
             </div>
 
-            {/* Controles de Calificación Inferiores */}
-            <div className="study-controls-panel">
+            {/* Rating Controls */}
+            <div className="mt-5 w-full">
               {!isFlipped ? (
                 <button
                   type="button"
-                  className="btn-flip-action"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--ch-accent)] px-6 text-sm font-semibold text-white shadow-xs transition hover:opacity-95"
                   onClick={handleFlip}
                 >
-                  👁️ Mostrar Respuesta (Espacio)
+                  <Eye className="h-4 w-4" />
+                  <span>Mostrar Respuesta (Espacio)</span>
                 </button>
               ) : (
-                <div className="rating-buttons-row">
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                   <button
                     type="button"
-                    className="btn-rate-again"
-                    onClick={() => handleRate(1)}
+                    className="flex flex-col items-center gap-0.5 rounded-2xl border border-red-500/35 bg-red-500/8 px-3 py-2.5 transition hover:bg-red-500/15"
+                    onClick={() => void handleRate(1)}
                   >
-                    <span className="rate-key">1</span>
-                    <span className="rate-title">Otra vez</span>
-                    <span className="rate-time">{intervals?.[1]}</span>
+                    <span className="font-mono text-[10px] font-bold text-red-600 dark:text-red-400">
+                      1
+                    </span>
+                    <span className="text-xs font-semibold text-red-700 dark:text-red-300">
+                      Otra vez
+                    </span>
+                    <span className="font-mono text-[10px] text-[var(--ch-text-muted)]">
+                      {intervals?.[1]}
+                    </span>
                   </button>
                   <button
                     type="button"
-                    className="btn-rate-hard"
-                    onClick={() => handleRate(2)}
+                    className="flex flex-col items-center gap-0.5 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-3 py-2.5 transition hover:bg-amber-500/20"
+                    onClick={() => void handleRate(2)}
                   >
-                    <span className="rate-key">2</span>
-                    <span className="rate-title">Difícil</span>
-                    <span className="rate-time">{intervals?.[2]}</span>
+                    <span className="font-mono text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                      2
+                    </span>
+                    <span className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+                      Difícil
+                    </span>
+                    <span className="font-mono text-[10px] text-[var(--ch-text-muted)]">
+                      {intervals?.[2]}
+                    </span>
                   </button>
                   <button
                     type="button"
-                    className="btn-rate-good"
-                    onClick={() => handleRate(3)}
+                    className="flex flex-col items-center gap-0.5 rounded-2xl border border-emerald-500/35 bg-emerald-500/10 px-3 py-2.5 transition hover:bg-emerald-500/20"
+                    onClick={() => void handleRate(3)}
                   >
-                    <span className="rate-key">3</span>
-                    <span className="rate-title">Bueno</span>
-                    <span className="rate-time">{intervals?.[3]}</span>
+                    <span className="font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                      3
+                    </span>
+                    <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-200">
+                      Bueno
+                    </span>
+                    <span className="font-mono text-[10px] text-[var(--ch-text-muted)]">
+                      {intervals?.[3]}
+                    </span>
                   </button>
                   <button
                     type="button"
-                    className="btn-rate-easy"
-                    onClick={() => handleRate(4)}
+                    className="flex flex-col items-center gap-0.5 rounded-2xl border border-[var(--ch-accent)]/40 bg-[var(--ch-accent-soft)] px-3 py-2.5 transition hover:opacity-90"
+                    onClick={() => void handleRate(4)}
                   >
-                    <span className="rate-key">4</span>
-                    <span className="rate-title">Fácil</span>
-                    <span className="rate-time">{intervals?.[4]}</span>
+                    <span className="font-mono text-[10px] font-bold text-[var(--ch-accent)]">
+                      4
+                    </span>
+                    <span className="text-xs font-semibold text-[var(--ch-accent)]">Fácil</span>
+                    <span className="font-mono text-[10px] text-[var(--ch-text-muted)]">
+                      {intervals?.[4]}
+                    </span>
                   </button>
                 </div>
               )}

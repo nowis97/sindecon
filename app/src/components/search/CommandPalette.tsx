@@ -1,4 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Search,
+  Camera,
+  Sparkles,
+  FilePlus,
+  FolderPlus,
+  SunMoon,
+  Inbox,
+  Home,
+  Star,
+  FileText,
+  Folder,
+  CornerDownLeft,
+} from 'lucide-react'
 import type { NodeRow } from '../../db/db'
 
 export interface CommandPaletteProps {
@@ -20,7 +34,7 @@ type PaletteItem =
       id: string
       type: 'action'
       title: string
-      icon: string
+      icon: React.ReactNode
       shortcut?: string
       run: () => void
     }
@@ -28,7 +42,7 @@ type PaletteItem =
       id: string
       type: 'article'
       title: string
-      icon: string
+      icon: React.ReactNode
       nodeId: string
       folderName?: string
       run: () => void
@@ -52,14 +66,13 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement | null>(null)
   const listRef = useRef<HTMLUListElement | null>(null)
 
-  // Lista de acciones del sistema
   const systemActions: PaletteItem[] = useMemo(
     () => [
       {
         id: 'action-quick-capture',
         type: 'action',
-        title: 'Captura Rápida (Foto/Nota al Inbox)',
-        icon: '⚡',
+        title: 'Captura Rápida (Foto / Nota al Inbox)',
+        icon: <Camera className="h-4 w-4 text-[var(--ch-accent)]" />,
         run: () => {
           onClose()
           onOpenQuickCapture()
@@ -69,7 +82,7 @@ export function CommandPalette({
         id: 'action-smart-import',
         type: 'action',
         title: 'Importar desde ChatGPT, IA o Word (.docx)',
-        icon: '🪄',
+        icon: <Sparkles className="h-4 w-4 text-[var(--ch-accent)]" />,
         run: () => {
           onClose()
           onOpenSmartImport?.()
@@ -78,8 +91,8 @@ export function CommandPalette({
       {
         id: 'action-new-article',
         type: 'action',
-        title: 'Nuevo Artículo',
-        icon: '📝',
+        title: 'Nuevo Artículo Clínico',
+        icon: <FilePlus className="h-4 w-4 text-[var(--ch-accent)]" />,
         run: () => {
           onClose()
           onOpenCreatePrompt('article')
@@ -89,7 +102,7 @@ export function CommandPalette({
         id: 'action-new-folder',
         type: 'action',
         title: 'Nueva Carpeta / Especialidad',
-        icon: '📁',
+        icon: <FolderPlus className="h-4 w-4 text-[var(--ch-accent)]" />,
         run: () => {
           onClose()
           onOpenCreatePrompt('folder')
@@ -98,8 +111,8 @@ export function CommandPalette({
       {
         id: 'action-toggle-theme',
         type: 'action',
-        title: 'Alternar Modo Oscuro / Claro',
-        icon: '🌓',
+        title: 'Alternar Modo Guardia Nocturna / Diurno',
+        icon: <SunMoon className="h-4 w-4 text-[var(--ch-accent)]" />,
         run: () => {
           onClose()
           onToggleTheme()
@@ -109,7 +122,7 @@ export function CommandPalette({
         id: 'action-inbox',
         type: 'action',
         title: 'Ir a Bandeja Inbox',
-        icon: '📥',
+        icon: <Inbox className="h-4 w-4 text-[var(--ch-accent)]" />,
         run: () => {
           onClose()
           onGoInbox()
@@ -118,8 +131,8 @@ export function CommandPalette({
       {
         id: 'action-home',
         type: 'action',
-        title: 'Ir al Inicio / Dashboard',
-        icon: '🏠',
+        title: 'Ir al Inicio / Mi Repositorio',
+        icon: <Home className="h-4 w-4 text-[var(--ch-accent)]" />,
         run: () => {
           onClose()
           onGoHome()
@@ -137,7 +150,6 @@ export function CommandPalette({
     ],
   )
 
-  // Mapa de carpetas por ID
   const foldersMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const n of nodes) {
@@ -146,13 +158,11 @@ export function CommandPalette({
     return map
   }, [nodes])
 
-  // Filtrado de items
   const filteredItems: PaletteItem[] = useMemo(() => {
     const q = query.trim().toLowerCase()
     const articles = nodes.filter((n) => n.kind === 'article')
 
     if (!q) {
-      // Sin query: mostrar acciones principales + favoritos
       const favItems: PaletteItem[] = favoriteIds
         .map((id) => articles.find((a) => a.id === id))
         .filter((a): a is NodeRow => Boolean(a))
@@ -160,7 +170,7 @@ export function CommandPalette({
           id: `art-${a.id}`,
           type: 'article',
           title: a.title,
-          icon: '⭐',
+          icon: <Star className="h-4 w-4 fill-amber-500 text-amber-500" />,
           nodeId: a.id,
           folderName: a.parent_id ? foldersMap.get(a.parent_id) : undefined,
           run: () => {
@@ -172,7 +182,6 @@ export function CommandPalette({
       return [...systemActions, ...favItems]
     }
 
-    // Con query: buscar en acciones y artículos
     const matchedActions = systemActions.filter((a) =>
       a.title.toLowerCase().includes(q),
     )
@@ -184,7 +193,11 @@ export function CommandPalette({
         id: `art-${a.id}`,
         type: 'article',
         title: a.title,
-        icon: favoriteIds.includes(a.id) ? '⭐' : '📄',
+        icon: favoriteIds.includes(a.id) ? (
+          <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+        ) : (
+          <FileText className="h-4 w-4 text-[var(--ch-accent)]" />
+        ),
         nodeId: a.id,
         folderName: a.parent_id ? foldersMap.get(a.parent_id) : undefined,
         run: () => {
@@ -209,14 +222,12 @@ export function CommandPalette({
     Math.max(0, filteredItems.length - 1),
   )
 
-  // Autofocus al abrir
   useEffect(() => {
     if (isOpen) {
       inputRef.current?.focus()
     }
   }, [isOpen])
 
-  // Navegación por teclado
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
@@ -236,7 +247,6 @@ export function CommandPalette({
     }
   }
 
-  // Scroll interactivo para mantener el item visible
   useEffect(() => {
     if (!listRef.current) return
     const activeEl = listRef.current.children[safeSelectedIndex] as HTMLElement
@@ -249,22 +259,22 @@ export function CommandPalette({
 
   return (
     <div
-      className="command-palette-overlay"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/50 p-4 pt-16 backdrop-blur-xs"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label="Paleta de comandos"
     >
       <div
-        className="command-palette-modal"
+        className="clinical-home flex w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)] shadow-[var(--ch-shadow-modal)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="palette-search-row">
-          <span className="palette-search-icon">🔍</span>
+        <div className="flex items-center gap-3 border-b border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-4 py-3">
+          <Search className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
           <input
             ref={inputRef}
             type="search"
-            className="palette-input"
+            className="w-full bg-transparent text-sm font-medium text-[var(--ch-text-primary)] outline-none placeholder:text-[var(--ch-text-muted)]"
             placeholder="Buscar artículos o escribir un comando… (Esc para salir)"
             value={query}
             onChange={(e) => {
@@ -274,13 +284,15 @@ export function CommandPalette({
             onKeyDown={handleKeyDown}
             autoFocus
           />
-          <kbd className="palette-kbd">Esc</kbd>
+          <kbd className="rounded-md border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-2 py-0.5 font-mono text-[10px] font-semibold text-[var(--ch-text-muted)]">
+            Esc
+          </kbd>
         </div>
 
-        <ul ref={listRef} className="palette-list">
+        <ul ref={listRef} className="max-h-96 overflow-y-auto p-2">
           {filteredItems.length === 0 ? (
-            <li className="palette-empty">
-              No se encontraron artículos ni comandos para "{query}".
+            <li className="py-8 text-center text-xs text-[var(--ch-text-muted)]">
+              No se encontraron artículos ni comandos para «{query}».
             </li>
           ) : (
             filteredItems.map((item, idx) => {
@@ -288,21 +300,35 @@ export function CommandPalette({
               return (
                 <li
                   key={item.id}
-                  className={`palette-item ${isSelected ? 'selected' : ''}`}
                   onClick={item.run}
                   onMouseEnter={() => setSelectedIndex(idx)}
+                  className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition ${
+                    isSelected
+                      ? 'bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
+                      : 'text-[var(--ch-text-primary)] hover:bg-[var(--ch-bg-secondary)]'
+                  }`}
                 >
-                  <span className="palette-item-icon">{item.icon}</span>
-                  <div className="palette-item-text">
-                    <span className="palette-item-title">{item.title}</span>
-                    {item.type === 'article' && item.folderName && (
-                      <span className="palette-item-badge">
-                        📁 {item.folderName}
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)]">
+                      {item.icon}
+                    </span>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate text-xs font-semibold">
+                        {item.title}
                       </span>
-                    )}
+                      {item.type === 'article' && item.folderName && (
+                        <span className="inline-flex items-center gap-1 font-mono text-[10px] text-[var(--ch-text-muted)]">
+                          <Folder className="h-2.5 w-2.5" />
+                          <span>{item.folderName}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {isSelected && (
-                    <span className="palette-item-enter">↵ Seleccionar</span>
+                    <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] font-semibold text-[var(--ch-accent)]">
+                      <CornerDownLeft className="h-3 w-3" />
+                      <span>Abrir</span>
+                    </span>
                   )}
                 </li>
               )
@@ -310,12 +336,31 @@ export function CommandPalette({
           )}
         </ul>
 
-        <div className="palette-footer">
-          <div className="palette-shortcuts-hint">
-            <span><kbd>↑</kbd> <kbd>↓</kbd> Navegar</span>
-            <span><kbd>↵</kbd> Ejecutar</span>
-            <span><kbd>Esc</kbd> Cerrar</span>
+        <div className="flex items-center justify-between border-t border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-4 py-2 font-mono text-[10px] text-[var(--ch-text-muted)]">
+          <div className="flex items-center gap-3">
+            <span>
+              <kbd className="rounded border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-1">
+                ↑
+              </kbd>{' '}
+              <kbd className="rounded border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-1">
+                ↓
+              </kbd>{' '}
+              Navegar
+            </span>
+            <span>
+              <kbd className="rounded border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-1">
+                ↵
+              </kbd>{' '}
+              Ejecutar
+            </span>
+            <span>
+              <kbd className="rounded border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-1">
+                Esc
+              </kbd>{' '}
+              Cerrar
+            </span>
           </div>
+          <span>SINDECON Clínico</span>
         </div>
       </div>
     </div>

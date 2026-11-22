@@ -13,16 +13,15 @@ import { LoginView } from './components/auth/LoginView'
 import { useGoogleSync } from './hooks/useGoogleSync'
 import { usePWAUpdate } from './hooks/usePWAUpdate'
 import { usePwaInstall } from './hooks/usePwaInstall'
-import { TreeView } from './components/tree/TreeView'
-import { Breadcrumbs } from './components/tree/Breadcrumbs'
 import { FolderExplorerView } from './components/tree/FolderExplorerView'
-import { MarkdownEditor, type MarkdownEditorHandle } from './components/editor/MarkdownEditor'
+import type { MarkdownEditorHandle } from './components/editor/MarkdownEditor'
 import {
   ArticleReader,
   matchPdfBlock,
   parseMarkdownBlocks,
   prepareTemplateDocument,
 } from './components/reader/ArticleReader'
+import { ArticleWorkspaceView } from './components/reader/ArticleWorkspaceView'
 import { QuickCapture } from './components/capture/QuickCapture'
 import { SmartImportModal } from './components/editor/SmartImportModal'
 import { BulkImportModal } from './components/portability/BulkImportModal'
@@ -34,20 +33,13 @@ import { ArticleFlashcardsModal } from './components/flashcards/ArticleFlashcard
 import { AiSettingsModal } from './components/settings/AiSettingsModal'
 import { getDueFlashcards, getAllFlashcards } from './db/flashcards'
 import type { FlashcardRow, NodeRow, ArticleRow } from './db/db'
-import { PortabilityBar } from './components/portability/PortabilityBar'
-import { SyncIndicator } from './components/portability/SyncIndicator'
 import { GoogleDriveModal } from './components/portability/GoogleDriveModal'
 import { IosInstallModal } from './components/portability/IosInstallModal'
 import { ExportPdfModal, type ExportPdfOptions } from './components/portability/ExportPdfModal'
 import { BulkExportPdfModal, type BulkExportPdfOptions } from './components/portability/BulkExportPdfModal'
 import { UpdateToast } from './components/pwa/UpdateToast'
-import { SearchBox } from './components/search/SearchBox'
 import { CommandPalette } from './components/search/CommandPalette'
-import { TagInput } from './components/search/TagInput'
-import { WikiLinkPicker } from './components/search/WikiLinkPicker'
 import { Dashboard } from './components/dashboard/Dashboard'
-import { MobileBottomBar } from './components/navigation/MobileBottomBar'
-import { APP_VERSION } from './version'
 import {
   PromptDialog,
   ConfirmDialog,
@@ -55,7 +47,7 @@ import {
 } from './components/common/DialogModal'
 import { Toast } from './components/common/Toast'
 import { ensurePersistentStorage } from './pwa/persistence'
-import { childrenOf, pathTo } from './domain/tree'
+import { pathTo } from './domain/tree'
 import { db } from './db/db'
 import {
   createNode,
@@ -132,7 +124,6 @@ function App() {
   const [moveMode, setMoveMode] = useState(false)
   const [movingNodeId, setMovingNodeId] = useState<string | null>(null)
   const [isEditMode, setIsEditMode] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isQuickCaptureOpen, setIsQuickCaptureOpen] = useState(false)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false)
@@ -183,12 +174,9 @@ function App() {
     markdown: '',
   })
 
-  // Visibilidad de Carpeta de Plantillas y Colapso de Barra Lateral en Escritorio
+  // Visibilidad de Carpeta de Plantillas
   const [showTemplatesFolder, setShowTemplatesFolder] = useState<boolean>(
     () => localStorage.getItem('sindecon_show_templates_folder') !== 'false',
-  )
-  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState<boolean>(
-    () => localStorage.getItem('sindecon_sidebar_collapsed_desktop') === 'true',
   )
 
   const toggleTemplatesFolder = useCallback(() => {
@@ -198,36 +186,6 @@ function App() {
       return next
     })
   }, [])
-
-  const toggleDesktopSidebar = useCallback(() => {
-    setDesktopSidebarCollapsed((prev) => {
-      const next = !prev
-      localStorage.setItem('sindecon_sidebar_collapsed_desktop', String(next))
-      return next
-    })
-  }, [])
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
-        const activeEl = document.activeElement as HTMLElement | null
-        if (
-          activeEl &&
-          (activeEl.tagName === 'INPUT' ||
-            activeEl.tagName === 'TEXTAREA' ||
-            activeEl.isContentEditable ||
-            activeEl.closest('.milkdown, [contenteditable="true"], input, textarea'))
-        ) {
-          return
-        }
-        e.preventDefault()
-        toggleDesktopSidebar()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [toggleDesktopSidebar])
 
   const refreshFlashcardCounts = useCallback(async () => {
     try {
@@ -416,7 +374,7 @@ function App() {
       setTimeout(cleanupPrint, 1000)
     } catch (err) {
       console.error('Error preparando compendio PDF:', err)
-      setToastMessage('⚠️ Ocurrió un error al preparar los artículos para exportar a PDF')
+      setToastMessage('Ocurrió un error al preparar los artículos para exportar a PDF')
     }
   }
 
@@ -424,7 +382,6 @@ function App() {
   const inboxFolder = nodes.find(
     (n) => n.kind === 'folder' && n.title === 'Inbox' && n.parent_id === null,
   )
-  const inboxCount = inboxFolder ? childrenOf(nodes, inboxFolder.id).length : 0
   const isArticleReady =
     selected?.kind === 'article' && (seedBody !== null || article !== undefined)
   const currentBody =
@@ -457,7 +414,6 @@ function App() {
     setSelectedId(id)
     setMoveMode(false)
     setSeedBody(null)
-    setSidebarOpen(false)
   }
 
   // --- Manejo de Creación y Edición mediante Diálogos Modales ---
@@ -525,7 +481,7 @@ function App() {
       parts.push(`${result.skippedCount} ${result.skippedCount === 1 ? 'omitido' : 'omitidos'}`)
     }
     const summary = parts.length > 0 ? parts.join(', ') : 'No se importaron notas'
-    setToastMessage(`📥 ${summary}`)
+    setToastMessage(summary)
   }
 
   const handleOpenUploadPdf = (folderId?: string | null) => {
@@ -536,9 +492,9 @@ function App() {
   const handleUploadPdfComplete = (results: SavedPdfArticleResult[]) => {
     if (results.length === 1) {
       setSelectedId(results[0].nodeId)
-      setToastMessage(`📄 PDF "${results[0].title}" subido con éxito`)
+      setToastMessage(`PDF "${results[0].title}" subido con éxito`)
     } else if (results.length > 1) {
-      setToastMessage(`📄 Se subieron ${results.length} documentos PDF con éxito`)
+      setToastMessage(`Se subieron ${results.length} documentos PDF con éxito`)
     }
   }
 
@@ -556,15 +512,13 @@ function App() {
           setSelectedId(node.id)
           setSeedBody(null)
           setIsEditMode(true)
-          setSidebarOpen(false)
         } else {
           // Al crear carpeta raíz: navegamos a ella.
           // Al crear subcarpeta: nos mantenemos en la carpeta padre para ver la tarjeta en el explorador
           if (!promptState.parentId) {
             setSelectedId(node.id)
           }
-          setSidebarOpen(false)
-          setToastMessage(`📁 Carpeta "${node.title}" creada con éxito`)
+          setToastMessage(`Carpeta "${node.title}" creada con éxito`)
         }
       } else if (promptState.type === 'create-from-template') {
         const tpl = templates.find((t) => t.node.title === promptState.templateTitle)
@@ -580,7 +534,6 @@ function App() {
         setSeedBody(body)
         setSelectedId(node.id)
         setIsEditMode(true)
-        setSidebarOpen(false)
       } else if (promptState.type === 'rename-node') {
         await renameNode(promptState.nodeId, value.trim())
       }
@@ -609,7 +562,7 @@ function App() {
       const targetNode = folderId ? nodes.find((n) => n.id === folderId) : null
       const targetName = targetNode ? `"${targetNode.title}"` : 'la raíz'
       if (movedNode) {
-        setToastMessage(`📦 "${movedNode.title}" movido a ${targetName}`)
+        setToastMessage(`"${movedNode.title}" movido a ${targetName}`)
       }
     } catch (e) {
       setErrorMessage((e as Error).message)
@@ -623,7 +576,7 @@ function App() {
       const targetNode = folderId ? nodes.find((n) => n.id === folderId) : null
       const targetName = targetNode ? `"${targetNode.title}"` : 'la raíz'
       if (movedNode) {
-        setToastMessage(`📦 "${movedNode.title}" movido a ${targetName}`)
+        setToastMessage(`"${movedNode.title}" movido a ${targetName}`)
       }
     } catch (e) {
       setErrorMessage((e as Error).message)
@@ -634,7 +587,7 @@ function App() {
     try {
       const folder = nodes.find((n) => n.id === folderId)
       await sortChildrenInFolder(folderId, 'alpha-asc')
-      setToastMessage(`🔤 Elementos de "${folder?.title || 'Carpeta'}" ordenados alfabéticamente (A-Z)`)
+      setToastMessage(`Elementos de "${folder?.title || 'Carpeta'}" ordenados alfabéticamente (A-Z)`)
     } catch (e) {
       setErrorMessage((e as Error).message || 'Error al ordenar la carpeta')
     }
@@ -672,7 +625,6 @@ function App() {
     setSeedBody(markdown)
     setSelectedId(node.id)
     setIsEditMode(false)
-    setSidebarOpen(false)
   }
 
   const handleSaveToInbox = async (title: string, markdown: string) => {
@@ -684,7 +636,6 @@ function App() {
     })
     await saveArticle(node.id, markdown)
     setSelectedId(node.id)
-    setSidebarOpen(false)
   }
 
   if (!isAuthenticated) {
@@ -705,293 +656,17 @@ function App() {
 
   return (
     <div className="app-container">
-      <header className="mobile-topbar">
-        <button
-          type="button"
-          className="btn-menu-toggle"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          aria-label="Abrir menú de temas"
-        >
-          ☰ {sidebarOpen ? 'Cerrar' : 'Temas'}
-        </button>
-        <div className="topbar-search">
-          <SearchBox onSelect={selectArticle} />
-        </div>
-        <SyncIndicator
-          isConnected={isGoogleConnected}
-          isSessionExpired={isGoogleSessionExpired}
-          hasPendingChanges={googleHasPendingChanges}
-          syncState={googleSyncState}
-          syncProgress={googleSyncProgress}
-          lastSyncedAt={googleLastSyncedAt}
-          onClick={() => setIsGoogleModalOpen(true)}
-        />
-        <button
-          type="button"
-          className="btn-topbar-lock"
-          onClick={logout}
-          title={`Sesión activa: ${user?.name || 'Médico'}. Clic para bloquear terminal.`}
-          aria-label="Bloquear terminal"
-        >
-          🔒
-        </button>
-        <button
-          type="button"
-          className="btn-topbar-theme"
-          onClick={toggleTheme}
-          title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-          aria-label="Cambiar tema"
-        >
-          {theme === 'dark' ? '☀️' : '🌙'}
-        </button>
-      </header>
-
-      <div className={`layout ${sidebarOpen ? 'sidebar-open' : ''} ${desktopSidebarCollapsed ? 'desktop-sidebar-collapsed' : ''}`}>
-        {sidebarOpen && (
-          <div
-            className="sidebar-backdrop"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-        <aside className="sidebar">
-          <div className="sidebar-header-desktop">
-            <div className="sidebar-header-top-row">
-              <h2
-                className="app-title"
-                onClick={() => setSelectedId(null)}
-                style={{ cursor: 'pointer' }}
-                title="Ir al inicio"
-              >
-                🩺 Cuaderno Médico
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <SyncIndicator
-                  isConnected={isGoogleConnected}
-                  isSessionExpired={isGoogleSessionExpired}
-                  hasPendingChanges={googleHasPendingChanges}
-                  syncState={googleSyncState}
-                  syncProgress={googleSyncProgress}
-                  lastSyncedAt={googleLastSyncedAt}
-                  onClick={() => setIsGoogleModalOpen(true)}
-                />
-                <button
-                  type="button"
-                  className="btn-theme-toggle"
-                  onClick={toggleTheme}
-                  title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-                  aria-label="Cambiar tema"
-                >
-                  {theme === 'dark' ? '☀️' : '🌙'}
-                </button>
-                <button
-                  type="button"
-                  className="btn-theme-toggle"
-                  onClick={logout}
-                  title={`Sesión activa: ${user?.name || 'Médico'}. Clic para bloquear terminal.`}
-                  aria-label="Bloquear terminal"
-                >
-                  🔒
-                </button>
-                <button
-                  type="button"
-                  className="btn-sidebar-collapse-desktop desktop-only"
-                  onClick={toggleDesktopSidebar}
-                  title="Colapsar barra lateral (Ctrl+B)"
-                  aria-label="Colapsar barra lateral"
-                >
-                  ◀
-                </button>
-              </div>
-            </div>
-            <div className="sidebar-header-actions">
-              <button
-                type="button"
-                className="btn-command-palette-trigger"
-                onClick={() => setIsCommandPaletteOpen(true)}
-                title="Búsqueda y Comandos (Ctrl+K)"
-                aria-label="Abrir paleta de comandos"
-              >
-                🔍 Comandos <kbd>Ctrl+K</kbd>
-              </button>
-              <button
-                type="button"
-                className="btn-quick-capture"
-                onClick={() => setIsQuickCaptureOpen(true)}
-                title="Captura rápida a 1 toque (foto + nota) al Inbox"
-                aria-label="Captura rápida"
-              >
-                📸 Captura rápida
-              </button>
-            </div>
-          </div>
-
-          {storagePersisted === false && (
-            <div className="persistence-warning">
-              ⚠ Almacenamiento no persistente: exporta backups con regularidad.
-            </div>
-          )}
-
-          <div className="toolbar">
-            <button
-              type="button"
-              onClick={() => handleOpenCreatePrompt('folder')}
-              title="Crear nueva carpeta o especialidad"
-            >
-              + Carpeta
-            </button>
-            <button
-              type="button"
-              onClick={() => handleOpenCreatePrompt('article')}
-              title="Crear nuevo artículo médico en blanco"
-            >
-              + Artículo
-            </button>
-            <div className="toolbar-template-group">
-              <select
-                className="template-select"
-                defaultValue=""
-                onChange={(e) => {
-                  const v = e.currentTarget.value
-                  e.currentTarget.value = ''
-                  if (v) handleOpenTemplatePrompt(v)
-                }}
-                title={
-                  templates.length > 0
-                    ? 'Nuevo artículo desde plantilla'
-                    : 'Sembrando plantillas…'
-                }
-              >
-                <option value="" disabled>
-                  {templates.length > 0 ? '+ desde plantilla' : 'cargando…'}
-                </option>
-                {templates.map((t) => (
-                  <option key={t.node.id} value={t.node.title}>
-                    {t.node.title}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className={`btn-toggle-templates ${!showTemplatesFolder ? 'is-hidden' : ''}`}
-                onClick={toggleTemplatesFolder}
-                title={
-                  showTemplatesFolder
-                    ? 'Ocultar carpeta de plantillas en el árbol'
-                    : 'Mostrar carpeta de plantillas en el árbol'
-                }
-                aria-label={
-                  showTemplatesFolder
-                    ? 'Ocultar carpeta de plantillas'
-                    : 'Mostrar carpeta de plantillas'
-                }
-              >
-                {showTemplatesFolder ? '👁️' : '🙈'}
-              </button>
-            </div>
-          </div>
-
-          {moveMode && (
-            <div className="move-mode-banner">
-              <span>
-                Moviendo "{nodes.find((n) => n.id === (movingNodeId || selectedId))?.title || 'elemento'}". Selecciona la carpeta destino:
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setMoveMode(false)
-                  setMovingNodeId(null)
-                }}
-              >
-                Cancelar
-              </button>
-            </div>
-          )}
-
-          <div className="sidebar-search desktop-only-search">
-            <SearchBox onSelect={selectArticle} />
-          </div>
-
-          <PortabilityBar
-            onOpenGoogleDriveSync={() => setIsGoogleModalOpen(true)}
-            onInstallPwa={triggerInstallPwa}
-            canInstallPwa={canInstallPwa}
-            onBulkImportMarkdown={() => handleOpenBulkImport(null)}
-            onBulkExportPdf={() => handleOpenBulkExportPdf(null)}
-          />
-
-          <TreeView
-            nodes={nodes}
-            selectedId={selectedId}
-            onSelect={selectArticle}
-            moveMode={moveMode}
-            onMoveTarget={onMoveTarget}
-            onCancelMove={() => {
-              setMoveMode(false)
-              setMovingNodeId(null)
-            }}
-            onMoveNodeDirect={handleMoveNodeDirect}
-            onRenameNode={handleOpenRenamePrompt}
-            onMoveNode={(id) => {
-              setMovingNodeId(id)
-              setMoveMode(true)
-            }}
-            onDeleteNode={handleOpenDeleteConfirm}
-            onCreateChild={(parentId, kind) =>
-              handleOpenCreatePrompt(kind, parentId)
-            }
-            onSmartImport={(folderId) => handleOpenSmartImport(folderId)}
-            onBulkImport={(folderId) => handleOpenBulkImport(folderId)}
-            onBulkExportPdf={(folderId) => handleOpenBulkExportPdf(folderId)}
-            onUploadPdf={(folderId) => handleOpenUploadPdf(folderId)}
-            onSortFolderAlphabetically={handleSortFolderAlphabetically}
-            favoriteIds={favoriteIds}
-            onToggleFavorite={toggleFavorite}
-            showTemplatesFolder={showTemplatesFolder}
-          />
-
-          <div className="sidebar-footer">
-            <span
-              className="sidebar-version-badge"
-              title={`SINDECON v${APP_VERSION} — Cuaderno Médico`}
-            >
-              SINDECON v{APP_VERSION}
-            </span>
-          </div>
-        </aside>
-
-        <main className={`content ${isPdfArticle ? 'content-pdf-active' : ''}`}>
-          {desktopSidebarCollapsed && (
-            <div className="desktop-sidebar-expand-bar">
-              <button
-                type="button"
-                className="btn-sidebar-expand-desktop"
-                onClick={toggleDesktopSidebar}
-                title="Expandir barra lateral (Ctrl+B)"
-                aria-label="Expandir barra lateral"
-              >
-                <span>☰</span>
-                <span>Temas</span>
-              </button>
-            </div>
-          )}
-          <Breadcrumbs
-            nodes={nodes}
-            selectedId={selectedId}
-            onSelect={(id) => {
-              setSelectedId(id)
-              setSidebarOpen(false)
-            }}
-          />
-
+      <div className="layout desktop-sidebar-collapsed">
+        <main className={`content ${!selected ? 'content-dashboard-home' : isPdfArticle ? 'content-pdf-active' : ''}`}>
           {selected ? (
             <div className={selected.kind === 'folder' ? 'folder-main-view-wrapper' : `article-container ${isPdfArticle ? 'article-container-pdf' : ''}`}>
               {selected.kind === 'folder' ? (
                 <FolderExplorerView
+                  key={selected.id}
                   folderNode={selected}
                   nodes={nodes}
                   onSelectNode={(id) => {
                     setSelectedId(id)
-                    setSidebarOpen(false)
                   }}
                   onCreateArticle={(folderId) => handleOpenCreatePrompt('article', folderId)}
                   onCreateSubfolder={(folderId) => handleOpenCreatePrompt('folder', folderId)}
@@ -1004,198 +679,62 @@ function App() {
                   onRenameNode={(id) => handleOpenRenamePrompt(id)}
                   favoriteIds={favoriteIds}
                   onMoveNodeDirect={handleMoveNodeDirect}
+                  onDeleteNode={(id) => handleOpenDeleteConfirm(id)}
+                  onEditArticle={(id) => {
+                    setSelectedId(id)
+                    setIsEditMode(true)
+                  }}
+                  onPrintArticle={(id) => {
+                    setSelectedId(id)
+                    setTimeout(() => setIsExportPdfOpen(true), 80)
+                  }}
+                  onGoBack={() => setSelectedId(selected.parent_id)}
+                  onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
+                  onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
                 />
               ) : (
-                <>
-                  <div className="article-header-row">
-                    <div className="article-title-wrapper">
-                      <h1 className="article-title">{selected.title}</h1>
-                      <button
-                        type="button"
-                        className="btn-article-rename"
-                        onClick={() => handleOpenRenamePrompt(selected.id)}
-                        title="Renombrar artículo"
-                        aria-label="Renombrar artículo"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn-fav-star ${isFavorite(selected.id) ? 'active' : ''}`}
-                        onClick={() => toggleFavorite(selected.id)}
-                        title={
-                          isFavorite(selected.id)
-                            ? 'Quitar de favoritos / anclados'
-                            : 'Anclar a favoritos'
-                        }
-                        aria-label="Favorito"
-                      >
-                        {isFavorite(selected.id) ? '⭐' : '☆'}
-                      </button>
-                    </div>
-
-                    <div className="article-header-actions-group">
-                      {!isPdfArticle && (
-                        <button
-                          type="button"
-                          className="btn-article-export-pdf"
-                          onClick={() => setIsExportPdfOpen(true)}
-                          title="Exportar artículo a PDF o Imprimir"
-                        >
-                          🖨️ PDF
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        className="btn-article-flashcards"
-                        onClick={() => {
-                          if (!isPdfArticle) setIsArticleFlashcardsOpen(true)
-                        }}
-                        disabled={isPdfArticle}
-                        title={
-                          isPdfArticle
-                            ? 'Las flashcards no están disponibles en artículos PDF'
-                            : 'Ver y generar flashcards de este tema'
-                        }
-                      >
-                        🧠 Flashcards
-                      </button>
-
-                      <button
-                        type="button"
-                        className="btn-smart-import-trigger"
-                        onClick={() => {
-                          if (!isPdfArticle) handleOpenSmartImport()
-                        }}
-                        disabled={isPdfArticle}
-                        title={
-                          isPdfArticle
-                            ? 'La importación de contenido no está disponible en artículos PDF'
-                            : 'Importar contenido desde ChatGPT, IA o Word (.docx)'
-                        }
-                      >
-                        🪄 Importar
-                      </button>
-
-                      <div className="view-mode-toggle">
-                        <button
-                          type="button"
-                          className={`btn-mode ${!effectiveEditMode ? 'active' : ''}`}
-                          onClick={() => setIsEditMode(false)}
-                          title="Ver en modo lectura"
-                        >
-                          👁 Lector
-                        </button>
-                        <button
-                          type="button"
-                          className={`btn-mode ${effectiveEditMode ? 'active' : ''}`}
-                          onClick={() => {
-                            if (!isPdfArticle) setIsEditMode(true)
-                          }}
-                          disabled={isPdfArticle}
-                          title={
-                            isPdfArticle
-                              ? 'La edición directa no está disponible en documentos PDF'
-                              : 'Editar artículo'
-                          }
-                        >
-                          ✏ Editor
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {isArticleReady && (
-                    <>
-                      <div className="article-meta">
-                        <TagInput
-                          articleId={selected.id}
-                          tags={article?.node_id === selected.id ? (article?.tags ?? []) : []}
-                        />
-                      </div>
-
-                      {effectiveEditMode ? (
-                        <>
-                          <div className="article-toolbar">
-                            <WikiLinkPicker
-                              onPick={(text) => {
-                                editorRef.current?.insertAtCursor(text)
-                                editorRef.current?.focus()
-                              }}
-                            />
-                            <button
-                              type="button"
-                              className="btn-toolbar-action btn-insert-columns"
-                              onClick={() => {
-                                const template = '\n\n:::columns\n### Columna 1\n- Contenido...\n\n|||\n\n### Columna 2\n- Contenido...\n:::\n\n'
-                                editorRef.current?.insertAtCursor(template)
-                                editorRef.current?.focus()
-                              }}
-                              title="Insertar bloque de 2 columnas paralelas (:::columns)"
-                            >
-                              ◫ Columnas
-                            </button>
-                          </div>
-                          <MarkdownEditor
-                            key={`${selected.id}-${editorRevision}`}
-                            nodeId={selected.id}
-                            defaultValue={currentBody}
-                            onChange={(nodeId, md) => saveArticle(nodeId, md)}
-                            onWikiLinkClick={selectArticle}
-                            editorRef={editorRef}
-                          />
-                        </>
-                      ) : (
-                        <ArticleReader
-                          articleTitle={selected.title}
-                          folderPath={
-                            pathTo(nodes, selected.id)
-                              .slice(0, -1)
-                              .map((n) => n.title)
-                              .join(' · ') || undefined
-                          }
-                          markdown={currentBody}
-                          onWikiLinkClick={selectArticle}
-                          onOpenExportPdf={() => setIsExportPdfOpen(true)}
-                          onOpenExportGoogleDocs={() => {
-                            const folderPathString = pathTo(nodes, selected.id)
-                              .slice(0, -1)
-                              .map((n) => n.title)
-                              .join(' / ')
-                            const currentTags =
-                              article?.node_id === selected.id ? (article?.tags ?? []) : []
-                            setGoogleDocsExportState({
-                              isOpen: true,
-                              title: selected.title,
-                              markdown: currentBody,
-                              folderPath: folderPathString,
-                              tags: currentTags,
-                            })
-                          }}
-                        />
-                      )}
-
-                      {!isPdfArticle && backlinks.length > 0 && (
-                        <aside className="backlinks">
-                          <h3>Artículos que enlazan aquí</h3>
-                          <ul>
-                            {backlinks.map((b) => (
-                              <li key={b.id}>
-                                <button
-                                  type="button"
-                                  onClick={() => selectArticle(b.id)}
-                                >
-                                  📄 {b.title}
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        </aside>
-                      )}
-                    </>
-                  )}
-                </>
+                <ArticleWorkspaceView
+                  key={selected.id}
+                  articleNode={selected}
+                  nodes={nodes}
+                  tags={article?.node_id === selected.id ? (article?.tags ?? []) : []}
+                  currentBody={currentBody}
+                  isArticleReady={isArticleReady}
+                  isPdfArticle={isPdfArticle}
+                  effectiveEditMode={effectiveEditMode}
+                  editorRevision={editorRevision}
+                  editorRef={editorRef}
+                  backlinks={backlinks}
+                  isFavorite={isFavorite(selected.id)}
+                  onToggleFavorite={toggleFavorite}
+                  onRenameArticle={(id) => handleOpenRenamePrompt(id)}
+                  onSelectNode={(id) => {
+                    setSelectedId(id)
+                  }}
+                  onSelectArticle={selectArticle}
+                  onSetEditMode={setIsEditMode}
+                  onSaveMarkdown={(nodeId, md) => saveArticle(nodeId, md)}
+                  onOpenExportPdf={() => setIsExportPdfOpen(true)}
+                  onOpenExportGoogleDocs={() => {
+                    const folderPathString = pathTo(nodes, selected.id)
+                      .slice(0, -1)
+                      .map((n) => n.title)
+                      .join(' / ')
+                    const currentTags =
+                      article?.node_id === selected.id ? (article?.tags ?? []) : []
+                    setGoogleDocsExportState({
+                      isOpen: true,
+                      title: selected.title,
+                      markdown: currentBody,
+                      folderPath: folderPathString,
+                      tags: currentTags,
+                    })
+                  }}
+                  onOpenFlashcards={() => setIsArticleFlashcardsOpen(true)}
+                  onOpenSmartImport={() => handleOpenSmartImport()}
+                  onCreateArticle={(folderId) => handleOpenCreatePrompt('article', folderId)}
+                  onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+                />
               )}
             </div>
           ) : (
@@ -1204,10 +743,12 @@ function App() {
               templates={templates}
               onSelectArticle={selectArticle}
               onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
-              onOpenSmartImport={() => handleOpenSmartImport(null)}
-              onCreateNode={(kind) => handleOpenCreatePrompt(kind)}
-              onCreateFromTemplate={(tplTitle) =>
-                handleOpenTemplatePrompt(tplTitle)
+              onOpenSmartImport={(folderId) => handleOpenSmartImport(folderId)}
+              onCreateNode={(kind, parentId) =>
+                handleOpenCreatePrompt(kind, parentId ?? targetFolderId)
+              }
+              onCreateFromTemplate={(tplTitle, parentId) =>
+                handleOpenTemplatePrompt(tplTitle, parentId ?? targetFolderId)
               }
               onInstallPwa={triggerInstallPwa}
               canInstallPwa={canInstallPwa}
@@ -1215,22 +756,44 @@ function App() {
               totalFlashcardsCount={totalFlashcardsCount}
               onOpenStudy={handleStartGeneralStudy}
               onOpenAiSettings={() => setIsAiSettingsOpen(true)}
+              userName={user?.name}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              onLockTerminal={logout}
+              onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+              favoriteIds={favoriteIds}
+              onToggleFavorite={toggleFavorite}
+              showTemplatesFolder={showTemplatesFolder}
+              onToggleTemplatesFolder={toggleTemplatesFolder}
+              isGoogleConnected={isGoogleConnected}
+              isGoogleSessionExpired={isGoogleSessionExpired}
+              googleHasPendingChanges={googleHasPendingChanges}
+              googleSyncState={googleSyncState}
+              googleSyncProgress={googleSyncProgress}
+              googleLastSyncedAt={googleLastSyncedAt}
+              onOpenGoogleDriveSync={() => setIsGoogleModalOpen(true)}
+              onBulkImportMarkdown={(folderId) => handleOpenBulkImport(folderId)}
+              onBulkExportPdf={(folderId) => handleOpenBulkExportPdf(folderId)}
+              onUploadPdf={(folderId) => handleOpenUploadPdf(folderId)}
+              onSortFolder={handleSortFolderAlphabetically}
+              onRenameNode={handleOpenRenamePrompt}
+              onDeleteNode={handleOpenDeleteConfirm}
+              moveMode={moveMode}
+              movingNodeId={movingNodeId}
+              onMoveNode={(id) => {
+                setMovingNodeId(id)
+                setMoveMode(true)
+              }}
+              onMoveTarget={onMoveTarget}
+              onCancelMove={() => {
+                setMoveMode(false)
+                setMovingNodeId(null)
+              }}
+              storagePersisted={storagePersisted}
             />
           )}
         </main>
       </div>
-
-      {/* Barra de Navegación Inferior Móvil (zona del pulgar) */}
-      <MobileBottomBar
-        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-        isSidebarOpen={sidebarOpen}
-        onOpenSearch={() => setIsCommandPaletteOpen(true)}
-        onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
-        onOpenInbox={() => inboxFolder && selectArticle(inboxFolder.id)}
-        inboxCount={inboxCount}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
 
       {/* Modal de Paleta de Comandos Global (Ctrl+K) */}
       <CommandPalette
@@ -1334,11 +897,11 @@ function App() {
           title={
             promptState.type === 'create-node'
               ? promptState.kind === 'folder'
-                ? '📁 Nueva Carpeta'
-                : '📝 Nuevo Artículo'
+                ? 'Nueva Carpeta'
+                : 'Nuevo Artículo'
               : promptState.type === 'create-from-template'
-                ? `📋 Nuevo desde "${promptState.templateTitle}"`
-                : '✏️ Renombrar'
+                ? `Nuevo desde "${promptState.templateTitle}"`
+                : 'Renombrar'
           }
           label={
             promptState.type === 'create-node'
@@ -1395,8 +958,8 @@ function App() {
       {errorMessage && (
         <AlertDialog
           isOpen={true}
-          title="⚠️ Notificación"
-          content={<p className="dialog-error-text">{errorMessage}</p>}
+          title="Notificación"
+          content={<p className="text-sm leading-relaxed text-[var(--ch-text-secondary)]">{errorMessage}</p>}
           onClose={() => setErrorMessage(null)}
         />
       )}

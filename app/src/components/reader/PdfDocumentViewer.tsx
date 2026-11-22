@@ -1,6 +1,20 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import {
+  FileText,
+  ZoomOut,
+  ZoomIn,
+  PenLine,
+  Download,
+  ExternalLink,
+  Highlighter,
+  Eraser,
+  Undo2,
+  Trash2,
+  AlertTriangle,
+  Check,
+} from 'lucide-react'
 import { getAssetBlob } from '../../db/assets'
 import type { AnnotationTool } from '../../db/db'
 import { PdfAnnotationOverlay } from './PdfAnnotationOverlay'
@@ -363,12 +377,21 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
 
   if (error || !blobUrl) {
     return (
-      <div className={`pdf-viewer-error-container ${className}`}>
-        <span className="pdf-viewer-error-icon">⚠️</span>
-        <p>{error || 'No se pudo generar la vista previa del documento.'}</p>
+      <div className={`pdf-viewer-error-container clinical-home ${className}`}>
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/14 text-amber-600 dark:text-amber-300">
+          <AlertTriangle className="h-6 w-6" />
+        </span>
+        <p className="text-sm text-[var(--ch-text-secondary)]">
+          {error || 'No se pudo generar la vista previa del documento.'}
+        </p>
         {blobUrl && (
-          <a href={blobUrl} download={downloadFilename} className="btn-pdf-action btn-pdf-download">
-            ⬇️ Descargar archivo PDF
+          <a
+            href={blobUrl}
+            download={downloadFilename}
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[var(--ch-accent)] px-5 text-xs font-semibold text-white shadow-xs transition hover:opacity-95"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Descargar archivo PDF</span>
           </a>
         )}
       </div>
@@ -376,35 +399,40 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
   }
 
   return (
-    <div ref={containerRef} className={`pdf-document-viewer ${className}`}>
+    <div ref={containerRef} className={`pdf-document-viewer clinical-home ${className}`}>
       {/* Barra de herramientas superior del visor */}
-      <div className="pdf-viewer-toolbar">
-        <div className="pdf-viewer-toolbar-title">
-          <span className="pdf-icon">📄</span>
-          <span className="pdf-title-text" title={title || 'Documento PDF'}>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2.5 border-b border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-4 py-2.5">
+        <div className="flex min-w-0 max-w-xs items-center gap-2">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
+            <FileText className="h-4 w-4" />
+          </span>
+          <span
+            className="truncate text-sm font-semibold text-[var(--ch-text-primary)]"
+            title={title || 'Documento PDF'}
+          >
             {title || 'Documento PDF'}
           </span>
           {numPages > 0 && (
-            <span className="pdf-page-badge">
+            <span className="shrink-0 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[var(--ch-text-secondary)]">
               {numPages} {numPages === 1 ? 'pág' : 'págs'}
             </span>
           )}
         </div>
 
         {/* Controles de Zoom */}
-        <div className="pdf-viewer-controls-group">
+        <div className="inline-flex items-center rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-0.5">
           <button
             type="button"
-            className="btn-pdf-zoom"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--ch-text-secondary)] transition hover:bg-[var(--ch-bg-elevated)] hover:text-[var(--ch-text-primary)]"
             onClick={handleZoomOut}
             title="Reducir zoom"
             aria-label="Reducir zoom"
           >
-            🔍−
+            <ZoomOut className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"
-            className="btn-pdf-zoom-reset"
+            className="h-7 rounded-full px-2.5 font-mono text-[11px] font-semibold text-[var(--ch-text-primary)] transition hover:bg-[var(--ch-bg-elevated)]"
             onClick={handleResetFit}
             title="Ajustar al ancho de la pantalla"
           >
@@ -412,20 +440,24 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
           </button>
           <button
             type="button"
-            className="btn-pdf-zoom"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--ch-text-secondary)] transition hover:bg-[var(--ch-bg-elevated)] hover:text-[var(--ch-text-primary)]"
             onClick={handleZoomIn}
             title="Aumentar zoom"
             aria-label="Aumentar zoom"
           >
-            🔍+
+            <ZoomIn className="h-3.5 w-3.5" />
           </button>
         </div>
 
         {/* Acciones principales */}
-        <div className="pdf-viewer-toolbar-actions">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
-            className={`btn-pdf-action btn-pdf-annotate-toggle ${isAnnotationMode ? 'active' : ''}`}
+            className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition ${
+              isAnnotationMode
+                ? 'border-[var(--ch-accent)] bg-[var(--ch-accent)] text-white shadow-xs'
+                : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-secondary)] hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)]'
+            }`}
             onClick={() => setIsAnnotationMode((prev) => !prev)}
             title={
               isAnnotationMode
@@ -433,64 +465,86 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
                 : 'Anotar con lápiz o resaltador sobre el PDF'
             }
           >
-            ✏️ <span className="btn-text">{isAnnotationMode ? 'Finalizar' : 'Anotar'}</span>
+            {isAnnotationMode ? <Check className="h-3.5 w-3.5" /> : <PenLine className="h-3.5 w-3.5" />}
+            <span>{isAnnotationMode ? 'Finalizar' : 'Anotar'}</span>
           </button>
           <a
             href={blobUrl}
             download={downloadFilename}
-            className="btn-pdf-action btn-pdf-download"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-3.5 text-xs font-semibold text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)]"
             title="Descargar archivo PDF"
           >
-            ⬇️ <span className="btn-text">Descargar</span>
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Descargar</span>
           </a>
           <button
             type="button"
             onClick={handleOpenInNewTab}
-            className="btn-pdf-action btn-pdf-open"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-3.5 text-xs font-semibold text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)]"
             title="Abrir en pestaña nueva"
           >
-            ↗️ <span className="btn-text">Pestaña nueva</span>
+            <ExternalLink className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Pestaña nueva</span>
           </button>
         </div>
       </div>
 
       {/* Barra de herramientas secundaria de Anotación (Lápiz, Resaltador, Borrador) */}
       {isAnnotationMode && (
-        <div className="pdf-annotation-toolbar">
-          <div className="pdf-tool-group">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2.5 border-b border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/75 px-4 py-2">
+          <div className="inline-flex rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] p-0.5">
             <button
               type="button"
-              className={`btn-pdf-tool ${activeTool === 'pen' ? 'active' : ''}`}
+              className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
+                activeTool === 'pen'
+                  ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                  : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+              }`}
               onClick={() => handleSelectTool('pen')}
               title="Lápiz / Bolígrafo"
             >
-              ✏️ <span className="tool-label">Lápiz</span>
+              <PenLine className="h-3.5 w-3.5" />
+              <span>Lápiz</span>
             </button>
             <button
               type="button"
-              className={`btn-pdf-tool ${activeTool === 'highlighter' ? 'active' : ''}`}
+              className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
+                activeTool === 'highlighter'
+                  ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                  : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+              }`}
               onClick={() => handleSelectTool('highlighter')}
               title="Resaltador / Marcador"
             >
-              🖍️ <span className="tool-label">Resaltador</span>
+              <Highlighter className="h-3.5 w-3.5" />
+              <span>Resaltador</span>
             </button>
             <button
               type="button"
-              className={`btn-pdf-tool ${activeTool === 'eraser' ? 'active' : ''}`}
+              className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
+                activeTool === 'eraser'
+                  ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                  : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+              }`}
               onClick={() => handleSelectTool('eraser')}
               title="Borrador de trazos"
             >
-              🧹 <span className="tool-label">Borrador</span>
+              <Eraser className="h-3.5 w-3.5" />
+              <span>Borrador</span>
             </button>
           </div>
 
           {activeTool !== 'eraser' && (
-            <div className="pdf-color-palette">
+            <div className="flex items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-2.5 py-1">
               {(activeTool === 'pen' ? PEN_COLORS : HIGHLIGHTER_COLORS).map((c) => (
                 <button
                   key={c.value}
                   type="button"
-                  className={`btn-pdf-color ${activeColor === c.value ? 'active' : ''}`}
+                  className={`h-5 w-5 rounded-full border transition ${
+                    activeColor === c.value
+                      ? 'scale-110 border-[var(--ch-text-primary)] ring-2 ring-[var(--ch-accent)]/40'
+                      : 'border-[var(--ch-border-strong)] hover:scale-105'
+                  }`}
                   style={{ backgroundColor: c.previewColor || c.value }}
                   onClick={() => setActiveColor(c.value)}
                   title={c.label}
@@ -501,10 +555,14 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
           )}
 
           {activeTool !== 'eraser' && (
-            <div className="pdf-width-group">
+            <div className="inline-flex rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] p-0.5">
               <button
                 type="button"
-                className={`btn-pdf-width ${activeWidth === (activeTool === 'pen' ? 2 : 10) ? 'active' : ''}`}
+                className={`h-7 rounded-full px-2.5 text-[11px] font-semibold transition ${
+                  activeWidth === (activeTool === 'pen' ? 2 : 10)
+                    ? 'bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
+                    : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+                }`}
                 onClick={() => setActiveWidth(activeTool === 'pen' ? 2 : 10)}
                 title="Grosor fino"
               >
@@ -512,7 +570,11 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
               </button>
               <button
                 type="button"
-                className={`btn-pdf-width ${activeWidth === (activeTool === 'pen' ? 4 : 18) ? 'active' : ''}`}
+                className={`h-7 rounded-full px-2.5 text-[11px] font-semibold transition ${
+                  activeWidth === (activeTool === 'pen' ? 4 : 18)
+                    ? 'bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
+                    : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+                }`}
                 onClick={() => setActiveWidth(activeTool === 'pen' ? 4 : 18)}
                 title="Grosor medio"
               >
@@ -520,7 +582,11 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
               </button>
               <button
                 type="button"
-                className={`btn-pdf-width ${activeWidth === (activeTool === 'pen' ? 7 : 28) ? 'active' : ''}`}
+                className={`h-7 rounded-full px-2.5 text-[11px] font-semibold transition ${
+                  activeWidth === (activeTool === 'pen' ? 7 : 28)
+                    ? 'bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
+                    : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+                }`}
                 onClick={() => setActiveWidth(activeTool === 'pen' ? 7 : 28)}
                 title="Grosor grueso"
               >
@@ -529,22 +595,24 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
             </div>
           )}
 
-          <div className="pdf-annotation-actions">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              className="btn-pdf-action btn-pdf-undo"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-3 text-xs font-semibold text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)]"
               onClick={handleUndo}
               title="Deshacer último trazo de la página"
             >
-              ↩️ <span className="btn-text">Deshacer</span>
+              <Undo2 className="h-3.5 w-3.5" />
+              <span>Deshacer</span>
             </button>
             <button
               type="button"
-              className="btn-pdf-action btn-pdf-clear-page"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/8 px-3 text-xs font-semibold text-red-600 transition hover:bg-red-500/15 dark:text-red-400"
               onClick={handleClearPage}
               title="Borrar todas las anotaciones de esta página"
             >
-              🗑️ <span className="btn-text">Borrar pág.</span>
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Borrar pág.</span>
             </button>
           </div>
         </div>

@@ -1,4 +1,19 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  FileOutput,
+  FileText,
+  Folder,
+  Tag,
+  Cloud,
+  CheckCircle2,
+  WifiOff,
+  AlertTriangle,
+  ExternalLink,
+  Download,
+  RefreshCw,
+  KeyRound,
+  Loader2,
+} from 'lucide-react'
 import { generateClinicalDocxBlob } from '../../domain/gdocs/clinicalDocxGenerator'
 import { uploadDocxAsGoogleDoc, type GoogleDocUploadResult } from '../../pwa/googleDocsUpload'
 import {
@@ -10,6 +25,7 @@ import {
   initiateGoogleOAuthFlow,
   fetchGoogleUserEmail,
 } from '../../pwa/googleDrive'
+import { BaseModal, PILL_BTN_PRIMARY, PILL_BTN_SECONDARY } from '../common/DialogModal'
 
 export type GoogleDocsExportStatus =
   | 'idle'
@@ -188,7 +204,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
     } catch (err) {
       if (!isMountedRef.current) return
       setErrorMessage(
-        `Error al preparar la descarga local: ${(err as Error).message || 'Error desconocido'}`
+        `Error al preparar la descarga local: ${(err as Error).message || 'Error desconocido'}`,
       )
     } finally {
       if (isMountedRef.current) {
@@ -230,7 +246,6 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
         setErrorMessage(null)
         setStatus('rendering')
 
-        // 1. Renderizar DOCX con maquetación clínica y diagramas Mermaid
         let blob = docxBlobRef.current
         if (!blob) {
           blob = await generateClinicalDocxBlob(markdown, {
@@ -244,7 +259,6 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
           setDocxBlob(blob)
         }
 
-        // 2. Subir a Google Drive con conversión a Google Docs nativo
         if (!isMountedRef.current) return
         setStatus('uploading')
         const uploadResult = await uploadDocxWithTokenRetry(blob, cleanTitle, activeToken)
@@ -258,7 +272,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
           clearStoredToken(false)
           setStatus('error')
           setErrorMessage(
-            'Tu sesión de Google Drive ha expirado. Por favor reconecta tu cuenta para continuar sin perder tus datos.'
+            'Tu sesión de Google Drive ha expirado. Reconecta tu cuenta para continuar sin perder tus datos.',
           )
         } else {
           setStatus('error')
@@ -266,7 +280,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
         }
       }
     },
-    [markdown, cleanTitle, folderPath, tags, dateStr]
+    [markdown, cleanTitle, folderPath, tags, dateStr],
   )
 
   const handleOAuthConnect = useCallback(() => {
@@ -293,7 +307,6 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
     })
   }, [executeExport, onInitiateOAuth])
 
-  // Inicializar estado cuando se abre el modal
   useEffect(() => {
     if (!isOpen) {
       hasStartedRef.current = false
@@ -339,414 +352,217 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
     }
   }, [isOpen, propToken, executeExport])
 
-  // Cierre con Escape
-  useEffect(() => {
-    if (!isOpen) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
-
-  if (!isOpen) return null
-
   return (
-    <div
-      className="modal-overlay"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="gdocs-modal-title"
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Exportar a Google Docs"
+      subtitle="Maquetación clínica SINDECON con diagramas Mermaid integrados."
+      icon={<FileOutput className="h-5 w-5" />}
+      titleId="gdocs-modal-title"
+      maxWidthClass="max-w-lg"
+      footer={
+        <button type="button" className={PILL_BTN_SECONDARY} onClick={onClose}>
+          {status === 'success' ? 'Listo' : 'Cerrar'}
+        </button>
+      }
     >
-      <div
-        className="modal-content gdocs-export-modal"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          maxWidth: '540px',
-          width: '92%',
-          background: 'var(--bg-surface, #ffffff)',
-          borderRadius: '12px',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08)',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Cabecera del Modal */}
-        <div className="modal-header" style={{ padding: '20px 24px 16px' }}>
-          <div className="header-title-group">
-            <div className="topic-modal-title-line" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="topic-modal-icon" style={{ fontSize: '1.4rem' }}>📄</span>
-              <h3 id="gdocs-modal-title" style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>
-                Exportar a Google Docs
-              </h3>
-            </div>
-            <span
-              className="header-subtitle"
-              style={{ display: 'block', marginTop: '4px', fontSize: '0.82rem', color: '#64748b' }}
-            >
-              Maquetación clínica oficial SINDECON con diagramas Mermaid integrados.
-            </span>
-          </div>
-          <button
-            type="button"
-            className="btn-close"
-            onClick={onClose}
-            aria-label="Cerrar modal"
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.2rem',
-              cursor: 'pointer',
-              color: '#64748b',
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="modal-body" style={{ padding: '0 24px 20px' }}>
-          {/* Ficha Resumen del Artículo */}
-          <div className="pdf-article-preview-badge">
-            <span className="preview-icon">📝</span>
-            <div className="preview-info">
-              <strong className="preview-title">{cleanTitle}</strong>
-              {folderPath && <span className="preview-path">📁 {folderPath}</span>}
+      <div className="flex flex-col gap-4">
+        {/* Summary Chip */}
+        <div className="flex items-center gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/70 p-3.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
+            <FileText className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <strong className="block truncate text-sm font-semibold text-[var(--ch-text-primary)]">
+              {cleanTitle}
+            </strong>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[11px] text-[var(--ch-text-muted)]">
+              {folderPath && (
+                <span className="inline-flex items-center gap-1">
+                  <Folder className="h-3 w-3" />
+                  {folderPath}
+                </span>
+              )}
               {tags && tags.length > 0 && (
-                <span className="preview-path">🏷️ {tags.join(', ')}</span>
+                <span className="inline-flex items-center gap-1">
+                  <Tag className="h-3 w-3" />
+                  {tags.map((t) => `#${t}`).join(' ')}
+                </span>
               )}
             </div>
           </div>
-
-          {/* Estado: Renderizando DOCX en memoria */}
-          {status === 'rendering' && (
-            <div
-              style={{
-                textAlign: 'center',
-                padding: '24px 16px',
-                background: '#f8fafc',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-              }}
-            >
-              <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🎨</div>
-              <h4 style={{ margin: '0 0 6px', color: '#008080' }}>
-                Renderizando documento clínico...
-              </h4>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
-                Procesando diagramas Mermaid en alta resolución y estructurando el formato médico oficial.
-              </p>
-            </div>
-          )}
-
-          {/* Estado: Subiendo a Google Drive */}
-          {status === 'uploading' && (
-            <div
-              style={{
-                textAlign: 'center',
-                padding: '24px 16px',
-                background: '#f8fafc',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-              }}
-            >
-              <div style={{ fontSize: '2rem', marginBottom: '8px' }}>☁️</div>
-              <h4 style={{ margin: '0 0 6px', color: '#008080' }}>
-                Subiendo a Google Drive...
-              </h4>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
-                Convirtiendo el documento a Google Docs nativo para su edición y lectura en tablet o PC.
-              </p>
-            </div>
-          )}
-
-          {/* Estado: Éxito */}
-          {status === 'success' && (
-            <div
-              style={{
-                textAlign: 'center',
-                padding: '20px 16px',
-                background: '#f0fdfa',
-                borderRadius: '8px',
-                border: '1px solid #99f6e4',
-              }}
-            >
-              <div style={{ fontSize: '2.4rem', marginBottom: '8px' }}>✅</div>
-              <h4 style={{ margin: '0 0 8px', color: '#0f766e', fontSize: '1.1rem' }}>
-                ¡Documento exportado con éxito!
-              </h4>
-              <p style={{ margin: '0 0 18px', fontSize: '0.88rem', color: '#134e4a' }}>
-                El documento ya está disponible en tu Google Drive y listo para abrir en la app de Google Docs.
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-                {docUrl && (
-                  <a
-                    href={docUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-primary"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      padding: '12px 24px',
-                      fontSize: '0.95rem',
-                      fontWeight: 600,
-                      color: '#ffffff',
-                      backgroundColor: '#008080',
-                      borderRadius: '8px',
-                      textDecoration: 'none',
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      boxShadow: '0 4px 6px -1px rgba(0, 128, 128, 0.3)',
-                    }}
-                  >
-                    Abrir en Google Docs ↗
-                  </a>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => void handleDownloadDocx()}
-                  disabled={isDownloading}
-                  style={{
-                    background: 'none',
-                    border: '1px solid #cbd5e1',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    fontSize: '0.85rem',
-                    color: '#475569',
-                    cursor: 'pointer',
-                    width: '100%',
-                  }}
-                >
-                  {isDownloading ? 'Preparando descarga...' : '💾 Descargar copia .docx'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Estado: Offline */}
-          {status === 'offline' && (
-            <div
-              style={{
-                textAlign: 'center',
-                padding: '20px 16px',
-                background: '#fffbeb',
-                borderRadius: '8px',
-                border: '1px solid #fde68a',
-              }}
-            >
-              <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>📶</div>
-              <h4 style={{ margin: '0 0 6px', color: '#b45309' }}>
-                Modo Sin Conexión (Offline)
-              </h4>
-              <p style={{ margin: '0 0 16px', fontSize: '0.85rem', color: '#92400e' }}>
-                Google Docs requiere conexión a internet para sincronizarse. Sin embargo, puedes descargar el archivo con diseño clínico completo directamente a tu dispositivo.
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => void handleDownloadDocx()}
-                  disabled={isDownloading}
-                  style={{
-                    padding: '12px 20px',
-                    fontSize: '0.95rem',
-                    fontWeight: 600,
-                    backgroundColor: '#008080',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {isDownloading ? 'Generando archivo...' : '💾 Descargar archivo .docx'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!navigator.onLine) return
-                    void resolveTokenForDocsExport(propToken)
-                      .then((resolvedToken) => {
-                        if (!isMountedRef.current) return
-                        if (resolvedToken) void executeExport(resolvedToken)
-                        else setStatus('idle')
-                      })
-                      .catch((err: unknown) => {
-                        if (!isMountedRef.current) return
-                        setStatus('error')
-                        setErrorMessage(
-                          (err as Error)?.message || 'Error al reconectar con Google Drive',
-                        )
-                      })
-                  }}
-                  style={{
-                    background: 'none',
-                    border: '1px solid #cbd5e1',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    fontSize: '0.85rem',
-                    color: '#64748b',
-                    cursor: 'pointer',
-                  }}
-                >
-                  🔄 Reintentar conexión
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Estado: Error */}
-          {status === 'error' && (
-            <div
-              style={{
-                padding: '18px 16px',
-                background: '#fef2f2',
-                borderRadius: '8px',
-                border: '1px solid #fecaca',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '1.4rem' }}>⚠️</span>
-                <h4 style={{ margin: 0, color: '#b91c1c' }}>
-                  No se pudo completar la exportación
-                </h4>
-              </div>
-              <p style={{ margin: '0 0 16px', fontSize: '0.85rem', color: '#7f1d1d' }}>
-                {errorMessage || 'Ha ocurrido un error inesperado al procesar la solicitud.'}
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={handleOAuthConnect}
-                  style={{
-                    padding: '10px 18px',
-                    fontSize: '0.9rem',
-                    fontWeight: 600,
-                    backgroundColor: '#008080',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  🔑 Conectar con Google y reintentar
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => void handleDownloadDocx()}
-                  disabled={isDownloading}
-                  style={{
-                    background: 'none',
-                    border: '1px solid #cbd5e1',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    fontSize: '0.85rem',
-                    color: '#475569',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {isDownloading ? 'Generando descarga...' : '💾 Descargar archivo .docx'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Estado: Idle (Autenticación requerida o inicio manual) */}
-          {status === 'idle' && (
-            <div
-              style={{
-                textAlign: 'center',
-                padding: '20px 16px',
-                background: '#f8fafc',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-              }}
-            >
-              <div style={{ fontSize: '2rem', marginBottom: '8px' }}>☁️</div>
-              <h4 style={{ margin: '0 0 6px', color: '#0f172a' }}>
-                Conectar con Google Drive
-              </h4>
-              <p style={{ margin: '0 0 16px', fontSize: '0.85rem', color: '#64748b' }}>
-                Para crear el documento directamente en Google Docs con tus diagramas y estilos, autoriza el acceso a tu Google Drive.
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={handleOAuthConnect}
-                  style={{
-                    padding: '12px 20px',
-                    fontSize: '0.95rem',
-                    fontWeight: 600,
-                    backgroundColor: '#008080',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  🔑 Conectar con Google Drive
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => void handleDownloadDocx()}
-                  disabled={isDownloading}
-                  style={{
-                    background: 'none',
-                    border: '1px solid #cbd5e1',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    fontSize: '0.85rem',
-                    color: '#475569',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {isDownloading ? 'Generando archivo...' : '💾 Descargar archivo .docx'}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Pie del Modal */}
-        <div
-          className="modal-footer"
-          style={{
-            padding: '12px 24px 16px',
-            borderTop: '1px solid var(--border-subtle, #f1f5f9)',
-            display: 'flex',
-            justifyContent: 'flex-end',
-          }}
-        >
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onClose}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
-              color: '#475569',
-              cursor: 'pointer',
-            }}
-          >
-            {status === 'success' ? 'Listo' : 'Cerrar'}
-          </button>
-        </div>
+        {/* Rendering / Uploading */}
+        {(status === 'rendering' || status === 'uploading') && (
+          <div className="flex flex-col items-center rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 p-6 text-center">
+            <Loader2 className="mb-3 h-8 w-8 animate-spin text-[var(--ch-accent)]" />
+            <h4 className="font-serif text-base font-semibold text-[var(--ch-text-primary)]">
+              {status === 'rendering'
+                ? 'Renderizando documento clínico…'
+                : 'Subiendo a Google Drive…'}
+            </h4>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--ch-text-muted)]">
+              {status === 'rendering'
+                ? 'Procesando diagramas Mermaid en alta resolución y maquetación médica.'
+                : 'Convirtiendo el documento a Google Docs nativo para editarlo en cualquier equipo.'}
+            </p>
+          </div>
+        )}
+
+        {/* Success */}
+        {status === 'success' && (
+          <div className="flex flex-col items-center rounded-2xl border border-emerald-500/35 bg-emerald-500/8 p-5 text-center">
+            <CheckCircle2 className="mb-2 h-10 w-10 text-emerald-600" />
+            <h4 className="font-serif text-base font-semibold text-[var(--ch-text-primary)]">
+              Documento exportado con éxito
+            </h4>
+            <p className="mt-1 mb-4 text-xs text-[var(--ch-text-secondary)]">
+              Ya está disponible en tu Google Drive y listo para abrir en Google Docs.
+            </p>
+            <div className="flex w-full flex-col gap-2">
+              {docUrl && (
+                <a
+                  href={docUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${PILL_BTN_PRIMARY} w-full`}
+                >
+                  <span>Abrir en Google Docs</span>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={() => void handleDownloadDocx()}
+                disabled={isDownloading}
+                className={`${PILL_BTN_SECONDARY} w-full`}
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>{isDownloading ? 'Preparando descarga…' : 'Descargar copia .docx'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Offline */}
+        {status === 'offline' && (
+          <div className="flex flex-col items-center rounded-2xl border border-amber-500/35 bg-amber-500/10 p-5 text-center">
+            <WifiOff className="mb-2 h-9 w-9 text-amber-600" />
+            <h4 className="font-serif text-base font-semibold text-[var(--ch-text-primary)]">
+              Modo sin conexión (Offline)
+            </h4>
+            <p className="mt-1 mb-4 text-xs leading-relaxed text-[var(--ch-text-secondary)]">
+              Google Docs requiere internet para sincronizarse, pero puedes descargar ahora mismo
+              el archivo .docx con todo el diseño clínico.
+            </p>
+            <div className="flex w-full flex-col gap-2">
+              <button
+                type="button"
+                className={`${PILL_BTN_PRIMARY} w-full`}
+                onClick={() => void handleDownloadDocx()}
+                disabled={isDownloading}
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>{isDownloading ? 'Generando archivo…' : 'Descargar archivo .docx'}</span>
+              </button>
+              <button
+                type="button"
+                className={`${PILL_BTN_SECONDARY} w-full`}
+                onClick={() => {
+                  if (!navigator.onLine) return
+                  void resolveTokenForDocsExport(propToken)
+                    .then((resolvedToken) => {
+                      if (!isMountedRef.current) return
+                      if (resolvedToken) void executeExport(resolvedToken)
+                      else setStatus('idle')
+                    })
+                    .catch((err: unknown) => {
+                      if (!isMountedRef.current) return
+                      setStatus('error')
+                      setErrorMessage(
+                        (err as Error)?.message || 'Error al reconectar con Google Drive',
+                      )
+                    })
+                }}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span>Reintentar conexión</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {status === 'error' && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-red-500/35 bg-red-500/8 p-4">
+            <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <h4 className="font-serif text-sm font-semibold">
+                No se pudo completar la exportación
+              </h4>
+            </div>
+            <p className="text-xs leading-relaxed text-[var(--ch-text-secondary)]">
+              {errorMessage || 'Ha ocurrido un error inesperado al procesar la solicitud.'}
+            </p>
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                type="button"
+                className={`${PILL_BTN_PRIMARY} w-full`}
+                onClick={handleOAuthConnect}
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+                <span>Conectar con Google y reintentar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDownloadDocx()}
+                disabled={isDownloading}
+                className={`${PILL_BTN_SECONDARY} w-full`}
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>{isDownloading ? 'Generando descarga…' : 'Descargar archivo .docx'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Idle */}
+        {status === 'idle' && (
+          <div className="flex flex-col items-center rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 p-5 text-center">
+            <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
+              <Cloud className="h-5 w-5" />
+            </span>
+            <h4 className="font-serif text-base font-semibold text-[var(--ch-text-primary)]">
+              Conectar con Google Drive
+            </h4>
+            <p className="mt-1 mb-4 text-xs leading-relaxed text-[var(--ch-text-muted)]">
+              Autoriza el acceso para crear el documento nativo en Google Docs con tus diagramas
+              clínicos integrados.
+            </p>
+            <div className="flex w-full flex-col gap-2">
+              <button
+                type="button"
+                className={`${PILL_BTN_PRIMARY} w-full`}
+                onClick={handleOAuthConnect}
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+                <span>Conectar con Google Drive</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDownloadDocx()}
+                disabled={isDownloading}
+                className={`${PILL_BTN_SECONDARY} w-full`}
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>{isDownloading ? 'Generando archivo…' : 'Descargar archivo .docx'}</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </BaseModal>
   )
 }

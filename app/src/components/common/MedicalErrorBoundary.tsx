@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { Stethoscope, RefreshCw, RotateCcw, Copy, Check } from 'lucide-react'
 import { captureMedicalException } from '../../observability/sentry'
+import { PILL_BTN_PRIMARY, PILL_BTN_SECONDARY } from './DialogModal'
 
 interface Props {
   children: ReactNode
@@ -24,7 +26,6 @@ export class MedicalErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Reportar a Sentry (sanitizado automáticamente)
     captureMedicalException(error, errorInfo.componentStack || undefined)
   }
 
@@ -63,42 +64,58 @@ export class MedicalErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="error-boundary-screen" role="alert">
-          <div className="error-boundary-card">
-            <div className="error-boundary-icon">🩺</div>
-            <h2>Algo no salió como esperábamos</h2>
-            <p className="error-boundary-lead">
-              Se produjo un error al renderizar esta vista. Tus datos y apuntes clínicos en el
-              dispositivo <strong>permanecen seguros</strong>.
-            </p>
+        <div
+          className="clinical-home flex min-h-screen items-center justify-center bg-[var(--ch-bg-primary)] p-4"
+          role="alert"
+        >
+          <div className="flex w-full max-w-lg flex-col gap-5 rounded-[22px] border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)] p-6 text-center shadow-[var(--ch-shadow-modal)]">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
+              <Stethoscope className="h-7 w-7" />
+            </div>
+
+            <div>
+              <h2 className="font-serif text-xl font-semibold text-[var(--ch-text-primary)]">
+                Algo no salió como esperábamos
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--ch-text-secondary)]">
+                Se produjo un error al renderizar esta vista. Tus apuntes clínicos guardados en el
+                dispositivo <strong>permanecen seguros</strong>.
+              </p>
+            </div>
 
             {this.state.error && (
-              <div className="error-boundary-details">
-                <code>{this.state.error.name}: {this.state.error.message}</code>
+              <div className="overflow-x-auto rounded-xl border border-red-500/25 bg-red-500/8 px-3.5 py-2.5 text-left font-mono text-xs text-red-700 dark:text-red-300">
+                <code>
+                  {this.state.error.name}: {this.state.error.message}
+                </code>
               </div>
             )}
 
-            <div className="error-boundary-actions">
-              <button
-                type="button"
-                className="btn-dialog-primary"
-                onClick={this.handleReload}
-              >
-                🔄 Recargar aplicación
+            <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+              <button type="button" className={PILL_BTN_PRIMARY} onClick={this.handleReload}>
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span>Recargar aplicación</span>
+              </button>
+              <button type="button" className={PILL_BTN_SECONDARY} onClick={this.handleReset}>
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Reintentar vista</span>
               </button>
               <button
                 type="button"
-                className="btn-dialog-secondary"
-                onClick={this.handleReset}
-              >
-                Reintentar vista
-              </button>
-              <button
-                type="button"
-                className="btn-dialog-secondary btn-copy-error"
+                className={PILL_BTN_SECONDARY}
                 onClick={this.handleCopyError}
               >
-                {this.state.copied ? '✓ Reporte copiado' : '📋 Copiar diagnóstico'}
+                {this.state.copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>Reporte copiado</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" />
+                    <span>Copiar diagnóstico</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

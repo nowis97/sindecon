@@ -1,5 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
+  Sparkles,
+  Zap,
+  Cpu,
+  AlertTriangle,
+  FileText,
+  SlidersHorizontal,
+  PenLine,
+  Eye,
+  Loader2,
+  Check,
+  Settings,
+} from 'lucide-react'
+import {
   extractCardsFromMarkdown,
   estimateFlashcardsFromWords,
   type ExtractedCard,
@@ -16,6 +29,7 @@ import { getAiConfig, upsertFlashcards, type AiConfig } from '../../db/flashcard
 import { newId } from '../../db/nodes'
 import { FlashcardLivePreview } from './FlashcardLivePreview'
 import type { FlashcardRow } from '../../db/db'
+import { BaseModal, PILL_BTN_PRIMARY, PILL_BTN_SECONDARY } from '../common/DialogModal'
 
 interface GenerateFlashcardsModalProps {
   isOpen: boolean
@@ -50,7 +64,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
 
   const wordEstimate = useMemo(() => estimateFlashcardsFromWords(bodyMd), [bodyMd])
   const [targetCardCount, setTargetCardCount] = useState<number>(
-    wordEstimate.estimatedCards > 0 ? wordEstimate.estimatedCards : 6
+    wordEstimate.estimatedCards > 0 ? wordEstimate.estimatedCards : 6,
   )
 
   const [candidates, setCandidates] = useState<Array<ExtractedCard & { selected: boolean }>>([])
@@ -71,9 +85,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
       setPreviewCardIndex(null)
       setTargetCardCount(wordEstimate.estimatedCards > 0 ? wordEstimate.estimatedCards : 6)
     }
-  }, [isOpen, nodeId])
-
-  if (!isOpen) return null
+  }, [isOpen, nodeId, wordEstimate.estimatedCards])
 
   const runExtraction = async (selectedMode: GeneratorMode, countOverride?: number) => {
     setLoading(true)
@@ -88,12 +100,12 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
       let extracted: ExtractedCard[] = []
 
       if (selectedMode === 'structural') {
-        setProgressMsg('Analizando estructura clínica del artículo...')
+        setProgressMsg('Analizando estructura clínica del artículo…')
         extracted = extractCardsFromMarkdown(articleTitle, bodyMd)
       } else if (selectedMode === 'local_ai') {
         const localModel = aiConfig?.localModelId || DEFAULT_LOCAL_MODEL
-        const modelMeta = AVAILABLE_LOCAL_MODELS.find(m => m.id === localModel)
-        setProgressMsg(`Iniciando motor local WebLLM (${modelMeta?.name || 'Qwen 2.5'})...`)
+        const modelMeta = AVAILABLE_LOCAL_MODELS.find((m) => m.id === localModel)
+        setProgressMsg(`Iniciando motor local WebLLM (${modelMeta?.name || 'Qwen 2.5'})…`)
         extracted = await generateFlashcardsWithWebLlm(
           articleTitle,
           bodyMd,
@@ -102,13 +114,17 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
           (prog) => {
             setLocalProgress(prog)
             setProgressMsg(prog.text)
-          }
+          },
         )
       } else if (selectedMode === 'cloud_ai') {
         if (!aiConfig || !aiConfig.apiKey) {
-          throw new Error('Configura tu API Key de Gemini, Groq u OpenAI en Ajustes para usar este modo.')
+          throw new Error(
+            'Configura tu API Key de Gemini, Groq u OpenAI en Ajustes para usar este modo.',
+          )
         }
-        setProgressMsg(`Consultando ${aiConfig.provider.toUpperCase()} para generar ${activeCount} flashcards clínicas...`)
+        setProgressMsg(
+          `Consultando ${aiConfig.provider.toUpperCase()} para generar ${activeCount} flashcards clínicas…`,
+        )
         extracted = await generateFlashcardsWithCloudAi(articleTitle, bodyMd, aiConfig, activeCount)
       }
 
@@ -117,8 +133,8 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
       } else {
         setCandidates(extracted.map((c) => ({ ...c, selected: true })))
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al generar flashcards.')
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Error al generar flashcards.')
     } finally {
       setLoading(false)
       setProgressMsg('')
@@ -127,13 +143,13 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
 
   const handleToggleSelect = (index: number) => {
     setCandidates((prev) =>
-      prev.map((c, i) => (i === index ? { ...c, selected: !c.selected } : c))
+      prev.map((c, i) => (i === index ? { ...c, selected: !c.selected } : c)),
     )
   }
 
   const handleEditCard = (index: number, field: 'front' | 'back', val: string) => {
     setCandidates((prev) =>
-      prev.map((c, i) => (i === index ? { ...c, [field]: val } : c))
+      prev.map((c, i) => (i === index ? { ...c, [field]: val } : c)),
     )
   }
 
@@ -165,114 +181,156 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
   const selectedCount = candidates.filter((c) => c.selected).length
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-content generate-flashcards-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <div className="header-title-group">
-            <h3>✨ Generador de Flashcards</h3>
-            <span className="header-subtitle">{articleTitle}</span>
-          </div>
-          <button className="btn-close" onClick={onClose}>
-            ✕
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      closeOnBackdrop={!loading}
+      title="Generador de Flashcards"
+      subtitle={articleTitle}
+      icon={<Sparkles className="h-5 w-5" />}
+      maxWidthClass="max-w-3xl"
+      footer={
+        <>
+          <button type="button" className={PILL_BTN_SECONDARY} onClick={onClose}>
+            Cancelar
           </button>
-        </div>
-
-        {/* Selector de Modos de Generación */}
-        <div className="generator-modes-bar">
           <button
             type="button"
-            className={`btn-mode-tab ${mode === 'structural' ? 'active' : ''}`}
+            className={PILL_BTN_PRIMARY}
+            onClick={handleSaveToDeck}
+            disabled={loading || selectedCount === 0}
+          >
+            <Check className="h-3.5 w-3.5" />
+            <span>
+              Guardar {selectedCount} Tarjeta{selectedCount === 1 ? '' : 's'} en Mazo
+            </span>
+          </button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {/* Generator Modes Pill Switcher */}
+        <div className="grid grid-cols-1 gap-2 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-1.5 sm:grid-cols-3">
+          <button
+            type="button"
             onClick={() => setMode('structural')}
             disabled={loading}
+            className={`inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
+              mode === 'structural'
+                ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+            }`}
           >
-            ⚡ Extractor Rápido (Offline)
+            <Zap className="h-3.5 w-3.5" />
+            <span>Extractor Rápido (Offline)</span>
           </button>
+
           <button
             type="button"
-            className={`btn-mode-tab ${mode === 'local_ai' ? 'active' : ''}`}
             onClick={() => setMode('local_ai')}
             disabled={loading}
+            className={`inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
+              mode === 'local_ai'
+                ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+            }`}
           >
-            🧠 IA Local (Qwen 2.5 WebGPU)
+            <Cpu className="h-3.5 w-3.5" />
+            <span>IA Local (WebGPU)</span>
           </button>
+
           <button
             type="button"
-            className={`btn-mode-tab ${mode === 'cloud_ai' ? 'active' : ''}`}
             onClick={() => setMode('cloud_ai')}
             disabled={loading}
+            className={`inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
+              mode === 'cloud_ai'
+                ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+            }`}
           >
-            ✨ IA Cloud (Gemini / Groq / OpenAI)
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>IA Cloud</span>
           </button>
         </div>
 
-        {/* Banner de Compatibilidad WebGPU si no está soportado */}
+        {/* WebGPU Warning */}
         {mode === 'local_ai' && webGpuSupported === false && (
-          <div className="generator-webgpu-warning-box">
-            <span className="warning-icon">⚠️</span>
-            <div className="warning-content">
-              <strong>WebGPU no disponible en este navegador</strong>
-              <p>{webGpuReason || 'Se requiere un navegador compatible con WebGPU (Chrome/Edge 113+, Firefox Nightly o Safari 18+).'}</p>
-              <div className="warning-actions">
-                <button
-                  type="button"
-                  className="btn-link-action"
-                  onClick={() => setMode('structural')}
-                >
-                  Cambiar a Extractor Rápido ⚡
-                </button>
-                <button
-                  type="button"
-                  className="btn-link-action"
-                  onClick={() => setMode('cloud_ai')}
-                >
-                  Usar IA Cloud (Gemini) ✨
-                </button>
-              </div>
+          <div className="flex flex-col gap-2 rounded-2xl border border-amber-500/35 bg-amber-500/10 p-3.5 text-xs text-amber-800 dark:text-amber-200">
+            <div className="flex items-center gap-2 font-semibold">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>WebGPU no disponible en este navegador</span>
+            </div>
+            <p className="opacity-90">
+              {webGpuReason ||
+                'Se requiere un navegador compatible con WebGPU (Chrome/Edge 113+, Safari 18+).'}
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setMode('structural')}
+                className="rounded-full border border-amber-600/30 bg-white/70 px-3 py-1 font-semibold text-amber-900 dark:bg-slate-900/50 dark:text-amber-200"
+              >
+                Usar Extractor Rápido
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('cloud_ai')}
+                className="rounded-full border border-amber-600/30 bg-white/70 px-3 py-1 font-semibold text-amber-900 dark:bg-slate-900/50 dark:text-amber-200"
+              >
+                Usar IA Cloud
+              </button>
             </div>
           </div>
         )}
 
-        {/* Banner de Estimación Médica según palabras del artículo */}
+        {/* Word Count Estimate */}
         {wordEstimate.wordCount >= 30 && (
-          <div className="generator-word-estimate-banner">
-            <span className="estimate-badge-icon">📊</span>
-            <span className="estimate-badge-text">
-              <strong>{wordEstimate.wordCount} palabras</strong> ({wordEstimate.densityDescription}) • Recomendadas: <strong>~{wordEstimate.estimatedCards} flashcards clínicas</strong> (~1 card / 60 palabras)
+          <div className="flex items-center gap-2.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-4 py-2 text-xs text-[var(--ch-text-secondary)]">
+            <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
+            <span>
+              <strong>{wordEstimate.wordCount} palabras</strong> ({wordEstimate.densityDescription}) ·
+              Recomendadas: <strong>~{wordEstimate.estimatedCards} flashcards clínicas</strong>
             </span>
           </div>
         )}
 
-        {/* Selector de Cantidad Dinámica para IA Local y Cloud */}
+        {/* Card Count Stepper */}
         {(mode === 'cloud_ai' || mode === 'local_ai') && (
-          <div className="ai-target-stepper-panel">
-            <div className="stepper-label-group">
-              <span className="stepper-title">🎯 Cantidad de flashcards a generar:</span>
-              <small className="stepper-subtext">
-                {mode === 'local_ai' ? 'Qwen 2.5 segmentará el artículo en secciones clínicas' : 'Ajusta según la profundidad del repaso deseado'}
-              </small>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 p-3.5">
+            <div className="flex items-center gap-2.5">
+              <SlidersHorizontal className="h-4 w-4 text-[var(--ch-accent)]" />
+              <div>
+                <span className="block text-xs font-semibold text-[var(--ch-text-primary)]">
+                  Cantidad de flashcards a generar
+                </span>
+                <span className="text-[11px] text-[var(--ch-text-muted)]">
+                  {mode === 'local_ai'
+                    ? 'Qwen 2.5 segmentará el artículo en secciones clínicas'
+                    : 'Ajusta la profundidad del mazo'}
+                </span>
+              </div>
             </div>
-            <div className="stepper-controls-group">
+
+            <div className="inline-flex items-center gap-2">
               <button
                 type="button"
-                className="btn-stepper-arrow"
                 disabled={targetCardCount <= 2 || loading}
                 onClick={() => setTargetCardCount((prev) => Math.max(2, prev - 1))}
                 aria-label="Disminuir cantidad"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] font-mono text-sm font-bold text-[var(--ch-text-primary)] disabled:opacity-40"
               >
                 −
               </button>
-              <span className="stepper-count-badge">
-                <strong>{targetCardCount}</strong> tarjetas
+              <span className="min-w-[82px] text-center font-mono text-xs font-semibold text-[var(--ch-text-primary)]">
+                {targetCardCount} tarjetas
               </span>
               <button
                 type="button"
-                className="btn-stepper-arrow"
                 disabled={targetCardCount >= 25 || loading}
                 onClick={() => setTargetCardCount((prev) => Math.min(25, prev + 1))}
                 aria-label="Aumentar cantidad"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] font-mono text-sm font-bold text-[var(--ch-text-primary)] disabled:opacity-40"
               >
                 +
               </button>
@@ -280,199 +338,248 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
           </div>
         )}
 
-        {/* Botón Principal para Disparar la Generación */}
-        <div className="generator-trigger-action-row">
-          <button
-            type="button"
-            className="btn-trigger-generate btn-primary"
-            onClick={() => runExtraction(mode, targetCardCount)}
-            disabled={loading || (mode === 'local_ai' && webGpuSupported === false)}
-          >
-            {loading ? (
-              <>
-                <span className="spinner-sm" />
-                <span>{progressMsg || 'Generando flashcards...'}</span>
-              </>
-            ) : mode === 'local_ai' ? (
-              <>
-                <span className="btn-icon">🧠</span>
-                <span>Generar {targetCardCount} Flashcards con Qwen 2.5 (Local WebGPU)</span>
-              </>
-            ) : mode === 'cloud_ai' ? (
-              <>
-                <span className="btn-icon">🚀</span>
-                <span>Generar {targetCardCount} Flashcards con IA ({aiConfig?.provider ? aiConfig.provider.toUpperCase() : 'Cloud'})</span>
-              </>
-            ) : (
-              <>
-                <span className="btn-icon">⚡</span>
-                <span>Extraer Flashcards del Artículo</span>
-              </>
-            )}
-          </button>
-        </div>
+        {/* Primary Generate Action */}
+        <button
+          type="button"
+          className={`${PILL_BTN_PRIMARY} w-full`}
+          onClick={() => runExtraction(mode, targetCardCount)}
+          disabled={loading || (mode === 'local_ai' && webGpuSupported === false)}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>{progressMsg || 'Generando flashcards…'}</span>
+            </>
+          ) : mode === 'local_ai' ? (
+            <>
+              <Cpu className="h-4 w-4" />
+              <span>Generar {targetCardCount} Flashcards Locales (WebGPU)</span>
+            </>
+          ) : mode === 'cloud_ai' ? (
+            <>
+              <Sparkles className="h-4 w-4" />
+              <span>
+                Generar {targetCardCount} Flashcards con{' '}
+                {aiConfig?.provider ? aiConfig.provider.toUpperCase() : 'IA Cloud'}
+              </span>
+            </>
+          ) : (
+            <>
+              <Zap className="h-4 w-4" />
+              <span>Extraer Flashcards del Artículo</span>
+            </>
+          )}
+        </button>
 
-        {/* Panel de Estado / Progreso de Descarga e Inferencia */}
+        {/* Loading / Local Model Download */}
         {loading && (
-          <div className="generation-loading-state">
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 p-4 text-center">
             {localProgress && localProgress.stage === 'downloading' ? (
-              <div className="local-download-progress-box">
-                <div className="download-header-line">
+              <div className="w-full space-y-1.5">
+                <div className="flex justify-between text-xs font-semibold">
                   <span>
-                    📥 Descargando {AVAILABLE_LOCAL_MODELS.find(m => m.id === (aiConfig?.localModelId || DEFAULT_LOCAL_MODEL))?.name || 'Qwen 2.5'} ({AVAILABLE_LOCAL_MODELS.find(m => m.id === (aiConfig?.localModelId || DEFAULT_LOCAL_MODEL))?.size || '~350 MB'})...
+                    Descargando{' '}
+                    {AVAILABLE_LOCAL_MODELS.find(
+                      (m) => m.id === (aiConfig?.localModelId || DEFAULT_LOCAL_MODEL),
+                    )?.name || 'Qwen 2.5'}
+                    …
                   </span>
-                  <strong>{Math.round(localProgress.progress * 100)}%</strong>
+                  <span className="font-mono">{Math.round(localProgress.progress * 100)}%</span>
                 </div>
-                <div className="download-progress-track">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--ch-bg-elevated)]">
                   <div
-                    className="download-progress-bar"
-                    style={{ width: `${Math.max(5, Math.round(localProgress.progress * 100))}%` }}
+                    className="h-full bg-[var(--ch-accent)] transition-all"
+                    style={{
+                      width: `${Math.max(5, Math.round(localProgress.progress * 100))}%`,
+                    }}
                   />
                 </div>
-                <small className="download-note">Solo se descarga una vez. Quedará guardado en el almacenamiento local.</small>
+                <span className="block text-[11px] text-[var(--ch-text-muted)]">
+                  Se descarga una única vez para uso offline.
+                </span>
               </div>
             ) : (
-              <>
-                <div className="spinner-sm" />
-                <p>{progressMsg || 'Procesando contenido clínico...'}</p>
-              </>
+              <p className="text-xs text-[var(--ch-text-secondary)]">
+                {progressMsg || 'Procesando contenido clínico…'}
+              </p>
             )}
           </div>
         )}
 
+        {/* Error Box */}
         {errorMsg && (
-          <div className="generation-error-box">
-            <span>⚠️ {errorMsg}</span>
-            <div className="generation-error-actions">
+          <div className="flex flex-col gap-2 rounded-2xl border border-red-500/35 bg-red-500/10 p-3.5 text-xs text-red-700 dark:text-red-300">
+            <div className="flex items-center gap-2 font-medium">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
               {mode === 'local_ai' && (
                 <>
                   <button
                     type="button"
-                    className="btn-quick-fallback"
                     onClick={() => {
                       setErrorMsg(null)
-                      runExtraction('cloud_ai')
+                      void runExtraction('cloud_ai')
                     }}
+                    className="rounded-full border border-red-500/30 bg-white/70 px-3 py-1 font-semibold dark:bg-slate-900/50"
                   >
-                    ✨ Cambiar a IA Cloud (Gemini / Groq)
+                    Cambiar a IA Cloud
                   </button>
                   <button
                     type="button"
-                    className="btn-quick-fallback"
                     onClick={() => {
                       setErrorMsg(null)
-                      runExtraction('structural')
+                      void runExtraction('structural')
                     }}
+                    className="rounded-full border border-red-500/30 bg-white/70 px-3 py-1 font-semibold dark:bg-slate-900/50"
                   >
-                    ⚡ Cambiar a Extractor Rápido (Offline)
+                    Usar Extractor Rápido
                   </button>
                 </>
               )}
               {onOpenAiSettings && (
                 <button
                   type="button"
-                  className="btn-link-settings"
                   onClick={() => {
                     onClose()
                     onOpenAiSettings()
                   }}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-3 py-1 font-semibold text-[var(--ch-text-primary)]"
                 >
-                  Configurar IA ⚙️
+                  <Settings className="h-3 w-3 text-[var(--ch-accent)]" />
+                  <span>Configurar IA</span>
                 </button>
               )}
             </div>
           </div>
         )}
 
-        {/* Placeholder inicial antes de pulsar Generar */}
+        {/* Empty Initial State */}
         {!loading && !errorMsg && candidates.length === 0 && (
-          <div className="generator-ready-placeholder">
-            <div className="ready-icon-circle">
-              {mode === 'local_ai' ? '🧠' : mode === 'cloud_ai' ? '✨' : '⚡'}
-            </div>
-            <h4>Listo para Crear Flashcards</h4>
-            <p>
+          <div className="flex flex-col items-center rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/35 p-6 text-center">
+            <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
+              {mode === 'local_ai' ? (
+                <Cpu className="h-5 w-5" />
+              ) : mode === 'cloud_ai' ? (
+                <Sparkles className="h-5 w-5" />
+              ) : (
+                <Zap className="h-5 w-5" />
+              )}
+            </span>
+            <h4 className="font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+              Listo para crear flashcards clínicas
+            </h4>
+            <p className="mt-1 max-w-md text-xs leading-relaxed text-[var(--ch-text-muted)]">
               {mode === 'local_ai'
-                ? `Pulsa el botón superior para ejecutar Qwen 2.5 localmente en tu GPU y generar exactamente ${targetCardCount} tarjetas clínicas offline.`
+                ? `Pulsa el botón superior para ejecutar Qwen 2.5 localmente y generar ${targetCardCount} tarjetas offline.`
                 : mode === 'cloud_ai'
-                ? `Pulsa el botón superior para consultar ${aiConfig?.provider?.toUpperCase() || 'Gemini'} y generar exactamente ${targetCardCount} tarjetas clínicas.`
-                : 'Pulsa el botón superior para analizar callouts, dosis y encabezados del artículo.'}
+                  ? `Pulsa el botón superior para consultar ${aiConfig?.provider?.toUpperCase() || 'Gemini'} y generar ${targetCardCount} tarjetas.`
+                  : 'Pulsa el botón superior para analizar callouts, dosis y encabezados del artículo.'}
             </p>
           </div>
         )}
 
-        {/* Lista de Tarjetas Detectadas */}
+        {/* Candidates List */}
         {!loading && candidates.length > 0 && (
-          <div className="candidates-list-container">
-            <div className="candidates-header-row">
-              <label className="select-all-label">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between px-1">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-[var(--ch-text-primary)]">
                 <input
                   type="checkbox"
                   checked={candidates.every((c) => c.selected)}
                   onChange={(e) =>
                     setCandidates((prev) =>
-                      prev.map((c) => ({ ...c, selected: e.target.checked }))
+                      prev.map((c) => ({ ...c, selected: e.target.checked })),
                     )
                   }
+                  className="h-4 w-4 accent-[var(--ch-accent)]"
                 />
-                Seleccionar todas ({candidates.length})
+                <span>Seleccionar todas ({candidates.length})</span>
               </label>
-              <span className="source-indicator-badge">
-                Modo: {mode === 'structural' ? 'Estructural' : mode === 'local_ai' ? 'IA Local Qwen 2.5' : 'IA Cloud'}
+              <span className="rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--ch-text-muted)]">
+                {mode === 'structural'
+                  ? 'Estructural'
+                  : mode === 'local_ai'
+                    ? 'IA Local Qwen 2.5'
+                    : 'IA Cloud'}
               </span>
             </div>
 
-            <div className="candidates-cards-scroll">
+            <div className="flex max-h-72 flex-col gap-2.5 overflow-y-auto pr-1">
               {candidates.map((card, idx) => (
                 <div
                   key={idx}
-                  className={`candidate-card-item ${card.selected ? 'is-selected' : ''}`}
+                  className={`rounded-2xl border p-3.5 transition ${
+                    card.selected
+                      ? 'border-[var(--ch-accent)]/45 bg-[var(--ch-accent-soft)]/25'
+                      : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/30 opacity-75'
+                  }`}
                 >
-                  <div className="candidate-card-top-bar">
-                    <div className="candidate-card-select">
+                  <div className="mb-2.5 flex items-center justify-between gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-[var(--ch-text-primary)]">
                       <input
                         type="checkbox"
                         checked={card.selected}
                         onChange={() => handleToggleSelect(idx)}
+                        className="h-4 w-4 accent-[var(--ch-accent)]"
                       />
-                      <span className="candidate-index-label">Tarjeta #{idx + 1}</span>
-                    </div>
+                      <span className="font-mono">Tarjeta #{idx + 1}</span>
+                    </label>
                     <button
                       type="button"
-                      className={`btn-preview-candidate-toggle ${previewCardIndex === idx ? 'active' : ''}`}
                       onClick={() => setPreviewCardIndex(previewCardIndex === idx ? null : idx)}
+                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                        previewCardIndex === idx
+                          ? 'border-[var(--ch-accent)] bg-[var(--ch-accent)] text-white'
+                          : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-secondary)]'
+                      }`}
                     >
-                      {previewCardIndex === idx ? '✍️ Editar' : '👁️ Vista Previa'}
+                      {previewCardIndex === idx ? (
+                        <>
+                          <PenLine className="h-3 w-3" />
+                          <span>Editar</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3 w-3" />
+                          <span>Vista Previa</span>
+                        </>
+                      )}
                     </button>
                   </div>
 
                   {previewCardIndex === idx ? (
-                    <div className="candidate-preview-stage">
-                      <FlashcardLivePreview
-                        front={card.front}
-                        back={card.back}
-                        articleTitle={articleTitle}
-                        sourceType={card.sourceType}
-                      />
-                    </div>
+                    <FlashcardLivePreview
+                      front={card.front}
+                      back={card.back}
+                      articleTitle={articleTitle}
+                      sourceType={card.sourceType}
+                    />
                   ) : (
-                    <div className="candidate-card-fields">
-                      <div className="field-row">
-                        <span className="field-tag">Pregunta:</span>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div>
+                        <span className="mb-1 block font-mono text-[10px] font-semibold text-[var(--ch-text-muted)] uppercase">
+                          Pregunta
+                        </span>
                         <textarea
                           rows={2}
                           value={card.front}
                           onChange={(e) => handleEditCard(idx, 'front', e.target.value)}
-                          placeholder="Enunciado de la pregunta..."
+                          placeholder="Enunciado…"
+                          className="w-full rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] p-2 text-xs text-[var(--ch-text-primary)] outline-none focus:border-[var(--ch-accent)]"
                         />
                       </div>
-                      <div className="field-row">
-                        <span className="field-tag">Respuesta:</span>
+                      <div>
+                        <span className="mb-1 block font-mono text-[10px] font-semibold text-[var(--ch-text-muted)] uppercase">
+                          Respuesta
+                        </span>
                         <textarea
                           rows={2}
                           value={card.back}
                           onChange={(e) => handleEditCard(idx, 'back', e.target.value)}
-                          placeholder="Respuesta o explicación..."
+                          placeholder="Respuesta clínica…"
+                          className="w-full rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] p-2 text-xs text-[var(--ch-text-primary)] outline-none focus:border-[var(--ch-accent)]"
                         />
                       </div>
                     </div>
@@ -482,22 +589,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
             </div>
           </div>
         )}
-
-        {/* Barra de Acciones */}
-        <div className="modal-actions">
-          <button type="button" className="btn-secondary" onClick={onClose}>
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleSaveToDeck}
-            disabled={loading || selectedCount === 0}
-          >
-            💾 Guardar {selectedCount} Tarjeta{selectedCount === 1 ? '' : 's'} en el Mazo
-          </button>
-        </div>
       </div>
-    </div>
+    </BaseModal>
   )
 }

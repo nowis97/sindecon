@@ -1,3 +1,4 @@
+import { Folder, FileText, ChevronRight } from 'lucide-react'
 import type { NodeRow } from '../../db/db'
 import { pathTo } from '../../domain/tree'
 
@@ -19,7 +20,11 @@ export function Breadcrumbs({ nodes, selectedId, onSelect }: BreadcrumbsProps) {
         const isFolder = node.kind === 'folder'
         return (
           <span key={node.id} className="crumb-segment">
-            {i > 0 && <span className="crumb-sep">▸</span>}
+            {i > 0 && (
+              <span className="crumb-sep inline-flex items-center">
+                <ChevronRight className="h-3.5 w-3.5" />
+              </span>
+            )}
             <button
               type="button"
               className={`crumb ${isFolder ? 'crumb-folder' : 'crumb-article'} ${
@@ -28,7 +33,9 @@ export function Breadcrumbs({ nodes, selectedId, onSelect }: BreadcrumbsProps) {
               onClick={() => onSelect(node.id)}
               title={`Ir a ${isFolder ? 'carpeta' : 'artículo'} ${node.title}`}
             >
-              <span className="crumb-icon">{isFolder ? '📁' : '📄'}</span>
+              <span className="crumb-icon inline-flex items-center text-[var(--ch-accent)]">
+                {isFolder ? <Folder className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+              </span>
               <span className="crumb-text">{node.title}</span>
             </button>
           </span>

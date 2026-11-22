@@ -57,7 +57,8 @@ export const DEFAULT_GOOGLE_CLIENT_ID =
   (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || ''
 
 function getDefaultGoogleClientId(): string {
-  return (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || DEFAULT_GOOGLE_CLIENT_ID
+  const envVal = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  return typeof envVal === 'string' ? envVal : DEFAULT_GOOGLE_CLIENT_ID
 }
 
 let bffUnavailableInSession = false
