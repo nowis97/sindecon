@@ -2,6 +2,15 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.0.2] - 2026-11-22
+
+### Changed
+- **Dock Inferior Compartido (`ClinicalBottomDock`)**: Unificación de las barras inferiores de `Dashboard`, `FolderExplorerView` y `ArticleWorkspaceView` con grilla simétrica (`1fr auto 1fr`, `max-w 1080px`) para mantener el botón `+` exactamente centrado horizontal y verticalmente en escritorio y móvil.
+- **Barra de Visor PDF (`PdfDocumentViewer`)**: Distribución en 3 columnas en escritorio (`md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]`) para centrar los controles de zoom sin depender del ancho del título.
+
+### Fixed
+- **Estilos y Responsividad del Dock en Tailwind v4**: Reemplazo del bloque `@layer components` descartado en `tailwind.css` por utilidades directas, separación de `inline-flex` vs. `hidden sm:inline-flex` y ajuste de etiqueta `"Imprimir PDF"` (`hidden xl:inline`) eliminando barras de scroll horizontales y solapamientos en móvil.
+
 ## [1.0.1] - 2026-11-22
 
 ### Changed

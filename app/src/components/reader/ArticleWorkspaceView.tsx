@@ -37,6 +37,12 @@ import { TagInput } from '../search/TagInput'
 import { WikiLinkPicker } from '../search/WikiLinkPicker'
 import { MarkdownEditor, type MarkdownEditorHandle } from '../editor/MarkdownEditor'
 import {
+  ClinicalBottomDock,
+  DOCK_BTN_ACTIVE,
+  DOCK_BTN_BASE,
+  DOCK_BTN_IDLE,
+} from '../common/ClinicalBottomDock'
+import {
   ArticleReader,
   parseMarkdownBlocks,
   prepareTemplateDocument,
@@ -1094,121 +1100,132 @@ export function ArticleWorkspaceView({
       )}
 
       {/* 3. PERSISTENT FLOATING BOTTOM PILL DOCK WITH CENTERED CIRCULAR BUTTON (+) */}
-      <nav
-        aria-label="Barra inferior contextual del artículo"
-        className="clinical-dock fixed bottom-3 left-1/2 z-30 flex w-[95%] max-w-4xl -translate-x-1/2 items-center justify-between gap-1.5 rounded-full px-2.5 py-1.5 sm:gap-2 sm:px-5"
-      >
-        {/* Left Dock Tools: Unique Mode Switchers */}
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              setIsSplitMode(false)
-              onSetEditMode(false)
-            }}
-            className={`clinical-dock-btn ${!effectiveEditMode && !isSplitMode ? 'clinical-dock-btn-active' : ''}`}
-          >
-            <Eye className="h-3.5 w-3.5" />
-            <span>Lector</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={isPdfArticle}
-            onClick={() => {
-              if (!isPdfArticle) {
+      <ClinicalBottomDock
+        ariaLabel="Barra inferior contextual del artículo"
+        orbRef={orbButtonRef}
+        orbDisabled={isPdfArticle}
+        orbLabel="Abrir cajón de bloques clínicos"
+        orbTitle="Insertar bloque clínico en el artículo"
+        onOrbClick={() => setIsOrbDrawerOpen((prev) => !prev)}
+        orbIcon={
+          <Plus
+            className={`h-6 w-6 stroke-[2.4] transition-transform ${isOrbDrawerOpen ? 'rotate-45' : ''}`}
+          />
+        }
+        left={
+          <>
+            <button
+              type="button"
+              onClick={() => {
                 setIsSplitMode(false)
-                onSetEditMode(true)
-              }
-            }}
-            className={`clinical-dock-btn ${effectiveEditMode && !isSplitMode ? 'clinical-dock-btn-active' : ''}`}
-          >
-            <PenLine className="h-3.5 w-3.5" />
-            <span>Editor</span>
-          </button>
+                onSetEditMode(false)
+              }}
+              title="Vista de lectura A4"
+              aria-label="Lector"
+              className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${!effectiveEditMode && !isSplitMode ? DOCK_BTN_ACTIVE : DOCK_BTN_IDLE}`}
+            >
+              <Eye className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Lector</span>
+            </button>
 
-          <button
-            type="button"
-            disabled={isPdfArticle}
-            onClick={() => {
-              if (!isPdfArticle) {
-                setIsSplitMode((prev) => {
-                  const next = !prev
-                  onSetEditMode(next)
-                  return next
-                })
-              }
-            }}
-            className={`clinical-dock-btn hidden sm:inline-flex ${isSplitMode ? 'clinical-dock-btn-active' : ''}`}
-          >
-            <Columns2 className="h-3.5 w-3.5" />
-            <span>Dividido</span>
-          </button>
-        </div>
-
-        {/* Center Raised Circular Action Button (+) */}
-        <button
-          ref={orbButtonRef}
-          type="button"
-          disabled={isPdfArticle}
-          onClick={() => setIsOrbDrawerOpen((prev) => !prev)}
-          aria-label="Abrir cajón de bloques clínicos"
-          title="Insertar bloque clínico en el artículo"
-          className="clinical-dock-orb"
-        >
-          <Plus className={`h-5 w-5 transition-transform ${isOrbDrawerOpen ? 'rotate-45' : ''}`} />
-        </button>
-
-        {/* Right Dock Tools: Flashcards, Importar IA, Imprimir PDF, Google Docs */}
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            disabled={isPdfArticle}
-            onClick={() => {
-              if (!isPdfArticle) onOpenFlashcards()
-            }}
-            className="clinical-dock-btn text-[var(--ch-text-primary)]"
-          >
-            <BrainCircuit className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
-            <span>Flashcards</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={isPdfArticle}
-            onClick={() => {
-              if (!isPdfArticle) onOpenSmartImport()
-            }}
-            className="clinical-dock-btn hidden md:inline-flex"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
-            <span>Importar IA</span>
-          </button>
-
-          {!isPdfArticle && (
             <button
               type="button"
-              onClick={onOpenExportPdf}
-              className="clinical-dock-btn"
+              disabled={isPdfArticle}
+              onClick={() => {
+                if (!isPdfArticle) {
+                  setIsSplitMode(false)
+                  onSetEditMode(true)
+                }
+              }}
+              title="Editor Markdown clínico"
+              aria-label="Editor"
+              className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${effectiveEditMode && !isSplitMode ? DOCK_BTN_ACTIVE : DOCK_BTN_IDLE}`}
             >
-              <Printer className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
-              <span className="hidden sm:inline">Imprimir</span>
-              <span>PDF</span>
+              <PenLine className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Editor</span>
             </button>
-          )}
 
-          {!isPdfArticle && (
             <button
               type="button"
-              onClick={onOpenExportGoogleDocs}
-              className="clinical-dock-btn hidden lg:inline-flex"
+              disabled={isPdfArticle}
+              onClick={() => {
+                if (!isPdfArticle) {
+                  setIsSplitMode((prev) => {
+                    const next = !prev
+                    onSetEditMode(next)
+                    return next
+                  })
+                }
+              }}
+              title="Vista dividida Editor + A4"
+              aria-label="Dividido"
+              className={`hidden sm:inline-flex sm:px-3 ${DOCK_BTN_BASE} ${isSplitMode ? DOCK_BTN_ACTIVE : DOCK_BTN_IDLE}`}
             >
-              <FileOutput className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
-              <span>Google Docs</span>
+              <Columns2 className="h-4 w-4 shrink-0" />
+              <span>Dividido</span>
             </button>
-          )}
-        </div>
-      </nav>
+          </>
+        }
+        right={
+          <>
+            <button
+              type="button"
+              disabled={isPdfArticle}
+              onClick={() => {
+                if (!isPdfArticle) onOpenFlashcards()
+              }}
+              title="Flashcards de este artículo"
+              aria-label="Flashcards"
+              className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE} text-[var(--ch-text-primary)]`}
+            >
+              <BrainCircuit className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+              <span className="hidden sm:inline">Flashcards</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isPdfArticle}
+              onClick={() => {
+                if (!isPdfArticle) onOpenSmartImport()
+              }}
+              title="Importar apuntes con IA o Word"
+              aria-label="Importar IA"
+              className={`hidden md:inline-flex md:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
+            >
+              <Sparkles className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+              <span>Importar IA</span>
+            </button>
+
+            {!isPdfArticle && (
+              <button
+                type="button"
+                onClick={onOpenExportPdf}
+                title="Imprimir o exportar a PDF"
+                aria-label="Imprimir PDF"
+                className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
+              >
+                <Printer className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+                <span className="hidden sm:inline">
+                  <span className="hidden xl:inline">Imprimir </span>PDF
+                </span>
+              </button>
+            )}
+
+            {!isPdfArticle && (
+              <button
+                type="button"
+                onClick={onOpenExportGoogleDocs}
+                title="Exportar a Google Docs"
+                aria-label="Google Docs"
+                className={`hidden lg:inline-flex lg:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
+              >
+                <FileOutput className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+                <span>Google Docs</span>
+              </button>
+            )}
+          </>
+        }
+      />
     </div>
   )
 }
