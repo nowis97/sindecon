@@ -227,5 +227,34 @@ describe('export/import portable', () => {
   it('rechaza archivos que no son un export', async () => {
     await expect(importFromZip(new Uint8Array([1, 2, 3]))).rejects.toThrow()
   })
+
+  it('exporta y restaura las marcas clínicas persistentes en db.meta', async () => {
+    const { fa } = await seedTree()
+    await db.meta.put({ key: 'clinical_marks', value: { [fa.id]: 'verified' } })
+
+    const zip = await buildExportZip()
+    expect(Object.keys(zip.files)).toContain('_clinical_marks.json')
+    const buf = await zip.generateAsync({ type: 'nodebuffer' })
+
+    await clearDb()
+    await importFromZip(buf)
+
+    const restored = await db.meta.get('clinical_marks')
+    expect(restored?.value).toEqual({ [fa.id]: 'verified' })
+  })
+
+  it('ignora _clinical_marks.json malformado o no tabular sin abortar importación', async () => {
+    await seedTree()
+    const zip = await buildExportZip()
+    zip.file('_clinical_marks.json', JSON.stringify(['warning', 'critical']))
+    const buf = await zip.generateAsync({ type: 'nodebuffer' })
+
+    await clearDb()
+    const report = await importFromZip(buf)
+    expect(report.nodesAdded).toBe(5)
+
+    const meta = await db.meta.get('clinical_marks')
+    expect(meta).toBeUndefined()
+  })
 })
 
