@@ -14,6 +14,9 @@ describe('ArticleWorkspaceView Component Contract', () => {
     let flashcardsOpened = false
     let smartImportOpened = false
     let pdfOpened = false
+    let movedTarget: string | null | undefined = undefined
+    let duplicatedId: string | null = null
+    let deletedId: string | null = null
 
     const props: ArticleWorkspaceViewProps = {
       articleNode: {
@@ -57,16 +60,31 @@ describe('ArticleWorkspaceView Component Contract', () => {
       },
       onCreateArticle: () => {},
       onOpenCommandPalette: () => {},
+      onMoveArticle: (_nodeId, targetFolderId) => {
+        movedTarget = targetFolderId
+      },
+      onDuplicateArticle: (nodeId) => {
+        duplicatedId = nodeId
+      },
+      onDeleteArticle: (nodeId) => {
+        deletedId = nodeId
+      },
     }
 
     props.onSetEditMode(true)
     props.onOpenFlashcards()
     props.onOpenSmartImport()
     props.onOpenExportPdf()
+    props.onMoveArticle?.('art-ic', 'folder-cardio')
+    props.onDuplicateArticle?.('art-ic')
+    props.onDeleteArticle?.('art-ic')
 
     expect(editModeToggled).toBe(true)
     expect(flashcardsOpened).toBe(true)
     expect(smartImportOpened).toBe(true)
     expect(pdfOpened).toBe(true)
+    expect(movedTarget).toBe('folder-cardio')
+    expect(duplicatedId).toBe('art-ic')
+    expect(deletedId).toBe('art-ic')
   })
 })

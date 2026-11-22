@@ -19,8 +19,6 @@ import {
   Pill,
   Table2,
   GitBranch,
-  Link2,
-  ListTree,
   AlignJustify,
   AlignLeft,
   Tag,
@@ -28,8 +26,14 @@ import {
   X,
   Folder,
   FolderOpen,
+  FolderInput,
   ChevronDown,
   Search,
+  MoreHorizontal,
+  Copy,
+  Download,
+  Trash2,
+  ArrowUpRight,
 } from 'lucide-react'
 import { db, type NodeRow } from '../../db/db'
 import { pathTo, childrenOf } from '../../domain/tree'
@@ -47,39 +51,15 @@ import {
   parseMarkdownBlocks,
   prepareTemplateDocument,
 } from './ArticleReader'
-import type { ClinicalMark } from '../tree/FolderExplorerView'
-
-const CLINICAL_MARKS_STORAGE_KEY = 'sindecon_article_marks'
-
-function readAllClinicalMarks(): Record<string, ClinicalMark> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const raw = window.localStorage.getItem(CLINICAL_MARKS_STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw)
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, ClinicalMark>) : {}
-  } catch {
-    return {}
-  }
-}
-
-function writeArticleMark(nodeId: string, mark: ClinicalMark | null): Record<string, ClinicalMark> {
-  const parsed = readAllClinicalMarks()
-  if (!mark) {
-    delete parsed[nodeId]
-  } else {
-    parsed[nodeId] = mark
-  }
-  if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.setItem(CLINICAL_MARKS_STORAGE_KEY, JSON.stringify(parsed))
-    } catch {
-      // Ignore storage quota errors
-    }
-  }
-  void db.meta.put({ key: 'clinical_marks', value: parsed }).catch(() => {})
-  return parsed
-}
+import { ArticleCopilotRail, type CopilotTab } from './ArticleCopilotRail'
+import {
+  CLINICAL_MARK_META,
+  mergeClinicalMarks,
+  readAllClinicalMarks,
+  writeArticleMark,
+  type ClinicalMark,
+} from '../../utils/clinicalMarks'
+import { downloadMarkdownFile } from '../../utils/exportMarkdown'
 
 function slugifyHeading(text: string): string {
   return text
@@ -114,6 +94,9 @@ export interface ArticleWorkspaceViewProps {
   onOpenSmartImport: () => void
   onCreateArticle?: (folderId: string | null) => void
   onOpenCommandPalette?: () => void
+  onMoveArticle?: (nodeId: string, targetFolderId: string | null) => void
+  onDuplicateArticle?: (nodeId: string) => void
+  onDeleteArticle?: (nodeId: string) => void
 }
 
 export function ArticleWorkspaceView({
@@ -140,11 +123,17 @@ export function ArticleWorkspaceView({
   onOpenSmartImport,
   onCreateArticle,
   onOpenCommandPalette,
+  onMoveArticle,
+  onDuplicateArticle,
+  onDeleteArticle,
 }: ArticleWorkspaceViewProps) {
   const [isSplitMode, setIsSplitMode] = useState(false)
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false)
   const [isOrbDrawerOpen, setIsOrbDrawerOpen] = useState(false)
   const [isMarkMenuOpen, setIsMarkMenuOpen] = useState(false)
+  const [isArticleMenuOpen, setIsArticleMenuOpen] = useState(false)
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false)
+  const [copilotTab, setCopilotTab] = useState<CopilotTab>('indice')
   const [isBreadcrumbPopoverOpen, setIsBreadcrumbPopoverOpen] = useState(false)
   const [popoverFilter, setPopoverFilter] = useState('')
   const [activePopoverFolderId, setActivePopoverFolderId] = useState<string | null>(
@@ -152,6 +141,7 @@ export function ArticleWorkspaceView({
   )
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const markMenuRef = useRef<HTMLDivElement | null>(null)
+  const articleMenuRef = useRef<HTMLDivElement | null>(null)
   const orbDrawerRef = useRef<HTMLDivElement | null>(null)
   const orbButtonRef = useRef<HTMLButtonElement | null>(null)
   const [localMarks, setLocalMarks] = useState<Record<string, ClinicalMark>>(() =>
@@ -203,13 +193,10 @@ export function ArticleWorkspaceView({
     undefined,
   )
 
-  const allMarks = useMemo(() => {
-    const fromDb =
-      metaClinicalMarks?.value && typeof metaClinicalMarks.value === 'object'
-        ? (metaClinicalMarks.value as Record<string, ClinicalMark>)
-        : {}
-    return { ...fromDb, ...localMarks }
-  }, [metaClinicalMarks, localMarks])
+  const allMarks = useMemo(
+    () => mergeClinicalMarks(metaClinicalMarks?.value, localMarks),
+    [metaClinicalMarks, localMarks],
+  )
 
   const clinicalMark = allMarks[articleNode.id] ?? null
 
@@ -282,12 +269,22 @@ export function ArticleWorkspaceView({
 
   // Close Top Bar Popovers & Center Orb Drawer on Escape or outside click
   useEffect(() => {
-    if (!isBreadcrumbPopoverOpen && !isMarkMenuOpen && !isOrbDrawerOpen) return
+    if (
+      !isBreadcrumbPopoverOpen &&
+      !isMarkMenuOpen &&
+      !isOrbDrawerOpen &&
+      !isArticleMenuOpen &&
+      !isMoveModalOpen
+    ) {
+      return
+    }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsBreadcrumbPopoverOpen(false)
         setIsMarkMenuOpen(false)
         setIsOrbDrawerOpen(false)
+        setIsArticleMenuOpen(false)
+        setIsMoveModalOpen(false)
       }
     }
     const handlePointerDown = (e: MouseEvent) => {
@@ -297,6 +294,13 @@ export function ArticleWorkspaceView({
       }
       if (isMarkMenuOpen && markMenuRef.current && !markMenuRef.current.contains(targetNode)) {
         setIsMarkMenuOpen(false)
+      }
+      if (
+        isArticleMenuOpen &&
+        articleMenuRef.current &&
+        !articleMenuRef.current.contains(targetNode)
+      ) {
+        setIsArticleMenuOpen(false)
       }
       if (
         isOrbDrawerOpen &&
@@ -313,7 +317,13 @@ export function ArticleWorkspaceView({
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('mousedown', handlePointerDown)
     }
-  }, [isBreadcrumbPopoverOpen, isMarkMenuOpen, isOrbDrawerOpen])
+  }, [
+    isBreadcrumbPopoverOpen,
+    isMarkMenuOpen,
+    isOrbDrawerOpen,
+    isArticleMenuOpen,
+    isMoveModalOpen,
+  ])
 
   const insertSnippet = (snippet: string) => {
     if (!effectiveEditMode) {
@@ -611,6 +621,86 @@ export function ArticleWorkspaceView({
                 </span>
               )
             )}
+
+            {/* Menú de acciones directas del protocolo (Mover, Duplicar, Exportar .md, Eliminar) */}
+            <div ref={articleMenuRef} className="relative flex items-center">
+              <button
+                type="button"
+                onClick={() => setIsArticleMenuOpen((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={isArticleMenuOpen}
+                aria-label="Acciones del artículo"
+                title="Acciones del protocolo (Mover, Duplicar, Exportar, Eliminar)"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--cl-diagnostic)] cursor-pointer"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+
+              {isArticleMenuOpen && (
+                <div
+                  role="menu"
+                  aria-label="Acciones del protocolo"
+                  className="absolute right-0 top-9 z-40 flex w-52 flex-col gap-0.5 rounded-xl border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)] p-1.5 shadow-[var(--ch-shadow-modal)]"
+                >
+                  {onMoveArticle && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsArticleMenuOpen(false)
+                        setIsMoveModalOpen(true)
+                      }}
+                      className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold text-[var(--ch-text-primary)] hover:bg-[var(--ch-bg-secondary)] cursor-pointer"
+                    >
+                      <FolderInput className="h-3.5 w-3.5 text-[var(--cl-diagnostic)]" />
+                      <span>Mover a carpeta…</span>
+                    </button>
+                  )}
+                  {onDuplicateArticle && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsArticleMenuOpen(false)
+                        onDuplicateArticle(articleNode.id)
+                      }}
+                      className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold text-[var(--ch-text-primary)] hover:bg-[var(--ch-bg-secondary)] cursor-pointer"
+                    >
+                      <Copy className="h-3.5 w-3.5 text-[var(--cl-diagnostic)]" />
+                      <span>Duplicar protocolo</span>
+                    </button>
+                  )}
+                  {!isPdfArticle && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsArticleMenuOpen(false)
+                        downloadMarkdownFile(articleNode.title, currentBody, tags)
+                      }}
+                      className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold text-[var(--ch-text-primary)] hover:bg-[var(--ch-bg-secondary)] cursor-pointer"
+                    >
+                      <Download className="h-3.5 w-3.5 text-[var(--cl-diagnostic)]" />
+                      <span>Exportar Markdown (.md)</span>
+                    </button>
+                  )}
+                  {onDeleteArticle && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsArticleMenuOpen(false)
+                        onDeleteArticle(articleNode.id)
+                      }}
+                      className="mt-0.5 flex items-center gap-2 border-t border-[var(--ch-border-subtle)] rounded-lg px-2.5 pt-2 pb-1.5 text-left text-xs font-semibold text-[var(--cl-danger)] hover:bg-[var(--cl-danger-soft)] cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Eliminar protocolo</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -707,28 +797,45 @@ export function ArticleWorkspaceView({
                       (n) => n.kind === 'article',
                     ).length
                     return (
-                      <button
+                      <div
                         key={folder.id}
-                        type="button"
-                        onClick={() => setActivePopoverFolderId(folder.id)}
-                        onDoubleClick={() => {
-                          setIsBreadcrumbPopoverOpen(false)
-                          onSelectNode(folder.id)
-                        }}
-                        className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs font-semibold transition ${
+                        className={`flex items-center gap-1 rounded-lg border pr-1 transition ${
                           isSelectedFolder
                             ? 'border-[var(--ch-accent)]/30 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
                             : 'border-transparent text-[var(--ch-text-primary)] hover:bg-[var(--ch-bg-secondary)]'
                         }`}
                       >
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          <Folder className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
-                          <span className="truncate">{folder.title}</span>
-                        </span>
-                        <span className="shrink-0 font-mono text-[11px] text-[var(--ch-text-muted)]">
-                          {docCount}
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setActivePopoverFolderId(folder.id)}
+                          onDoubleClick={() => {
+                            setIsBreadcrumbPopoverOpen(false)
+                            onSelectNode(folder.id)
+                          }}
+                          className="flex flex-1 min-w-0 items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs font-semibold cursor-pointer"
+                        >
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <Folder className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
+                            <span className="truncate">{folder.title}</span>
+                          </span>
+                          <span className="shrink-0 font-mono text-[11px] text-[var(--ch-text-muted)]">
+                            {docCount}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setIsBreadcrumbPopoverOpen(false)
+                            onSelectNode(folder.id)
+                          }}
+                          title={`Abrir carpeta ${folder.title}`}
+                          aria-label={`Abrir carpeta ${folder.title}`}
+                          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--ch-text-muted)] hover:bg-[var(--ch-bg-elevated)] hover:text-[var(--cl-diagnostic)] cursor-pointer"
+                        >
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     )
                   })}
                 </div>
@@ -843,18 +950,16 @@ export function ArticleWorkspaceView({
         )}
       </header>
 
-      {/* 2. WORKSPACE FOOTPRINT (Left: A4 Sheet / Editor / Split View; Right: Índice Clínico & Backlinks when present) */}
+      {/* 2. WORKSPACE FOOTPRINT (Left: A4 Sheet / Editor / Split View; Right: 3-Tab Contextual Copilot) */}
       {isArticleReady && (() => {
-        const hasRightRail =
-          !isSplitMode &&
-          (sectionHeadings.length > 0 || (!isPdfArticle && backlinks.length > 0))
+        const hasRightRail = !isSplitMode && !isPdfArticle
         return (
           <div
             className={
               isSplitMode
                 ? 'grid grid-cols-1 items-start gap-5 xl:grid-cols-2'
                 : hasRightRail
-                  ? 'grid grid-cols-1 items-start gap-5 lg:grid-cols-[1fr_290px]'
+                  ? 'grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_315px]'
                   : 'mx-auto grid w-full max-w-5xl grid-cols-1 items-start gap-5'
             }
           >
@@ -916,77 +1021,30 @@ export function ArticleWorkspaceView({
               </section>
             )}
 
-            {/* Right Clinical Rail: focused solely on section outline and backlinks */}
+            {/* Right Clinical Copilot Rail (Índice | SM-2 | Triage & Enlaces) */}
             {hasRightRail && (
-              <aside
-                aria-label="Índice clínico del artículo"
-                className="flex flex-col gap-4"
-              >
-                {/* Card 1: Interactive Section Outline */}
-                {sectionHeadings.length > 0 && (
-                  <div className="flex flex-col gap-1.5 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] p-4 shadow-[var(--ch-shadow-card)]">
-                    <div className="mb-1 flex items-center justify-between font-mono text-[11px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
-                      <span className="inline-flex items-center gap-1.5">
-                        <ListTree className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
-                        <span>Índice Clínico</span>
-                      </span>
-                      <span>{sectionHeadings.length} secc.</span>
-                    </div>
-                    <div className="flex max-h-80 flex-col gap-1 overflow-y-auto pr-0.5">
-                      {sectionHeadings.map((sec, idx) => (
-                        <button
-                          key={sec.id}
-                          type="button"
-                          onClick={() => {
-                            const el = document.getElementById(sec.id)
-                            el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                          }}
-                          className={`flex items-center justify-between gap-2 rounded-lg border border-transparent bg-[var(--ch-bg-secondary)]/70 px-2.5 py-1.5 text-left text-xs font-semibold text-[var(--ch-text-primary)] transition hover:border-[var(--ch-accent)]/30 hover:bg-[var(--ch-accent-soft)] hover:text-[var(--ch-accent)] ${
-                            sec.level === 3 ? 'ml-3 text-[11px] font-medium' : ''
-                          }`}
-                        >
-                          <span className="truncate">
-                            {sec.level === 2 ? `${idx + 1}. ` : '· '}
-                            {sec.text}
-                          </span>
-                          <span className="shrink-0 font-mono text-[10px] text-[var(--ch-text-muted)]">
-                            H{sec.level}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Card 2: Backlinks / Referencias Cruzadas */}
-                {!isPdfArticle && backlinks.length > 0 && (
-                  <div className="flex flex-col gap-1.5 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] p-4 shadow-[var(--ch-shadow-card)]">
-                    <div className="mb-1 flex items-center gap-1.5 font-mono text-[11px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
-                      <Link2 className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
-                      <span>Enlazan aquí ({backlinks.length})</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      {backlinks.map((b) => (
-                        <button
-                          key={b.id}
-                          type="button"
-                          onClick={() => onSelectArticle(b.id)}
-                          className="flex items-center gap-2 rounded-lg bg-[var(--ch-bg-secondary)] px-2.5 py-1.5 text-left text-xs font-semibold text-[var(--ch-text-primary)] transition hover:bg-[var(--ch-accent-soft)] hover:text-[var(--ch-accent)]"
-                        >
-                          <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
-                          <span className="truncate">{b.title}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </aside>
+              <ArticleCopilotRail
+                articleId={articleNode.id}
+                parentFolder={parentFolder}
+                sectionHeadings={sectionHeadings}
+                backlinks={backlinks}
+                tags={tags}
+                clinicalMark={clinicalMark}
+                activeTab={copilotTab}
+                onChangeTab={setCopilotTab}
+                onSelectMark={handleSelectMark}
+                onSelectArticle={onSelectArticle}
+                onSelectNode={onSelectNode}
+                onOpenFlashcards={onOpenFlashcards}
+                onRequestMove={onMoveArticle ? () => setIsMoveModalOpen(true) : undefined}
+                onExportMarkdown={() => downloadMarkdownFile(articleNode.title, currentBody, tags)}
+              />
             )}
           </div>
         )
       })()}
 
-      {/* UNIFIED CENTER ORB (+) CLINICAL BLOCK DRAWER (Single point of insertion, includes Wiki-link) */}
+      {/* UNIFIED CONTEXTUAL CENTER ORB (+) DRAWER */}
       {!isPdfArticle && isOrbDrawerOpen && (
         <div
           ref={orbDrawerRef}
@@ -994,20 +1052,106 @@ export function ArticleWorkspaceView({
           aria-label="Acciones y bloques clínicos del artículo"
           className="fixed bottom-24 left-1/2 z-40 w-[92%] max-w-md -translate-x-1/2 rounded-2xl border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)] p-4 shadow-[var(--ch-shadow-modal)]"
         >
-          <div className="mb-3 flex items-center justify-between">
-            <span className="font-mono text-xs font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
-              Insertar en «{articleNode.title}»
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <span className="font-mono text-xs font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase truncate">
+              {effectiveEditMode
+                ? `Insertar en «${articleNode.title}»`
+                : `Acciones en Lector · «${articleNode.title}»`}
             </span>
             <button
               type="button"
               onClick={() => setIsOrbDrawerOpen(false)}
-              className="rounded-md p-1 text-[var(--ch-text-muted)] hover:text-[var(--ch-text-primary)]"
-              aria-label="Cerrar cajón de inserción"
+              className="rounded-md p-1 text-[var(--ch-text-muted)] hover:text-[var(--ch-text-primary)] cursor-pointer shrink-0"
+              aria-label="Cerrar cajón contextual"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+
+          {!effectiveEditMode ? (
+            <div className="flex flex-col gap-3">
+              <div>
+                <div className="mb-1.5 font-mono text-[10px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
+                  Marca clínica (1-Tap)
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(
+                    [
+                      { key: 'critical', label: 'Crítico', icon: OctagonAlert },
+                      { key: 'warning', label: 'Prioridad', icon: AlertTriangle },
+                      { key: 'verified', label: 'Verificado', icon: CheckCircle2 },
+                    ] as const
+                  ).map(({ key, label, icon: Icon }) => {
+                    const active = clinicalMark === key
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          handleSelectMark(key)
+                          setIsOrbDrawerOpen(false)
+                        }}
+                        className={`flex min-h-[38px] items-center justify-center gap-1 rounded-xl border px-2 py-1.5 text-xs font-bold transition cursor-pointer ${
+                          active
+                            ? CLINICAL_MARK_META[key].badgeClass
+                            : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)]'
+                        }`}
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        <span>{label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOrbDrawerOpen(false)
+                    setCopilotTab('sm2')
+                    onOpenFlashcards()
+                  }}
+                  className="flex items-center gap-2 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 text-left text-xs font-semibold text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)] hover:text-[var(--cl-diagnostic)] cursor-pointer"
+                >
+                  <BrainCircuit className="h-4 w-4 text-[var(--cl-diagnostic)] shrink-0" />
+                  <span>Flashcards SM-2</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOrbDrawerOpen(false)
+                    onToggleFavorite(articleNode.id)
+                  }}
+                  className="flex items-center gap-2 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 text-left text-xs font-semibold text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)] cursor-pointer"
+                >
+                  <Star className={`h-4 w-4 shrink-0 ${isFavorite ? 'fill-amber-500 text-amber-500' : 'text-[var(--ch-text-muted)]'}`} />
+                  <span>{isFavorite ? 'Quitar favorito' : 'Marcar favorito'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOrbDrawerOpen(false)
+                    toggleColumns()
+                  }}
+                  className="flex items-center gap-2 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 text-left text-xs font-semibold text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)] cursor-pointer"
+                >
+                  <Columns2 className="h-4 w-4 text-[var(--cl-diagnostic)] shrink-0" />
+                  <span>{isTwoColumns ? 'Vista 1 Columna' : 'Vista 2 Columnas'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSetEditMode(true)}
+                  className="flex items-center gap-2 rounded-xl border border-[var(--cl-accent-border)] bg-[var(--cl-accent-soft)] p-2.5 text-left text-xs font-bold text-[var(--cl-diagnostic)] hover:brightness-95 cursor-pointer"
+                >
+                  <Pencil className="h-4 w-4 shrink-0" />
+                  <span>Insertar bloque…</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
             <div className="col-span-2">
               <WikiLinkPicker
                 className="flex w-full items-center gap-2 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 text-left text-xs font-semibold text-[var(--ch-text-primary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)]"
@@ -1095,7 +1239,8 @@ export function ArticleWorkspaceView({
               <GitBranch className="h-4 w-4 text-[var(--ch-accent)]" />
               <span>Algoritmo Mermaid</span>
             </button>
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1104,8 +1249,16 @@ export function ArticleWorkspaceView({
         ariaLabel="Barra inferior contextual del artículo"
         orbRef={orbButtonRef}
         orbDisabled={isPdfArticle}
-        orbLabel="Abrir cajón de bloques clínicos"
-        orbTitle="Insertar bloque clínico en el artículo"
+        orbLabel={
+          effectiveEditMode
+            ? 'Insertar bloque clínico en el editor'
+            : 'Abrir acciones rápidas en modo lector'
+        }
+        orbTitle={
+          effectiveEditMode
+            ? 'Insertar bloque clínico en el artículo'
+            : 'Acciones rápidas de lectura y estudio'
+        }
         onOrbClick={() => setIsOrbDrawerOpen((prev) => !prev)}
         orbIcon={
           <Plus
@@ -1226,6 +1379,89 @@ export function ArticleWorkspaceView({
           </>
         }
       />
+
+      {/* Diálogo compacto Mover a carpeta… sin salir del protocolo */}
+      {isMoveModalOpen && onMoveArticle && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mover protocolo a carpeta"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-xs"
+          onClick={() => setIsMoveModalOpen(false)}
+        >
+          <div
+            className="clinical-home flex w-full max-w-md flex-col gap-3 rounded-2xl border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)] p-5 shadow-[var(--ch-shadow-modal)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="m-0 text-sm font-bold text-[var(--ch-text-primary)]">
+                  Mover protocolo a carpeta
+                </h2>
+                <p className="m-0 truncate text-xs text-[var(--ch-text-muted)]">
+                  {articleNode.title}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMoveModalOpen(false)}
+                aria-label="Cerrar selector de carpeta"
+                className="rounded-lg p-1 text-[var(--ch-text-muted)] hover:text-[var(--ch-text-primary)] cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex max-h-72 flex-col gap-1 overflow-y-auto pr-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMoveModalOpen(false)
+                  onMoveArticle(articleNode.id, null)
+                }}
+                className={`flex min-h-[40px] items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold transition cursor-pointer ${
+                  articleNode.parent_id === null
+                    ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)] text-[var(--cl-diagnostic)]'
+                    : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)]'
+                }`}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Folder className="h-3.5 w-3.5 shrink-0 text-[var(--cl-diagnostic)]" />
+                  <span>Raíz (Mi Repositorio)</span>
+                </span>
+                {articleNode.parent_id === null && (
+                  <span className="font-mono text-[10px]">Actual</span>
+                )}
+              </button>
+
+              {allFolders.map((folder) => {
+                const isCurrent = articleNode.parent_id === folder.id
+                return (
+                  <button
+                    key={folder.id}
+                    type="button"
+                    onClick={() => {
+                      setIsMoveModalOpen(false)
+                      onMoveArticle(articleNode.id, folder.id)
+                    }}
+                    className={`flex min-h-[40px] items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold transition cursor-pointer ${
+                      isCurrent
+                        ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)] text-[var(--cl-diagnostic)]'
+                        : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)]'
+                    }`}
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      <FolderOpen className="h-3.5 w-3.5 shrink-0 text-[var(--cl-diagnostic)]" />
+                      <span className="truncate">{folder.title}</span>
+                    </span>
+                    {isCurrent && <span className="font-mono text-[10px] shrink-0">Actual</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

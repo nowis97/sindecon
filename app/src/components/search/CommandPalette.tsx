@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Search,
   Camera,
@@ -13,7 +14,12 @@ import {
   Folder,
   CornerDownLeft,
 } from 'lucide-react'
-import type { NodeRow } from '../../db/db'
+import { db, type NodeRow } from '../../db/db'
+import {
+  CLINICAL_MARK_META,
+  mergeClinicalMarks,
+  readAllClinicalMarks,
+} from '../../utils/clinicalMarks'
 
 export interface CommandPaletteProps {
   isOpen: boolean
@@ -65,6 +71,17 @@ export function CommandPalette({
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const listRef = useRef<HTMLUListElement | null>(null)
+
+  const metaClinicalMarks = useLiveQuery(
+    () => db.meta.get('clinical_marks'),
+    [isOpen],
+    undefined,
+  )
+
+  const clinicalMarks = useMemo(
+    () => mergeClinicalMarks(metaClinicalMarks?.value, readAllClinicalMarks()),
+    [metaClinicalMarks],
+  )
 
   const systemActions: PaletteItem[] = useMemo(
     () => [
@@ -187,7 +204,12 @@ export function CommandPalette({
     )
 
     const matchedArticles: PaletteItem[] = articles
-      .filter((a) => a.title.toLowerCase().includes(q))
+      .filter((a) => {
+        if (!q) return true
+        if (a.title.toLowerCase().includes(q)) return true
+        const mark = clinicalMarks[a.id]
+        return mark ? CLINICAL_MARK_META[mark].label.toLowerCase().includes(q) : false
+      })
       .slice(0, 15)
       .map((a) => ({
         id: `art-${a.id}`,
@@ -213,6 +235,7 @@ export function CommandPalette({
     favoriteIds,
     foldersMap,
     systemActions,
+    clinicalMarks,
     onClose,
     onSelectArticle,
   ])
@@ -324,12 +347,21 @@ export function CommandPalette({
                       )}
                     </div>
                   </div>
-                  {isSelected && (
-                    <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] font-semibold text-[var(--ch-accent)]">
-                      <CornerDownLeft className="h-3 w-3" />
-                      <span>Abrir</span>
-                    </span>
-                  )}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {item.type === 'article' && clinicalMarks[item.nodeId] && (
+                      <span
+                        className={`rounded-full border px-2 py-0.5 font-mono text-[10px] font-bold ${CLINICAL_MARK_META[clinicalMarks[item.nodeId]].badgeClass}`}
+                      >
+                        {CLINICAL_MARK_META[clinicalMarks[item.nodeId]].shortLabel}
+                      </span>
+                    )}
+                    {isSelected && (
+                      <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] font-semibold text-[var(--ch-accent)]">
+                        <CornerDownLeft className="h-3 w-3" />
+                        <span>Abrir</span>
+                      </span>
+                    )}
+                  </div>
                 </li>
               )
             })

@@ -594,6 +594,28 @@ function App() {
     }
   }
 
+  const handleDuplicateArticle = async (nodeId: string) => {
+    const sourceNode = nodes.find((n) => n.id === nodeId)
+    if (!sourceNode || sourceNode.kind !== 'article') return
+    try {
+      const sourceArt = await db.articles.get(nodeId)
+      const dupTitle = `${sourceNode.title} (Copia)`
+      const newNode = await createNode({
+        kind: 'article',
+        title: dupTitle,
+        parent_id: sourceNode.parent_id,
+      })
+      const copiedBody = sourceArt?.body_md ?? (selected?.id === nodeId ? currentBody : '')
+      await saveArticle(newNode.id, copiedBody, sourceArt?.tags)
+      setSeedBody(copiedBody)
+      setSelectedId(newNode.id)
+      setIsEditMode(true)
+      setToastMessage(`Protocolo duplicado como "${dupTitle}"`)
+    } catch (e) {
+      setErrorMessage((e as Error).message || 'No se pudo duplicar el protocolo')
+    }
+  }
+
   // --- Handlers de Importación Inteligente (ChatGPT / Word) ---
   const handleAppendToCurrentArticle = async (articleId: string, additionalMarkdown: string) => {
     const art = await db.articles.get(articleId)
@@ -735,6 +757,9 @@ function App() {
                   onOpenSmartImport={() => handleOpenSmartImport()}
                   onCreateArticle={(folderId) => handleOpenCreatePrompt('article', folderId)}
                   onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+                  onMoveArticle={(nodeId, folderId) => void handleMoveNodeDirect(nodeId, folderId)}
+                  onDuplicateArticle={(nodeId) => void handleDuplicateArticle(nodeId)}
+                  onDeleteArticle={(nodeId) => handleOpenDeleteConfirm(nodeId)}
                 />
               )}
             </div>
