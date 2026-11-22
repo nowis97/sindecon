@@ -22,3 +22,7 @@ Desktop.ini
 
 # Worktrees locales
 .worktrees/
+
+# Exploraciones locales de diseño
+.open-design/
+Open Design/
