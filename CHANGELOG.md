@@ -2,6 +2,11 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.2.1] - 2026-11-22
+
+### Fixed
+- **Altura de Modales en Escritorio (`tailwind.css`, `Dashboard.tsx`, `FolderExplorerView.tsx`)**: Se retiró `min-height: 100dvh` de la clase compartida `.clinical-home` (utilizada también por `DialogModal`, `QuickCapture`, `StudyModal`, `CommandPalette`, `UpdateToast` y el modal `Mover a carpeta` para heredar variables `--ch-*`) y se aplicó `min-h-dvh` exclusivamente al contenedor raíz de página en `Dashboard` y `FolderExplorerView`, evitando que `min-height: 100dvh` anulara `max-height: 90vh` en escritorio.
+
 ## [1.2.0] - 2026-11-22
 
 ### Added
