@@ -2,6 +2,20 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.2.0] - 2026-11-22
+
+### Added
+- **Cabecera Global Compartida (`ClinicalStationHeader`)**: Componente único reutilizado entre `Dashboard` y `FolderExplorerView` con los controles globales consistentes (`Drive`, `Instalar App`, `Guardia UCI / Turno Día`, `Bloquear terminal`) y ranura izquierda contextual.
+- **Contrato Ampliado en `FolderExplorerView.test.ts`**: Cobertura para props opcionales de estación unificada (`theme`, `dueFlashcardsCount`, `onOpenStudy`, `templates`, `onCreateFromTemplate`).
+
+### Changed
+- **Explorador de Carpeta Unificado con `Inicio` (0 px de salto de ancho)**: `FolderExplorerView` adopta el cascarón full-bleed (`main.content.content-dashboard-home`), el contenedor centrado `max-w-[1220px]` y la grilla asimétrica `1.58fr / 1fr` (`703px / 445px` a `1440×900`), neutralizando la caja heredada de `1080px` en `index.css` y `tailwind.css`.
+- **Panel Derecho y Dock Inferior Consistentes**: Riel derecho de `445px` con tarjetas `Repaso Activo SM-2` (consulta indexada `useLiveQuery` sobre artículos de la carpeta con respaldo al mazo general), `Índice rápido`, `Filtrar Triage` sin recorte (`Crítico`, `Prioridad`, `Verificado`), etiquetas `#tag` y selector `Crear aquí desde plantilla (17)…`; barra inferior `ClinicalBottomDock` alineada en memoria muscular (`Inicio | Captura | SM-2` + orb `+` con selector expandible de plantillas + `Seleccionar | Importar IA | Subir PDF | Compendio PDF`).
+
+### Fixed
+- **Continuidad de Fondo en Vistas Cortas**: Regla `min-height: 100dvh` en `.clinical-home` (`tailwind.css`) para evitar el corte inferior de fondo en carpetas con pocos elementos en **Turno Día** y **Guardia UCI**.
+- **Pureza React en Conteo SM-2**: Eliminación de `Date.now()` durante el renderizado en `FolderExplorerView` trasladando el cálculo de flashcards vencidas a `useLiveQuery`.
+
 ## [1.1.0] - 2026-11-22
 
 ### Added

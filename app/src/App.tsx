@@ -202,10 +202,17 @@ function App() {
     refreshFlashcardCounts()
   }, [refreshFlashcardCounts, selectedId])
 
-  const handleStartGeneralStudy = async () => {
+  const handleStartGeneralStudy = async (nodeIdsFilter?: string[]) => {
     const due = await getDueFlashcards()
     const all = await getAllFlashcards()
-    const targetCards = due.length > 0 ? due : all
+    const baseCards = due.length > 0 ? due : all
+    let targetCards = baseCards
+    if (Array.isArray(nodeIdsFilter) && nodeIdsFilter.length > 0) {
+      const allowed = new Set(nodeIdsFilter)
+      const folderDue = due.filter((c) => allowed.has(c.node_id))
+      const folderAll = all.filter((c) => allowed.has(c.node_id))
+      targetCards = folderDue.length > 0 ? folderDue : folderAll
+    }
     if (targetCards.length === 0) {
       setToastMessage('No tienes flashcards en el mazo. Puedes crearlas o generarlas en cualquier artículo.')
       return
@@ -680,7 +687,7 @@ function App() {
   return (
     <div className="app-container">
       <div className="layout desktop-sidebar-collapsed">
-        <main className={`content ${!selected ? 'content-dashboard-home' : isPdfArticle ? 'content-pdf-active' : ''}`}>
+        <main className={`content ${isPdfArticle ? 'content-pdf-active' : 'content-dashboard-home'}`}>
           {selected ? (
             <div className={selected.kind === 'folder' ? 'folder-main-view-wrapper' : `article-container ${isPdfArticle ? 'article-container-pdf' : ''}`}>
               {selected.kind === 'folder' ? (
@@ -714,6 +721,23 @@ function App() {
                   onGoBack={() => setSelectedId(selected.parent_id)}
                   onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
                   onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+                  templates={templates}
+                  onCreateFromTemplate={(tplTitle, folderId) => handleOpenTemplatePrompt(tplTitle, folderId)}
+                  onOpenStudy={(folderArticleIds) => void handleStartGeneralStudy(folderArticleIds)}
+                  dueFlashcardsCount={dueFlashcardsCount}
+                  userName={user?.name}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onLockTerminal={logout}
+                  isGoogleConnected={isGoogleConnected}
+                  isGoogleSessionExpired={isGoogleSessionExpired}
+                  googleHasPendingChanges={googleHasPendingChanges}
+                  googleSyncState={googleSyncState}
+                  googleSyncProgress={googleSyncProgress}
+                  googleLastSyncedAt={googleLastSyncedAt}
+                  onOpenGoogleDriveSync={() => setIsGoogleModalOpen(true)}
+                  onInstallPwa={triggerInstallPwa}
+                  canInstallPwa={canInstallPwa}
                 />
               ) : (
                 <ArticleWorkspaceView

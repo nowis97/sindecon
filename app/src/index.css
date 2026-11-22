@@ -8830,8 +8830,8 @@ select.dialog-input {
    Folder Explorer View (Main Content Area)
    ========================================================================== */
 .folder-main-view-wrapper {
-  padding: 24px 32px;
-  max-width: 1080px;
+  padding: 0;
+  max-width: none;
   margin: 0 auto;
   width: 100%;
 }
@@ -9243,7 +9243,7 @@ select.dialog-input {
 /* Responsive Móvil */
 @media (max-width: 640px) {
   .folder-main-view-wrapper {
-    padding: 16px 12px;
+    padding: 0;
   }
   .folder-explorer-hero {
     padding: 18px 16px;

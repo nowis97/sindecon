@@ -28,6 +28,10 @@ import {
   FileDown,
   ChevronDown,
   ArrowUpRight,
+  Brain,
+  Camera,
+  ChevronRight,
+  FolderPlus,
 } from 'lucide-react'
 import { db, type NodeRow, type ArticleRow } from '../../db/db'
 import { saveArticle } from '../../db/articles'
@@ -40,6 +44,8 @@ import {
   type ClinicalMark,
 } from '../../utils/clinicalMarks'
 import { downloadMarkdownFile } from '../../utils/exportMarkdown'
+import type { Theme } from '../../hooks/useTheme'
+import type { SyncProgress, SyncState } from '../../pwa/syncEngine'
 
 export type { ClinicalMark }
 import {
@@ -48,6 +54,7 @@ import {
   DOCK_BTN_BASE,
   DOCK_BTN_IDLE,
 } from '../common/ClinicalBottomDock'
+import { ClinicalStationHeader } from '../common/ClinicalStationHeader'
 
 
 export interface FolderExplorerViewProps {
@@ -71,6 +78,23 @@ export interface FolderExplorerViewProps {
   onGoBack?: () => void
   onOpenQuickCapture?: () => void
   onOpenCommandPalette?: () => void
+  templates?: Array<{ node: NodeRow; body: string }>
+  onCreateFromTemplate?: (templateTitle: string, parentId: string | null) => void
+  onOpenStudy?: (folderArticleIds?: string[]) => void
+  dueFlashcardsCount?: number
+  userName?: string
+  theme?: Theme
+  onToggleTheme?: () => void
+  onLockTerminal?: () => void
+  isGoogleConnected?: boolean
+  isGoogleSessionExpired?: boolean
+  googleHasPendingChanges?: boolean
+  googleSyncState?: SyncState
+  googleSyncProgress?: SyncProgress | null
+  googleLastSyncedAt?: Date | null
+  onOpenGoogleDriveSync?: () => void
+  onInstallPwa?: () => void
+  canInstallPwa?: boolean
 }
 
 function formatClinicalDate(timestamp: number): string {
@@ -108,10 +132,28 @@ export function FolderExplorerView({
   onGoBack,
   onOpenQuickCapture,
   onOpenCommandPalette,
+  templates = [],
+  onCreateFromTemplate,
+  onOpenStudy,
+  dueFlashcardsCount = 0,
+  userName = 'Médico de Guardia',
+  theme = 'light',
+  onToggleTheme,
+  onLockTerminal,
+  isGoogleConnected = false,
+  isGoogleSessionExpired = false,
+  googleHasPendingChanges = false,
+  googleSyncState = 'idle',
+  googleSyncProgress = null,
+  googleLastSyncedAt = null,
+  onOpenGoogleDriveSync,
+  onInstallPwa,
+  canInstallPwa = false,
 }: FolderExplorerViewProps) {
   const [filterText, setFilterText] = useState('')
   const [sortMode, setSortMode] = useState<SortCriteria>('manual')
   const [markFilter, setMarkFilter] = useState<'all' | ClinicalMark>('all')
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null)
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null)
 
@@ -218,6 +260,23 @@ export function FolderExplorerView({
     const list = children.filter((c) => c.kind === 'article')
     return sortNodesBy(list, sortMode)
   }, [children, sortMode])
+
+  const folderArticleIdList = useMemo(
+    () => allArticles.map((a) => a.id),
+    [allArticles],
+  )
+
+  const folderSm2Stats = useLiveQuery(
+    async () => {
+      if (folderArticleIdList.length === 0) return { total: 0, due: 0 }
+      const cards = await db.flashcards.where('node_id').anyOf(folderArticleIdList).toArray()
+      const now = Date.now()
+      const due = cards.filter((c) => c.due_date <= now).length
+      return { total: cards.length, due }
+    },
+    [folderArticleIdList],
+    { total: 0, due: 0 },
+  )
 
   const filteredSubfolders = useMemo(() => {
     const q = filterText.trim().toLowerCase()
@@ -462,174 +521,154 @@ export function FolderExplorerView({
     )
   }
 
+  const isDark = theme === 'dark'
+
   return (
     <div
       ref={menuContainerRef}
-      className="clinical-home relative mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1380px] flex-col gap-5 px-4 pt-3 pb-36 sm:px-6 sm:pb-40"
+      className="clinical-home min-h-full w-full font-sans antialiased pb-28 transition-colors duration-150"
+      data-home-theme={theme}
     >
-      {/* 1. TOP-LEFT FOLDER HEADER WITH INTERACTIVE BREADCRUMB POPOVER (Opción 1) */}
-      <header className="relative z-35 flex flex-col gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] p-4 shadow-[var(--ch-shadow-card)] lg:flex-row lg:items-center lg:justify-between lg:px-6">
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          {onGoBack && (
-            <button
-              type="button"
-              onClick={onGoBack}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-3 py-1.5 text-xs font-semibold text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)]"
-              title={
-                parentFolder ? `Volver a ${parentFolder.title}` : 'Volver a Mi Repositorio'
-              }
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>{parentFolder ? parentFolder.title : 'Mi Repositorio'}</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              setSwitcherFolderId(folderNode.id)
-              setSwitcherSearch('')
-              setIsFolderSwitcherOpen((v) => !v)
-            }}
-            title="Cambiar de especialidad o saltar a otro protocolo"
-            aria-expanded={isFolderSwitcherOpen}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--ch-accent)]/25 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)] transition hover:border-[var(--ch-accent-solid)] hover:bg-[var(--ch-accent-solid)] hover:text-white"
-          >
-            <FolderOpen className="h-5 w-5" />
-          </button>
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setSwitcherFolderId(folderNode.id)
-                  setSwitcherSearch('')
-                  setIsFolderSwitcherOpen((v) => !v)
-                }}
-                title="Abrir navegador desplegable de especialidades y protocolos"
-                aria-expanded={isFolderSwitcherOpen}
-                className="group inline-flex min-w-0 items-center gap-1.5 rounded-lg text-left transition hover:text-[var(--ch-accent)]"
-              >
-                <h1 className="truncate font-display text-xl font-bold tracking-tight text-[var(--ch-text-primary)] group-hover:text-[var(--ch-accent)] sm:text-2xl">
-                  {folderNode.title}
-                </h1>
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-[var(--ch-accent)] transition-transform ${
-                    isFolderSwitcherOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-              {onRenameNode && !folderNode.system && (
+      <div className="max-w-[1220px] mx-auto px-4 pt-4 pb-6 sm:px-6 sm:pt-5 sm:pb-8">
+        {/* 1. CABECERA UNIFICADA DE ESTACIÓN CLÍNICA (misma geometría y controles que Inicio) */}
+        <div className="relative z-35">
+          <ClinicalStationHeader
+            ariaLabel={`Cabecera de carpeta ${folderNode.title}`}
+            theme={theme}
+            userName={userName}
+            canInstallPwa={canInstallPwa}
+            onInstallPwa={onInstallPwa}
+            onToggleTheme={onToggleTheme}
+            onLockTerminal={onLockTerminal}
+            isGoogleConnected={isGoogleConnected}
+            isGoogleSessionExpired={isGoogleSessionExpired}
+            googleHasPendingChanges={googleHasPendingChanges}
+            googleSyncState={googleSyncState}
+            googleSyncProgress={googleSyncProgress}
+            googleLastSyncedAt={googleLastSyncedAt}
+            onOpenGoogleDriveSync={onOpenGoogleDriveSync}
+            left={
+              <div className="flex items-center gap-3.5 min-w-0">
                 <button
                   type="button"
-                  onClick={() => onRenameNode(folderNode.id)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--ch-text-muted)] transition hover:bg-[var(--ch-bg-secondary)] hover:text-[var(--ch-text-primary)]"
-                  title="Renombrar carpeta"
-                  aria-label="Renombrar carpeta"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-              )}
-              {onToggleFavorite && (
-                <button
-                  type="button"
-                  onClick={() => onToggleFavorite(folderNode.id)}
-                  className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition ${
-                    isFolderFav
-                      ? 'text-amber-500'
-                      : 'text-[var(--ch-text-muted)] hover:bg-[var(--ch-bg-secondary)] hover:text-[var(--ch-text-primary)]'
+                  onClick={() => {
+                    setSwitcherFolderId(folderNode.id)
+                    setSwitcherSearch('')
+                    setIsFolderSwitcherOpen((v) => !v)
+                  }}
+                  title="Cambiar de especialidad o saltar a otro protocolo"
+                  aria-expanded={isFolderSwitcherOpen}
+                  className={`w-[42px] h-[42px] rounded-[10px] flex items-center justify-center shrink-0 cursor-pointer transition-colors ${
+                    isDark
+                      ? 'bg-[var(--cl-surface-warm)] border border-[var(--cl-border)] text-[var(--cl-diagnostic)] hover:border-[var(--cl-accent)]'
+                      : 'bg-[var(--cl-accent-soft)] border border-[var(--cl-accent-border)] text-[var(--cl-diagnostic)] hover:bg-[var(--cl-accent)] hover:text-white'
                   }`}
-                  title={isFolderFav ? 'Quitar de favoritos' : 'Anclar carpeta a favoritos'}
-                  aria-label="Favorito"
                 >
-                  <Star className={`h-4 w-4 ${isFolderFav ? 'fill-amber-500' : ''}`} />
+                  <FolderOpen className="w-5 h-5" />
                 </button>
-              )}
-            </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-xs text-[var(--ch-text-muted)]">
-              <span>
-                {allArticles.length} {allArticles.length === 1 ? 'documento' : 'documentos'}
-              </span>
-              {subfolders.length > 0 && (
-                <>
-                  <span>·</span>
-                  <span>
-                    {subfolders.length} {subfolders.length === 1 ? 'subcarpeta' : 'subcarpetas'}
-                  </span>
-                </>
-              )}
-              <span>·</span>
-              <span>Creada {formatClinicalDate(folderNode.created_at)}</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Clinical Mark Filter Pills & Sort Controls */}
-        <div className="flex flex-wrap items-center gap-1.5 lg:shrink-0 lg:justify-end">
-          <button
-            type="button"
-            onClick={() => setMarkFilter('all')}
-            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
-              markFilter === 'all'
-                ? 'border-[var(--ch-accent)]/35 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
-                : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
-            }`}
-          >
-            <span>Todos ({allArticles.length})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMarkFilter(markFilter === 'warning' ? 'all' : 'warning')}
-            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
-              markFilter === 'warning'
-                ? 'border-amber-600/40 bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)] hover:text-amber-700'
-            }`}
-            title="Filtrar por marca Prioridad (Triángulo)"
-          >
-            <AlertTriangle className="h-3 w-3 text-amber-600" />
-            <span>Prioridad ({markCounts.warning})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMarkFilter(markFilter === 'critical' ? 'all' : 'critical')}
-            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
-              markFilter === 'critical'
-                ? 'border-red-600/40 bg-red-500/15 text-red-700 dark:text-red-300'
-                : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)] hover:text-red-700'
-            }`}
-            title="Filtrar por marca Crítico / Revisar (Octágono)"
-          >
-            <OctagonAlert className="h-3 w-3 text-red-600" />
-            <span>Crítico ({markCounts.critical})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMarkFilter(markFilter === 'verified' ? 'all' : 'verified')}
-            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
-              markFilter === 'verified'
-                ? 'border-emerald-600/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)] hover:text-emerald-700'
-            }`}
-            title="Filtrar por marca Verificado (Check)"
-          >
-            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-            <span>Verificado ({markCounts.verified})</span>
-          </button>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                    {onGoBack && (
+                      <button
+                        type="button"
+                        onClick={onGoBack}
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--cl-border)] bg-[var(--cl-surface)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--cl-fg-2)] hover:border-[var(--cl-accent)] hover:text-[var(--cl-diagnostic)] cursor-pointer transition-colors"
+                        title={
+                          parentFolder ? `Volver a ${parentFolder.title}` : 'Volver a Mi Repositorio'
+                        }
+                      >
+                        <ArrowLeft className="h-3 w-3" />
+                        <span>{parentFolder ? parentFolder.title : 'Mi Repositorio'}</span>
+                      </button>
+                    )}
+                    <span className="text-[11px] text-[var(--cl-muted)]" aria-hidden="true">
+                      /
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSwitcherFolderId(folderNode.id)
+                        setSwitcherSearch('')
+                        setIsFolderSwitcherOpen((v) => !v)
+                      }}
+                      className="text-[11px] font-semibold text-[var(--cl-diagnostic)] hover:underline cursor-pointer"
+                    >
+                      Cambiar especialidad ▾
+                    </button>
+                  </div>
 
-          <select
-            value={sortMode}
-            onChange={(e) => setSortMode(e.target.value as SortCriteria)}
-            aria-label="Ordenar documentos"
-            className="ml-1 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-1 text-xs font-semibold text-[var(--ch-text-secondary)] outline-none focus:border-[var(--ch-accent)]"
-          >
-            <option value="manual">Orden: Manual</option>
-            <option value="alpha-asc">Nombre: A → Z</option>
-            <option value="alpha-desc">Nombre: Z → A</option>
-            <option value="recent">Más recientes</option>
-          </select>
-        </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSwitcherFolderId(folderNode.id)
+                        setSwitcherSearch('')
+                        setIsFolderSwitcherOpen((v) => !v)
+                      }}
+                      title="Abrir navegador desplegable de especialidades y protocolos"
+                      aria-expanded={isFolderSwitcherOpen}
+                      className="group inline-flex min-w-0 items-center gap-1.5 text-left cursor-pointer"
+                    >
+                      <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-[-0.025em] leading-[1.15] text-[var(--cl-fg)] m-0 truncate group-hover:text-[var(--cl-diagnostic)]">
+                        {folderNode.title}
+                      </h1>
+                      <ChevronDown
+                        className={`h-4 w-4 shrink-0 text-[var(--cl-diagnostic)] transition-transform ${
+                          isFolderSwitcherOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+
+                    {onRenameNode && !folderNode.system && (
+                      <button
+                        type="button"
+                        onClick={() => onRenameNode(folderNode.id)}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--cl-muted)] hover:bg-[var(--cl-surface-warm)] hover:text-[var(--cl-fg)] cursor-pointer"
+                        title="Renombrar carpeta"
+                        aria-label="Renombrar carpeta"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+
+                    {onToggleFavorite && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleFavorite(folderNode.id)}
+                        className={`inline-flex h-7 w-7 items-center justify-center rounded-md cursor-pointer transition ${
+                          isFolderFav
+                            ? 'text-amber-500'
+                            : 'text-[var(--cl-muted)] hover:bg-[var(--cl-surface-warm)] hover:text-[var(--cl-fg)]'
+                        }`}
+                        title={isFolderFav ? 'Quitar de favoritos' : 'Anclar carpeta a favoritos'}
+                        aria-label="Favorito"
+                      >
+                        <Star className={`h-4 w-4 ${isFolderFav ? 'fill-amber-500' : ''}`} />
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="font-mono tabular-nums text-xs text-[var(--cl-muted)] mt-1 mb-0 flex items-center gap-2 flex-wrap">
+                    <span>
+                      {allArticles.length} {allArticles.length === 1 ? 'documento' : 'documentos'}
+                    </span>
+                    {subfolders.length > 0 && (
+                      <>
+                        <span>·</span>
+                        <span>
+                          {subfolders.length}{' '}
+                          {subfolders.length === 1 ? 'subcarpeta' : 'subcarpetas'}
+                        </span>
+                      </>
+                    )}
+                    <span>·</span>
+                    <span>Creada {formatClinicalDate(folderNode.created_at)}</span>
+                  </p>
+                </div>
+              </div>
+            }
+          />
 
         {/* 2-COLUMN BREADCRUMB POPOVER MENU IN FOLDER VIEW (Opción 1) */}
         {isFolderSwitcherOpen && (
@@ -818,101 +857,233 @@ export function FolderExplorerView({
             </div>
           </section>
         )}
-      </header>
+        </div>
 
-      {/* Optional Subfolders Strip (if folder contains subfolders) */}
-      {filteredSubfolders.length > 0 && (
-        <section aria-label="Subcarpetas" className="flex flex-col gap-2">
-          <div className="flex items-center justify-between px-1">
-            <span className="font-mono text-[11px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
-              Subcarpetas ({filteredSubfolders.length})
-            </span>
-            <button
-              type="button"
-              onClick={() => onCreateSubfolder(folderNode.id)}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--ch-accent)] hover:underline"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Nueva subcarpeta</span>
-            </button>
-          </div>
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-            {filteredSubfolders.map((sub) => {
-              const counts = countSubfolderItems(sub.id)
-              const isFav = favoriteIds.includes(sub.id)
-              const isDropTarget = dragOverFolderId === sub.id
-              return (
-                <div
-                  key={sub.id}
-                  draggable={folderNode.system !== 'templates'}
-                  onDragStart={(e) => handleDragStart(e, sub.id)}
-                  onDragEnd={handleDragEnd}
-                  onDragOver={(e) => handleDragOverFolder(e, sub.id)}
-                  onDrop={(e) => handleDropOnFolder(e, sub.id)}
-                  onClick={() => onSelectNode(sub.id)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      onSelectNode(sub.id)
-                    }
-                  }}
-                  className={`group flex cursor-pointer items-center justify-between rounded-xl border p-3 transition ${
-                    isDropTarget
-                      ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)]'
-                      : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] hover:border-[var(--ch-accent)]/50 hover:bg-[var(--ch-bg-secondary)]'
-                  }`}
-                >
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
-                      <Folder className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-[var(--ch-text-primary)]">
-                        {sub.title}
-                      </div>
-                      <div className="font-mono text-[11px] text-[var(--ch-text-muted)]">
-                        {counts.articlesCount} docs
-                        {counts.foldersCount > 0 ? ` · ${counts.foldersCount} sub` : ''}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {onToggleFavorite && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onToggleFavorite(sub.id)
-                        }}
-                        className={`rounded p-1 ${
-                          isFav
-                            ? 'text-amber-500'
-                            : 'text-[var(--ch-text-muted)] opacity-0 group-hover:opacity-100'
-                        }`}
-                        title="Favorito"
-                      >
-                        <Star className={`h-3.5 w-3.5 ${isFav ? 'fill-amber-500' : ''}`} />
-                      </button>
-                    )}
-                  </div>
+        {/* 2. GRID UNIFICADO 1.58fr / 1fr (misma geometría y ancho 703/445px que Inicio) */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.58fr)_minmax(0,1fr)] gap-5 lg:gap-6 items-start">
+          {/* COLUMNA IZQUIERDA (62%): Buscador + Acciones + Triage + Subcarpetas + Tabla */}
+          <div className="min-w-0 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h2 className="font-display text-xl font-bold tracking-[-0.02em] text-[var(--cl-fg)] m-0">
+                Protocolos y subcarpetas
+              </h2>
+
+              <div className="inline-flex items-center gap-2 min-h-[40px] w-full sm:w-auto sm:min-w-[260px] px-3.5 rounded-full border border-[var(--cl-border)] bg-[var(--cl-surface)] text-[var(--cl-muted)] focus-within:border-[var(--cl-accent)] transition-colors">
+                <Search className="w-[15px] h-[15px] shrink-0" aria-hidden="true" />
+                <input
+                  type="text"
+                  value={filterText}
+                  onChange={(e) => setFilterText(e.target.value)}
+                  placeholder={`Buscar en ${folderNode.title}…`}
+                  aria-label="Buscar documento o etiqueta en esta carpeta"
+                  className="flex-1 min-w-0 border-none bg-transparent text-sm text-[var(--cl-fg)] placeholder:text-[var(--cl-muted)] outline-none"
+                />
+                {filterText ? (
+                  <button
+                    type="button"
+                    onClick={() => setFilterText('')}
+                    aria-label="Limpiar búsqueda"
+                    className="text-[var(--cl-muted)] hover:text-[var(--cl-fg)] cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  onOpenCommandPalette && (
+                    <button
+                      type="button"
+                      onClick={onOpenCommandPalette}
+                      className="font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded bg-[var(--cl-surface-warm)] border border-[var(--cl-border)] text-[var(--cl-fg-2)] cursor-pointer hover:border-[var(--cl-accent)]"
+                      title="Abrir búsqueda global y comandos (Ctrl+K)"
+                    >
+                      Ctrl+K
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+
+            {/* Acciones rápidas + Tira Triage + Orden (consistente con Inicio) */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => onCreateArticle(folderNode.id)}
+                className="min-h-[36px] px-3 rounded-lg border border-[var(--cl-border)] bg-[var(--cl-surface)] hover:bg-[var(--cl-surface-warm)] hover:border-[var(--cl-accent)] text-[var(--cl-fg)] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5 text-[var(--cl-diagnostic)]" />
+                <span>Nuevo artículo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onCreateSubfolder(folderNode.id)}
+                className="min-h-[36px] px-3 rounded-lg border border-[var(--cl-border)] bg-[var(--cl-surface)] hover:bg-[var(--cl-surface-warm)] hover:border-[var(--cl-accent)] text-[var(--cl-fg)] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <FolderPlus className="w-3.5 h-3.5 text-[var(--cl-diagnostic)]" />
+                <span>Nueva subcarpeta</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSelectionMode((prev) => !prev)
+                  if (isSelectionMode) setSelectedIds([])
+                }}
+                aria-pressed={isSelectionMode}
+                className={`min-h-[36px] px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                  isSelectionMode
+                    ? 'border-[var(--cl-accent-border)] bg-[var(--cl-accent-soft)] text-[var(--cl-diagnostic)]'
+                    : 'border-[var(--cl-border)] bg-[var(--cl-surface)] hover:bg-[var(--cl-surface-warm)] text-[var(--cl-fg-2)]'
+                }`}
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                <span>Seleccionar</span>
+              </button>
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortCriteria)}
+                aria-label="Ordenar documentos"
+                className="ml-auto min-h-[36px] rounded-lg border border-[var(--cl-border)] bg-[var(--cl-surface)] px-2.5 text-xs font-semibold text-[var(--cl-fg-2)] outline-none focus:border-[var(--cl-accent)] cursor-pointer"
+              >
+                <option value="manual">Orden: Manual</option>
+                <option value="alpha-asc">Nombre: A → Z</option>
+                <option value="alpha-desc">Nombre: Z → A</option>
+                <option value="recent">Más recientes</option>
+              </select>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar carpeta por triage">
+              <button
+                type="button"
+                onClick={() => setMarkFilter('all')}
+                className={`min-h-[32px] px-2.5 py-1 rounded-full border text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                  markFilter === 'all'
+                    ? 'bg-[var(--cl-accent)] border-[var(--cl-accent)] text-white'
+                    : 'bg-[var(--cl-surface)] border-[var(--cl-border)] text-[var(--cl-fg-2)] hover:border-[var(--cl-accent)]'
+                }`}
+              >
+                <span>Todos</span>
+                <span className="font-mono tabular-nums text-[10px] opacity-85">{allArticles.length}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMarkFilter(markFilter === 'warning' ? 'all' : 'warning')}
+                title="Filtrar por marca Prioridad (Triángulo)"
+                className={`min-h-[32px] px-2.5 py-1 rounded-full border text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                  markFilter === 'warning'
+                    ? CLINICAL_MARK_META.warning.badgeClass
+                    : 'bg-[var(--cl-surface)] border-[var(--cl-border)] text-[var(--cl-fg-2)] hover:border-[var(--cl-accent)]'
+                }`}
+              >
+                <AlertTriangle className="h-3 w-3 text-[var(--cl-warn)]" />
+                <span>Prioridad ({markCounts.warning})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMarkFilter(markFilter === 'critical' ? 'all' : 'critical')}
+                title="Filtrar por marca Crítico / Revisar (Octágono)"
+                className={`min-h-[32px] px-2.5 py-1 rounded-full border text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                  markFilter === 'critical'
+                    ? CLINICAL_MARK_META.critical.badgeClass
+                    : 'bg-[var(--cl-surface)] border-[var(--cl-border)] text-[var(--cl-fg-2)] hover:border-[var(--cl-accent)]'
+                }`}
+              >
+                <OctagonAlert className="h-3 w-3 text-[var(--cl-danger)]" />
+                <span>Crítico ({markCounts.critical})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMarkFilter(markFilter === 'verified' ? 'all' : 'verified')}
+                title="Filtrar por marca Verificado (Check)"
+                className={`min-h-[32px] px-2.5 py-1 rounded-full border text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                  markFilter === 'verified'
+                    ? CLINICAL_MARK_META.verified.badgeClass
+                    : 'bg-[var(--cl-surface)] border-[var(--cl-border)] text-[var(--cl-fg-2)] hover:border-[var(--cl-accent)]'
+                }`}
+              >
+                <CheckCircle2 className="h-3 w-3 text-[var(--cl-success)]" />
+                <span>Verificado ({markCounts.verified})</span>
+              </button>
+            </div>
+
+            {filteredSubfolders.length > 0 && (
+              <section aria-label="Subcarpetas" className="flex flex-col gap-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="font-mono text-[11px] font-semibold tracking-wider text-[var(--cl-muted)] uppercase">
+                    Subcarpetas ({filteredSubfolders.length})
+                  </span>
                 </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {filteredSubfolders.map((sub) => {
+                    const counts = countSubfolderItems(sub.id)
+                    const isFav = favoriteIds.includes(sub.id)
+                    const isDropTarget = dragOverFolderId === sub.id
+                    return (
+                      <div
+                        key={sub.id}
+                        draggable={folderNode.system !== 'templates'}
+                        onDragStart={(e) => handleDragStart(e, sub.id)}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={(e) => handleDragOverFolder(e, sub.id)}
+                        onDrop={(e) => handleDropOnFolder(e, sub.id)}
+                        onClick={() => onSelectNode(sub.id)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            onSelectNode(sub.id)
+                          }
+                        }}
+                        className={`group flex cursor-pointer items-center justify-between rounded-[14px] border p-3 transition ${
+                          isDropTarget
+                            ? 'border-[var(--cl-accent)] bg-[var(--cl-accent-soft)]'
+                            : 'border-[var(--cl-border)] bg-[var(--cl-surface)] hover:border-[var(--cl-accent)]'
+                        }`}
+                      >
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--cl-surface-warm)] text-[var(--cl-diagnostic)]">
+                            <Folder className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-bold text-[var(--cl-fg)]">
+                              {sub.title}
+                            </div>
+                            <div className="font-mono text-[11px] text-[var(--cl-muted)]">
+                              {counts.articlesCount} docs
+                              {counts.foldersCount > 0 ? ` · ${counts.foldersCount} sub` : ''}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {onToggleFavorite && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onToggleFavorite(sub.id)
+                              }}
+                              className={`rounded p-1 cursor-pointer ${
+                                isFav
+                                  ? 'text-amber-500'
+                                  : 'text-[var(--cl-muted)] opacity-0 group-hover:opacity-100'
+                              }`}
+                              title="Favorito"
+                            >
+                              <Star className={`h-3.5 w-3.5 ${isFav ? 'fill-amber-500' : ''}`} />
+                            </button>
+                          )}
+                          <ChevronRight className="w-4 h-4 text-[var(--cl-muted)] shrink-0" />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
 
-      {/* 2. MAIN TWO-COLUMN WORKSPACE FROM SKETCH:
-          Left: Indented Document Table (Documento | Fecha creación | Etiqueta | ⋮)
-          Right: 🔍 Buscar + Live Compact Document Index List (📄 ~~~~) */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_275px]">
-        {/* LEFT COLUMN: Document Table */}
-        <section
-          aria-label="Tabla de documentos de la carpeta"
-          className="rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] shadow-[var(--ch-shadow-card)]"
-        >
+            {/* Tabla de Documentos de la Carpeta */}
+            <section
+              aria-label="Tabla de documentos de la carpeta"
+              className="rounded-[14px] border border-[var(--cl-border)] bg-[var(--cl-surface)] shadow-[var(--cl-shadow-card)]"
+            >
           {/* Table Header matching 'Fecha creación' and 'Etiqueta' in the sketch */}
           <div className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-t-xl border-b border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-4 py-3 font-mono text-[11px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase sm:grid-cols-[minmax(240px,1fr)_105px_125px_36px] sm:pl-5">
             <div className="flex items-center gap-2.5">
@@ -1390,145 +1561,152 @@ export function FolderExplorerView({
             </div>
           )}
         </section>
+          </div>
 
-        {/* 3. RIGHT COLUMN FROM SKETCH: 🔍 Buscar + Live Vertical Quick Document Index (📄 ~~~~) */}
+        {/* 3. RIGHT COLUMN: Panel clínico de carpeta matching Dashboard (Repaso SM-2 + Índice rápido + Triage/Etiquetas/Plantillas) */}
         <aside
-          aria-label="Buscador e índice rápido de carpeta"
-          className="flex flex-col gap-3 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] p-4 shadow-[var(--ch-shadow-card)]"
+          aria-label="Panel clínico e índice rápido de carpeta"
+          className="flex flex-col gap-3.5 min-w-0"
         >
-          {/* Search Input matching top-right '🔍 Buscar' in sketch */}
-          <div className="flex items-center gap-2 rounded-xl border border-[var(--ch-border-strong)] bg-[var(--ch-bg-primary)] px-3 py-2 focus-within:border-[var(--ch-accent)]">
-            <Search className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
-            <input
-              type="text"
-              value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
-              placeholder={`Buscar en ${folderNode.title}…`}
-              aria-label="Buscar documento o etiqueta en esta carpeta"
-              className="w-full bg-transparent text-xs font-medium text-[var(--ch-text-primary)] outline-none placeholder:text-[var(--ch-text-muted)]"
-            />
-            {filterText && (
+          {/* Repaso Activo SM-2 (ámbito de esta carpeta) */}
+          <section className="bg-[var(--cl-surface-warm)] border border-[var(--cl-border)] rounded-2xl p-4">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <h3 className="text-sm font-bold text-[var(--cl-fg)] m-0">Repaso Activo SM-2</h3>
+              <span className="font-mono tabular-nums text-xs font-bold px-2.5 py-0.5 rounded-md bg-[var(--cl-surface)] border border-[var(--cl-border)] text-[var(--cl-fg-2)]">
+                {folderSm2Stats.total > 0 ? folderSm2Stats.due : dueFlashcardsCount} para hoy
+              </span>
+            </div>
+            <p className="text-xs text-[var(--cl-muted)] m-0 mb-2.5">
+              {folderSm2Stats.total > 0
+                ? `${folderSm2Stats.total} ${folderSm2Stats.total === 1 ? 'flashcard médica' : 'flashcards médicas'} dentro de «${folderNode.title}».`
+                : dueFlashcardsCount > 0
+                  ? `Sin flashcards propias en esta carpeta. Tienes ${dueFlashcardsCount} pendientes en el mazo general.`
+                  : 'Genera o practica tarjetas de repaso clínico desde las fichas de esta carpeta.'}
+            </p>
+            {onOpenStudy && (
               <button
                 type="button"
-                onClick={() => setFilterText('')}
-                className="text-[var(--ch-text-muted)] hover:text-[var(--ch-text-primary)]"
-                aria-label="Limpiar búsqueda"
+                onClick={() =>
+                  onOpenStudy(folderSm2Stats.total > 0 ? folderArticleIdList : undefined)
+                }
+                className="w-full min-h-[44px] rounded-[10px] bg-[var(--cl-accent)] hover:bg-[var(--cl-accent-hover)] text-white text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
-                <X className="h-3.5 w-3.5" />
+                <Brain className="w-4 h-4" />
+                <span>
+                  {folderSm2Stats.due > 0
+                    ? `Repasar carpeta (${folderSm2Stats.due})`
+                    : folderSm2Stats.total > 0
+                      ? 'Practicar flashcards de carpeta'
+                      : dueFlashcardsCount > 0
+                        ? `Iniciar sesión SM-2 (${dueFlashcardsCount})`
+                        : 'Practicar mazo SM-2'}
+                </span>
               </button>
             )}
-          </div>
+          </section>
 
-          {/* Quick Document List directly under Buscar (matching the vertical stack of 📄 ~~~~ in the sketch) */}
-          <div className="flex items-center justify-between px-1 pt-1 font-mono text-[11px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
-            <span>Índice Rápido</span>
-            <span>{filteredArticles.length} docs</span>
-          </div>
+          {/* Índice Rápido de Documentos */}
+          <section className="bg-[var(--cl-surface)] border border-[var(--cl-border)] rounded-2xl p-4">
+            <div className="flex items-center justify-between gap-2 mb-2.5">
+              <h3 className="text-sm font-bold text-[var(--cl-fg)] m-0">Índice rápido</h3>
+              <span className="font-mono tabular-nums text-[11px] font-semibold text-[var(--cl-muted)]">
+                {filteredArticles.length} {filteredArticles.length === 1 ? 'ficha' : 'fichas'}
+              </span>
+            </div>
 
-          <div className="flex max-h-[380px] flex-col gap-1 overflow-y-auto pr-0.5">
             {filteredArticles.length === 0 ? (
-              <p className="py-4 text-center text-xs text-[var(--ch-text-muted)]">
-                Sin coincidencias
+              <p className="text-xs text-[var(--cl-muted)] m-0 py-2">
+                Sin coincidencias para el filtro actual.
               </p>
             ) : (
-              filteredArticles.map((art) => {
-                const mark = effectiveClinicalMarks[art.id]
-                const artTags = articleMap.get(art.id)?.tags ?? []
-                return (
-                  <button
-                    key={art.id}
-                    type="button"
-                    onClick={() => onSelectNode(art.id)}
-                    className="group flex items-center justify-between gap-2 rounded-lg border border-transparent px-2.5 py-2 text-left text-xs font-medium text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)]/25 hover:bg-[var(--ch-accent-soft)] hover:text-[var(--ch-accent)]"
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
-                      <span className="truncate font-semibold text-[var(--ch-text-primary)] group-hover:text-[var(--ch-accent)]">
-                        {art.title}
+              <div className="flex max-h-[300px] flex-col gap-1.5 overflow-y-auto pr-0.5">
+                {filteredArticles.map((art) => {
+                  const mark = effectiveClinicalMarks[art.id]
+                  const artTags = articleMap.get(art.id)?.tags ?? []
+                  return (
+                    <button
+                      key={art.id}
+                      type="button"
+                      onClick={() => onSelectNode(art.id)}
+                      className="w-full px-2.5 py-2 rounded-lg bg-[var(--cl-surface-muted)] border border-[var(--cl-border-soft)] hover:border-[var(--cl-accent)] text-xs text-[var(--cl-fg)] flex items-center justify-between gap-2 text-left cursor-pointer transition-colors"
+                    >
+                      <span className="flex min-w-0 flex-1 items-center gap-2">
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--cl-diagnostic)]" />
+                        <span className="truncate font-medium">{art.title}</span>
                       </span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1">
-                      {mark === 'warning' && (
-                        <AlertTriangle
-                          className="h-3.5 w-3.5 text-amber-600"
-                          aria-label="Prioridad"
-                        />
-                      )}
-                      {mark === 'critical' && (
-                        <OctagonAlert
-                          className="h-3.5 w-3.5 text-red-600"
-                          aria-label="Crítico"
-                        />
-                      )}
-                      {mark === 'verified' && (
-                        <CheckCircle2
-                          className="h-3.5 w-3.5 text-emerald-600"
-                          aria-label="Verificado"
-                        />
-                      )}
-                      {!mark && artTags[0] && (
-                        <span className="font-mono text-[10px] text-[var(--ch-text-muted)]">
-                          #{artTags[0]}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                )
-              })
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {mark ? (
+                          <span
+                            className={`px-1.5 py-0.5 rounded-full border font-mono text-[10px] font-bold leading-none ${CLINICAL_MARK_META[mark].badgeClass}`}
+                          >
+                            {CLINICAL_MARK_META[mark].shortLabel}
+                          </span>
+                        ) : (
+                          artTags[0] && (
+                            <span className="font-mono text-[10px] text-[var(--cl-muted)]">
+                              #{artTags[0]}
+                            </span>
+                          )
+                        )}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
             )}
-          </div>
+          </section>
 
-          {/* Actionable Clinical Triage Filters + Folder Tags (Dirección A+C) */}
-          <div className="mt-1 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-[10px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
-                Filtrar Triage
-              </span>
-              {markFilter !== 'all' && (
-                <button
-                  type="button"
-                  onClick={() => setMarkFilter('all')}
-                  className="text-[10px] font-semibold text-[var(--cl-diagnostic)] hover:underline cursor-pointer"
-                >
-                  Todos
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {(
-                [
-                  { key: 'critical', count: markCounts.critical, icon: OctagonAlert },
-                  { key: 'warning', count: markCounts.warning, icon: AlertTriangle },
-                  { key: 'verified', count: markCounts.verified, icon: CheckCircle2 },
-                ] as const
-              ).map(({ key, count, icon: Icon }) => {
-                const active = markFilter === key
-                return (
+          {/* Filtrar Triage, Etiquetas y Plantillas */}
+          <section className="bg-[var(--cl-surface)] border border-[var(--cl-border)] rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-bold text-[var(--cl-fg)] m-0">Filtrar Triage</h3>
+                {markFilter !== 'all' && (
                   <button
-                    key={key}
                     type="button"
-                    onClick={() => setMarkFilter((prev) => (prev === key ? 'all' : key))}
-                    className={`flex items-center justify-center gap-1 rounded-lg border px-1.5 py-1.5 text-[11px] font-bold transition cursor-pointer ${
-                      active
-                        ? CLINICAL_MARK_META[key].badgeClass
-                        : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-secondary)] hover:border-[var(--ch-accent)]'
-                    }`}
-                    title={`Filtrar por ${CLINICAL_MARK_META[key].label}`}
+                    onClick={() => setMarkFilter('all')}
+                    className="text-[11px] font-semibold text-[var(--cl-diagnostic)] hover:underline cursor-pointer"
                   >
-                    <Icon className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{CLINICAL_MARK_META[key].shortLabel}</span>
-                    <span className="font-mono text-[10px] opacity-80">{count}</span>
+                    Ver todos
                   </button>
-                )
-              })}
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(
+                  [
+                    { key: 'critical', count: markCounts.critical, icon: OctagonAlert },
+                    { key: 'warning', count: markCounts.warning, icon: AlertTriangle },
+                    { key: 'verified', count: markCounts.verified, icon: CheckCircle2 },
+                  ] as const
+                ).map(({ key, count, icon: Icon }) => {
+                  const active = markFilter === key
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setMarkFilter((prev) => (prev === key ? 'all' : key))}
+                      className={`min-h-[34px] flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-bold transition cursor-pointer ${
+                        active
+                          ? CLINICAL_MARK_META[key].badgeClass
+                          : 'border-[var(--cl-border)] bg-[var(--cl-surface-muted)] text-[var(--cl-fg-2)] hover:border-[var(--cl-accent)]'
+                      }`}
+                      title={`Filtrar por ${CLINICAL_MARK_META[key].label}`}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="whitespace-nowrap">{CLINICAL_MARK_META[key].shortLabel}</span>
+                      <span className="font-mono text-[10px] opacity-80">{count}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             {folderTags.length > 0 && (
-              <div className="border-t border-[var(--ch-border-subtle)] pt-2">
-                <div className="mb-1.5 font-mono text-[10px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
+              <div className="border-t border-[var(--cl-border-soft)] pt-2.5">
+                <div className="mb-1.5 text-[11px] font-bold text-[var(--cl-muted)]">
                   Etiquetas aquí
                 </div>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {folderTags.map(([tag, count]) => {
                     const active = filterText.trim().toLowerCase() === `#${tag.toLowerCase()}`
                     return (
@@ -1540,10 +1718,10 @@ export function FolderExplorerView({
                             prev.trim().toLowerCase() === `#${tag.toLowerCase()}` ? '' : `#${tag}`,
                           )
                         }
-                        className={`rounded-md border px-2 py-0.5 font-mono text-[10px] font-semibold transition cursor-pointer ${
+                        className={`min-h-[30px] rounded-md border px-2.5 py-1 font-mono text-[11px] font-semibold transition cursor-pointer ${
                           active
-                            ? 'border-[var(--cl-accent)] bg-[var(--cl-accent)] text-white'
-                            : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-secondary)] hover:border-[var(--ch-accent)]'
+                            ? 'border-[var(--cl-fg)] bg-[var(--cl-fg)] text-[var(--cl-bg)]'
+                            : 'border-[var(--cl-border)] bg-[var(--cl-surface-muted)] text-[var(--cl-fg-2)] hover:border-[var(--cl-accent)]'
                         }`}
                       >
                         #{tag} ({count})
@@ -1553,8 +1731,31 @@ export function FolderExplorerView({
                 </div>
               </div>
             )}
-          </div>
+
+            {templates.length > 0 && onCreateFromTemplate && (
+              <select
+                defaultValue=""
+                aria-label="Crear artículo en esta carpeta desde plantilla médica"
+                onChange={(e) => {
+                  const val = e.currentTarget.value
+                  e.currentTarget.value = ''
+                  if (val) onCreateFromTemplate(val, folderNode.id)
+                }}
+                className="w-full min-h-[40px] px-3 rounded-lg border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] text-xs font-semibold text-[var(--cl-fg)] cursor-pointer"
+              >
+                <option value="" disabled>
+                  Crear aquí desde plantilla ({templates.length})…
+                </option>
+                {templates.map((tpl) => (
+                  <option key={tpl.node.id} value={tpl.node.title}>
+                    {tpl.node.title}
+                  </option>
+                ))}
+              </select>
+            )}
+          </section>
         </aside>
+        </div>
       </div>
 
       {/* BATCH SELECTION BAR (Visible when 'Seleccionar' mode is active) */}
@@ -1670,43 +1871,61 @@ export function FolderExplorerView({
         <div
           role="dialog"
           aria-label="Crear o importar en esta carpeta"
-          className="fixed bottom-24 left-1/2 z-40 w-[92%] max-w-md -translate-x-1/2 rounded-2xl border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)] p-4 shadow-[var(--ch-shadow-modal)]"
+          className="fixed bottom-[86px] left-1/2 z-50 w-[min(560px,calc(100vw-24px))] -translate-x-1/2 rounded-2xl border border-[var(--cl-border)] bg-[var(--cl-surface)] p-4"
+          style={{ boxShadow: 'var(--cl-shadow-dock)' }}
         >
-          <div className="mb-3 flex items-center justify-between">
-            <span className="font-mono text-xs font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <h3 className="m-0 text-sm font-bold text-[var(--cl-fg)]">
               Acciones en «{folderNode.title}»
-            </span>
+            </h3>
             <button
               type="button"
-              onClick={() => setIsOrbDrawerOpen(false)}
-              className="rounded-md p-1 text-[var(--ch-text-muted)] hover:text-[var(--ch-text-primary)]"
+              onClick={() => {
+                setShowTemplatePicker(false)
+                setIsOrbDrawerOpen(false)
+              }}
+              aria-label="Cerrar panel"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] text-[var(--cl-fg-2)] hover:text-[var(--cl-fg)] cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => {
                 setIsOrbDrawerOpen(false)
                 onCreateArticle(folderNode.id)
               }}
-              className="flex items-center gap-2 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 text-left text-xs font-semibold text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)]"
+              className="flex min-h-[48px] items-center gap-2.5 rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] px-3 py-2 text-left hover:border-[var(--cl-accent)] hover:bg-[var(--cl-surface-warm)] cursor-pointer"
             >
-              <FileText className="h-4 w-4 text-[var(--ch-accent)]" />
-              <span>Nuevo Artículo</span>
+              <FileText className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />
+              <div className="min-w-0">
+                <span className="block text-xs font-bold text-[var(--cl-fg)]">Nuevo artículo</span>
+                <span className="block text-[11px] text-[var(--cl-muted)] truncate">
+                  Ficha Markdown dentro de esta carpeta
+                </span>
+              </div>
             </button>
+
             <button
               type="button"
               onClick={() => {
                 setIsOrbDrawerOpen(false)
                 onCreateSubfolder(folderNode.id)
               }}
-              className="flex items-center gap-2 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 text-left text-xs font-semibold text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)]"
+              className="flex min-h-[48px] items-center gap-2.5 rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] px-3 py-2 text-left hover:border-[var(--cl-accent)] hover:bg-[var(--cl-surface-warm)] cursor-pointer"
             >
-              <Folder className="h-4 w-4 text-[var(--ch-accent)]" />
-              <span>Nueva Subcarpeta</span>
+              <FolderPlus className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />
+              <div className="min-w-0">
+                <span className="block text-xs font-bold text-[var(--cl-fg)]">Nueva subcarpeta</span>
+                <span className="block text-[11px] text-[var(--cl-muted)] truncate">
+                  Subtema o módulo clínico
+                </span>
+              </div>
             </button>
+
             {onSmartImport && (
               <button
                 type="button"
@@ -1714,12 +1933,18 @@ export function FolderExplorerView({
                   setIsOrbDrawerOpen(false)
                   onSmartImport(folderNode.id)
                 }}
-                className="flex items-center gap-2 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 text-left text-xs font-semibold text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)]"
+                className="flex min-h-[48px] items-center gap-2.5 rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] px-3 py-2 text-left hover:border-[var(--cl-accent)] hover:bg-[var(--cl-surface-warm)] cursor-pointer"
               >
-                <Sparkles className="h-4 w-4 text-[var(--ch-accent)]" />
-                <span>Importar con IA</span>
+                <Sparkles className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />
+                <div className="min-w-0">
+                  <span className="block text-xs font-bold text-[var(--cl-fg)]">Importar con IA</span>
+                  <span className="block text-[11px] text-[var(--cl-muted)] truncate">
+                    Texto, Word (.docx) o ChatGPT
+                  </span>
+                </div>
               </button>
             )}
+
             {onUploadPdf && (
               <button
                 type="button"
@@ -1727,12 +1952,18 @@ export function FolderExplorerView({
                   setIsOrbDrawerOpen(false)
                   onUploadPdf(folderNode.id)
                 }}
-                className="flex items-center gap-2 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 text-left text-xs font-semibold text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)]"
+                className="flex min-h-[48px] items-center gap-2.5 rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] px-3 py-2 text-left hover:border-[var(--cl-accent)] hover:bg-[var(--cl-surface-warm)] cursor-pointer"
               >
-                <FileUp className="h-4 w-4 text-[var(--ch-accent)]" />
-                <span>Subir PDF</span>
+                <FileUp className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />
+                <div className="min-w-0">
+                  <span className="block text-xs font-bold text-[var(--cl-fg)]">Subir PDF</span>
+                  <span className="block text-[11px] text-[var(--cl-muted)] truncate">
+                    Paper, guía o protocolo local
+                  </span>
+                </div>
               </button>
             )}
+
             {onBulkImport && (
               <button
                 type="button"
@@ -1740,12 +1971,18 @@ export function FolderExplorerView({
                   setIsOrbDrawerOpen(false)
                   onBulkImport(folderNode.id)
                 }}
-                className="flex items-center gap-2 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 text-left text-xs font-semibold text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)]"
+                className="flex min-h-[48px] items-center gap-2.5 rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] px-3 py-2 text-left hover:border-[var(--cl-accent)] hover:bg-[var(--cl-surface-warm)] cursor-pointer"
               >
-                <Download className="h-4 w-4 text-[var(--ch-accent)]" />
-                <span>Importar .md / Word</span>
+                <Download className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />
+                <div className="min-w-0">
+                  <span className="block text-xs font-bold text-[var(--cl-fg)]">Importar .md</span>
+                  <span className="block text-[11px] text-[var(--cl-muted)] truncate">
+                    Lote de archivos Markdown
+                  </span>
+                </div>
               </button>
             )}
+
             {onBulkExportPdf && (
               <button
                 type="button"
@@ -1753,12 +1990,18 @@ export function FolderExplorerView({
                   setIsOrbDrawerOpen(false)
                   onBulkExportPdf(folderNode.id)
                 }}
-                className="flex items-center gap-2 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 text-left text-xs font-semibold text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)]"
+                className="flex min-h-[48px] items-center gap-2.5 rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] px-3 py-2 text-left hover:border-[var(--cl-accent)] hover:bg-[var(--cl-surface-warm)] cursor-pointer"
               >
-                <FileDown className="h-4 w-4 text-[var(--ch-accent)]" />
-                <span>Compendio PDF</span>
+                <FileDown className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />
+                <div className="min-w-0">
+                  <span className="block text-xs font-bold text-[var(--cl-fg)]">Compendio PDF</span>
+                  <span className="block text-[11px] text-[var(--cl-muted)] truncate">
+                    Exportar carpeta completa
+                  </span>
+                </div>
               </button>
             )}
+
             {onOpenQuickCapture && (
               <button
                 type="button"
@@ -1766,22 +2009,96 @@ export function FolderExplorerView({
                   setIsOrbDrawerOpen(false)
                   onOpenQuickCapture()
                 }}
-                className="col-span-2 flex items-center justify-center gap-2 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 text-xs font-semibold text-[var(--ch-text-primary)] hover:border-[var(--ch-accent)]"
+                className="flex min-h-[48px] items-center gap-2.5 rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] px-3 py-2 text-left hover:border-[var(--cl-accent)] hover:bg-[var(--cl-surface-warm)] cursor-pointer"
               >
-                <Plus className="h-4 w-4 text-[var(--ch-accent)]" />
-                <span>Captura Rápida en Inbox</span>
+                <Camera className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />
+                <div className="min-w-0">
+                  <span className="block text-xs font-bold text-[var(--cl-fg)]">Captura rápida</span>
+                  <span className="block text-[11px] text-[var(--cl-muted)] truncate">
+                    Foto o nota directa al Inbox
+                  </span>
+                </div>
               </button>
+            )}
+
+            {onSortFolderAlphabetically && children.length > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOrbDrawerOpen(false)
+                  onSortFolderAlphabetically(folderNode.id)
+                }}
+                className="flex min-h-[48px] items-center gap-2.5 rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] px-3 py-2 text-left hover:border-[var(--cl-accent)] hover:bg-[var(--cl-surface-warm)] cursor-pointer"
+              >
+                <ArrowUpDown className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />
+                <div className="min-w-0">
+                  <span className="block text-xs font-bold text-[var(--cl-fg)]">Ordenar A–Z</span>
+                  <span className="block text-[11px] text-[var(--cl-muted)] truncate">
+                    Guardar orden alfabético
+                  </span>
+                </div>
+              </button>
+            )}
+
+            {templates.length > 0 && onCreateFromTemplate && (
+              <div className="sm:col-span-2 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowTemplatePicker((prev) => !prev)}
+                  aria-expanded={showTemplatePicker}
+                  className="flex w-full min-h-[48px] items-center justify-between gap-2 rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] px-3 py-2 text-left hover:border-[var(--cl-accent)] hover:bg-[var(--cl-surface-warm)] cursor-pointer"
+                >
+                  <div>
+                    <span className="block text-xs font-bold text-[var(--cl-fg)]">
+                      Desde plantilla clínica ({templates.length})
+                    </span>
+                    <span className="block text-[11px] text-[var(--cl-muted)]">
+                      Crear directamente dentro de «{folderNode.title}»
+                    </span>
+                  </div>
+                  <ChevronRight
+                    className={`h-4 w-4 shrink-0 text-[var(--cl-diagnostic)] transition-transform ${
+                      showTemplatePicker ? 'rotate-90' : ''
+                    }`}
+                  />
+                </button>
+
+                {showTemplatePicker && (
+                  <div className="grid max-h-52 grid-cols-1 gap-1.5 overflow-y-auto rounded-[10px] border border-[var(--cl-border-soft)] bg-[var(--cl-surface)] p-1.5 sm:grid-cols-2">
+                    {templates.map((tpl) => (
+                      <button
+                        key={tpl.node.id}
+                        type="button"
+                        onClick={() => {
+                          setShowTemplatePicker(false)
+                          setIsOrbDrawerOpen(false)
+                          onCreateFromTemplate(tpl.node.title, folderNode.id)
+                        }}
+                        className="min-h-[38px] rounded-lg border border-[var(--cl-border-soft)] bg-[var(--cl-surface-muted)] px-2.5 py-1.5 text-left text-xs font-semibold text-[var(--cl-fg)] truncate hover:border-[var(--cl-accent)] hover:bg-[var(--cl-accent-soft)] cursor-pointer transition-colors"
+                        title={tpl.node.title}
+                      >
+                        {tpl.node.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
       )}
 
-      {/* 4. BOTTOM TOOLS BAR WITH CENTERED CIRCULAR BUTTON */}
+      {/* 4. BOTTOM TOOLS BAR WITH CENTERED CIRCULAR BUTTON (Consistente con Inicio) */}
       <ClinicalBottomDock
         ariaLabel="Barra inferior de herramientas de carpeta"
+        dockTrigger={true}
+        zIndexClass="z-40"
         orbLabel="Abrir menú central de creación e importación"
         orbTitle="Crear o importar en esta carpeta"
-        onOrbClick={() => setIsOrbDrawerOpen((prev) => !prev)}
+        onOrbClick={() => {
+          setShowTemplatePicker(false)
+          setIsOrbDrawerOpen((prev) => !prev)
+        }}
         orbIcon={
           <Plus
             className={`h-6 w-6 stroke-[2.4] transition-transform ${isOrbDrawerOpen ? 'rotate-45' : ''}`}
@@ -1789,28 +2106,59 @@ export function FolderExplorerView({
         }
         left={
           <>
-            <button
-              type="button"
-              onClick={() => onCreateArticle(folderNode.id)}
-              title="Nuevo Artículo"
-              aria-label="Nuevo Artículo"
-              className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE} text-[var(--ch-text-primary)]`}
-            >
-              <FileText className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
-              <span className="hidden sm:inline">Nuevo Artículo</span>
-            </button>
+            {onGoBack && (
+              <button
+                type="button"
+                onClick={onGoBack}
+                title="Volver al Inicio del repositorio"
+                aria-label="Inicio"
+                className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
+              >
+                <ArrowLeft className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Inicio</span>
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => onCreateSubfolder(folderNode.id)}
-              title="Nueva Subcarpeta"
-              aria-label="Nueva Subcarpeta"
-              className={`hidden md:inline-flex md:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
-            >
-              <Folder className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
-              <span>Subcarpeta</span>
-            </button>
+            {onOpenQuickCapture && (
+              <button
+                type="button"
+                onClick={onOpenQuickCapture}
+                title="Captura rápida a 1 toque (foto + nota) al Inbox"
+                aria-label="Captura rápida"
+                className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
+              >
+                <Camera className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Captura</span>
+              </button>
+            )}
 
+            {onOpenStudy && (
+              <button
+                type="button"
+                onClick={() =>
+                  onOpenStudy(folderSm2Stats.total > 0 ? folderArticleIdList : undefined)
+                }
+                title={
+                  folderSm2Stats.total > 0
+                    ? `Repasar flashcards SM-2 de «${folderNode.title}»`
+                    : 'Repaso activo de flashcards SM-2'
+                }
+                aria-label="Repaso SM-2"
+                className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
+              >
+                <Brain className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">SM-2</span>
+                {folderSm2Stats.due > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-[var(--cl-accent)] text-white text-[10px] font-bold tabular-nums leading-none">
+                    {folderSm2Stats.due}
+                  </span>
+                )}
+              </button>
+            )}
+          </>
+        }
+        right={
+          <>
             <button
               type="button"
               onClick={() => {
@@ -1824,19 +2172,16 @@ export function FolderExplorerView({
               <CheckSquare className="h-4 w-4 shrink-0" />
               <span className="hidden sm:inline">Seleccionar</span>
             </button>
-          </>
-        }
-        right={
-          <>
+
             {onSmartImport && (
               <button
                 type="button"
                 onClick={() => onSmartImport(folderNode.id)}
-                className={`inline-flex md:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
+                className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
                 title="Importar apuntes con IA en esta carpeta"
                 aria-label="Importar IA"
               >
-                <Sparkles className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+                <Sparkles className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />
                 <span className="hidden md:inline">Importar IA</span>
               </button>
             )}
@@ -1849,7 +2194,7 @@ export function FolderExplorerView({
                 title="Subir documento PDF a esta carpeta"
                 aria-label="Subir PDF"
               >
-                <FileUp className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+                <FileUp className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />
                 <span>Subir PDF</span>
               </button>
             )}
@@ -1862,21 +2207,8 @@ export function FolderExplorerView({
                 title="Exportar carpeta como Compendio PDF"
                 aria-label="Compendio PDF"
               >
-                <Printer className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+                <Printer className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />
                 <span>Compendio PDF</span>
-              </button>
-            )}
-
-            {onSortFolderAlphabetically && children.length > 1 && (
-              <button
-                type="button"
-                onClick={() => onSortFolderAlphabetically(folderNode.id)}
-                className={`inline-flex lg:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
-                title="Ordenar carpeta alfabéticamente (A-Z)"
-                aria-label="Ordenar A-Z"
-              >
-                <ArrowUpDown className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
-                <span className="hidden lg:inline">A–Z</span>
               </button>
             )}
           </>

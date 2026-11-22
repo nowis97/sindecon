@@ -18,19 +18,15 @@ import {
   FolderOpen,
   FolderPlus,
   Inbox,
-  Lock,
-  Moon,
   MoreHorizontal,
   Pencil,
   Plus,
   Printer,
   Search,
   SlidersHorizontal,
-  Smartphone,
   Sparkles,
   Star,
   Stethoscope,
-  Sun,
   Trash2,
   Upload,
   X,
@@ -49,13 +45,14 @@ import type { MergeReport } from '../../domain/merge'
 import { childrenOf } from '../../domain/tree'
 import { useAllTags, useArticlesWithTag } from '../../hooks/useSearch'
 import type { Theme } from '../../hooks/useTheme'
-import { getSyncStatusDetails, type SyncProgress, type SyncState } from '../../pwa/syncEngine'
+import type { SyncProgress, SyncState } from '../../pwa/syncEngine'
 import {
   ClinicalBottomDock,
   DOCK_BTN_ACTIVE,
   DOCK_BTN_BASE,
   DOCK_BTN_IDLE,
 } from '../common/ClinicalBottomDock'
+import { ClinicalStationHeader } from '../common/ClinicalStationHeader'
 import { AlertDialog } from '../common/DialogModal'
 
 export interface DashboardProps {
@@ -359,71 +356,6 @@ export function Dashboard({
     toggleFolderExpand(folderId)
   }
 
-  // Estado visual para el botón Drive superior (sincronizado con getSyncStatusDetails)
-  const driveSummary = useMemo(() => {
-    const details = getSyncStatusDetails({
-      isConnected: isGoogleConnected,
-      isSessionExpired: isGoogleSessionExpired,
-      hasPendingChanges: googleHasPendingChanges,
-      syncState: googleSyncState,
-      syncProgress: googleSyncProgress,
-      lastSyncedAt: googleLastSyncedAt,
-    })
-
-    const styleMap: Record<string, { dotClass: string; pillClass: string }> = {
-      disconnected: {
-        dotClass: 'bg-[var(--cl-muted)]',
-        pillClass:
-          'border-[var(--cl-border)] bg-[var(--cl-surface)] text-[var(--cl-fg-2)] hover:bg-[var(--cl-surface-warm)]',
-      },
-      syncing: {
-        dotClass: 'bg-[var(--cl-diagnostic)] animate-pulse',
-        pillClass:
-          'border-[var(--cl-accent-border)] bg-[var(--cl-accent-soft)] text-[var(--cl-diagnostic)]',
-      },
-      paused: {
-        dotClass: 'bg-[var(--cl-warn)]',
-        pillClass:
-          'border-[var(--cl-warn-border)] bg-[var(--cl-warn-soft)] text-[var(--cl-warn)]',
-      },
-      pending: {
-        dotClass: 'bg-[var(--cl-warn)]',
-        pillClass:
-          'border-[var(--cl-warn-border)] bg-[var(--cl-warn-soft)] text-[var(--cl-warn)]',
-      },
-      offline: {
-        dotClass: 'bg-[var(--cl-muted)]',
-        pillClass:
-          'border-[var(--cl-border)] bg-[var(--cl-surface)] text-[var(--cl-muted)]',
-      },
-      error: {
-        dotClass: 'bg-[var(--cl-danger)]',
-        pillClass:
-          'border-[var(--cl-danger-border)] bg-[var(--cl-danger-soft)] text-[var(--cl-danger)]',
-      },
-      synced: {
-        dotClass: 'bg-[var(--cl-success)]',
-        pillClass:
-          'border-[var(--cl-success-border)] bg-[var(--cl-success-soft)] text-[var(--cl-success)]',
-      },
-    }
-
-    const styles = styleMap[details.status] || styleMap.disconnected
-    return {
-      label: details.label,
-      title: details.title,
-      dotClass: styles.dotClass,
-      pillClass: styles.pillClass,
-    }
-  }, [
-    isGoogleConnected,
-    isGoogleSessionExpired,
-    googleHasPendingChanges,
-    googleSyncState,
-    googleSyncProgress,
-    googleLastSyncedAt,
-  ])
-
   const handleExportZip = async () => {
     setZipBusy(true)
     setActiveDrawer(null)
@@ -468,95 +400,57 @@ export function Dashboard({
     >
       <div className="max-w-[1220px] mx-auto px-4 pt-4 pb-6 sm:px-6 sm:pt-5 sm:pb-8">
         {/* Cabecera Clínica Unificada */}
-        <header
-          className="flex items-center justify-between gap-4 flex-wrap pb-4 mb-5 border-b border-[var(--cl-border)]"
-          aria-label="Cabecera de estación clínica"
-        >
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div
-              className={`w-[42px] h-[42px] rounded-[10px] flex items-center justify-center shrink-0 transition-colors ${
-                isDark
-                  ? 'bg-[var(--cl-surface-warm)] border border-[var(--cl-border)] text-[var(--cl-success)]'
-                  : 'bg-[var(--cl-fg)] text-white'
-              }`}
-              aria-hidden="true"
-            >
-              <Stethoscope className="w-5 h-5" />
+        <ClinicalStationHeader
+          ariaLabel="Cabecera de estación clínica"
+          theme={theme}
+          userName={userName}
+          canInstallPwa={canInstallPwa}
+          onInstallPwa={onInstallPwa}
+          onToggleTheme={onToggleTheme}
+          onLockTerminal={onLockTerminal}
+          isGoogleConnected={isGoogleConnected}
+          isGoogleSessionExpired={isGoogleSessionExpired}
+          googleHasPendingChanges={googleHasPendingChanges}
+          googleSyncState={googleSyncState}
+          googleSyncProgress={googleSyncProgress}
+          googleLastSyncedAt={googleLastSyncedAt}
+          onOpenGoogleDriveSync={onOpenGoogleDriveSync}
+          left={
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div
+                className={`w-[42px] h-[42px] rounded-[10px] flex items-center justify-center shrink-0 transition-colors ${
+                  isDark
+                    ? 'bg-[var(--cl-surface-warm)] border border-[var(--cl-border)] text-[var(--cl-success)]'
+                    : 'bg-[var(--cl-fg)] text-white'
+                }`}
+                aria-hidden="true"
+              >
+                <Stethoscope className="w-5 h-5" />
+              </div>
+
+              <div className="min-w-0">
+                <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-[-0.025em] leading-[1.15] text-[var(--cl-fg)] m-0 truncate">
+                  ¡Hola, {userName}!
+                </h1>
+                <p className="font-mono tabular-nums text-xs text-[var(--cl-muted)] mt-1 mb-0 flex items-center gap-2 flex-wrap">
+                  <span>
+                    {totalArticles} {totalArticles === 1 ? 'artículo' : 'artículos'}
+                  </span>
+                  <span>·</span>
+                  <span>
+                    {totalFolders} {totalFolders === 1 ? 'especialidad' : 'especialidades'}
+                  </span>
+                  <span>·</span>
+                  <span>{inboxCount} en Inbox</span>
+                  <span>·</span>
+                  <span>
+                    {dueFlashcardsCount} {dueFlashcardsCount === 1 ? 'repaso SM-2' : 'repasos SM-2'}
+                  </span>
+                </p>
+              </div>
             </div>
-
-            <div className="min-w-0">
-              <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-[-0.025em] leading-[1.15] text-[var(--cl-fg)] m-0 truncate">
-                ¡Hola, {userName}!
-              </h1>
-              <p className="font-mono tabular-nums text-xs text-[var(--cl-muted)] mt-1 mb-0 flex items-center gap-2 flex-wrap">
-                <span>
-                  {totalArticles} {totalArticles === 1 ? 'artículo' : 'artículos'}
-                </span>
-                <span>·</span>
-                <span>
-                  {totalFolders} {totalFolders === 1 ? 'especialidad' : 'especialidades'}
-                </span>
-                <span>·</span>
-                <span>{inboxCount} en Inbox</span>
-                <span>·</span>
-                <span>
-                  {dueFlashcardsCount} {dueFlashcardsCount === 1 ? 'repaso SM-2' : 'repasos SM-2'}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {onOpenGoogleDriveSync && (
-              <button
-                type="button"
-                onClick={onOpenGoogleDriveSync}
-                title={driveSummary.title}
-                className={`inline-flex items-center gap-2 min-h-[40px] px-3.5 rounded-full border text-xs font-bold cursor-pointer transition-colors ${driveSummary.pillClass}`}
-              >
-                <span className={`w-[7px] h-[7px] rounded-full shrink-0 ${driveSummary.dotClass}`} />
-                <span>{driveSummary.label}</span>
-              </button>
-            )}
-
-            {canInstallPwa && onInstallPwa && (
-              <button
-                type="button"
-                onClick={onInstallPwa}
-                className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-full border border-[var(--cl-border)] bg-[var(--cl-surface)] hover:bg-[var(--cl-surface-warm)] text-[var(--cl-fg-2)] hover:text-[var(--cl-fg)] text-xs font-semibold cursor-pointer transition-colors"
-                title="Instalar SINDECON como aplicación offline"
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>Instalar App</span>
-              </button>
-            )}
-
-            {onToggleTheme && (
-              <button
-                type="button"
-                onClick={onToggleTheme}
-                aria-label="Cambiar entre modo diurno y guardia UCI"
-                className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-full border border-[var(--cl-border)] bg-[var(--cl-surface)] hover:bg-[var(--cl-surface-warm)] text-[var(--cl-fg-2)] hover:text-[var(--cl-fg)] text-xs font-semibold cursor-pointer transition-colors"
-              >
-                {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-                <span>{isDark ? 'Turno Día' : 'Guardia UCI'}</span>
-              </button>
-            )}
-
-            {onLockTerminal && (
-              <button
-                type="button"
-                onClick={onLockTerminal}
-                aria-label="Bloquear terminal clínico"
-                title={`Sesión activa: ${userName}. Clic para bloquear terminal.`}
-                className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-full border border-[var(--cl-border)] bg-[var(--cl-surface)] hover:bg-[var(--cl-surface-warm)] text-[var(--cl-fg-2)] hover:text-[var(--cl-fg)] text-xs font-semibold cursor-pointer transition-colors"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Bloquear</span>
-              </button>
-            )}
-          </div>
-        </header>
+          }
+        />
 
         {storagePersisted === false && (
           <div className="mb-4 px-3.5 py-2.5 rounded-[10px] border border-[var(--cl-warn-border)] bg-[var(--cl-warn-soft)] text-[var(--cl-warn)] text-xs font-semibold flex items-center gap-2">

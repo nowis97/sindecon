@@ -15,6 +15,7 @@
 .clinical-login,
 .clinical-home {
   font-family: var(--font-sans);
+  min-height: 100dvh;
   --cl-bg: #f4f7f9;
   --cl-bg-subtle: #edf2f6;
   --cl-surface: #ffffff;
@@ -114,7 +115,11 @@
   background: transparent;
 }
 
-.folder-main-view-wrapper,
+.folder-main-view-wrapper {
+  max-width: none;
+  padding: 0;
+}
+
 .article-container {
   max-width: 1440px;
   padding: 8px 12px;
