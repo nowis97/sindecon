@@ -52,4 +52,43 @@ describe('FolderExplorerView Component Contract', () => {
     expect(printedId).toBe('art-3')
     expect(backCalled).toBe(true)
   })
+
+  it('acepta props opcionales de estación unificada (SM-2, plantillas, cabecera global)', () => {
+    let templateCall: { title: string; parentId?: string | null } | null = null
+    let studyScope: string[] | undefined
+
+    const props: FolderExplorerViewProps = {
+      folderNode: {
+        id: 'folder-uci',
+        parent_id: null,
+        kind: 'folder',
+        title: 'UCI Adulto',
+        order: 0,
+        system: null,
+        created_at: 1732147200000,
+        updated_at: 1732147200000,
+        deleted_at: null,
+      },
+      nodes: [],
+      onSelectNode: () => {},
+      onCreateArticle: () => {},
+      onCreateSubfolder: () => {},
+      theme: 'dark',
+      onToggleTheme: () => {},
+      dueFlashcardsCount: 4,
+      onOpenStudy: (nodeIds) => {
+        studyScope = nodeIds
+      },
+      templates: [],
+      onCreateFromTemplate: (title, parentId) => {
+        templateCall = { title, parentId }
+      },
+    }
+
+    props.onCreateFromTemplate?.('Protocolo Sepsis', 'folder-uci')
+    props.onOpenStudy?.(['art-sepsis'])
+
+    expect(templateCall).toEqual({ title: 'Protocolo Sepsis', parentId: 'folder-uci' })
+    expect(studyScope).toEqual(['art-sepsis'])
+  })
 })
