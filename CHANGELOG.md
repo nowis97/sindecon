@@ -2,6 +2,18 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.1.0] - 2026-11-22
+
+### Added
+- **Copiloto Clínico en 3 Pestañas (`ArticleCopilotRail`)**: Columna derecha contextual en `ArticleWorkspaceView` con pestañas **`Índice` | `SM-2 (N)` | `Triage`**, permitiendo repasar, voltear y calificar tarjetas SM-2 en vivo (`Otra vez`, `Difícil`, `Bueno`, `Fácil`) sin salir de la lectura A4.
+- **Menú de Protocolo en Cabecera (`···`) y Selector Modal de Carpeta**: Acciones directas **`Mover a carpeta…`**, **`Duplicar protocolo`** (`handleDuplicateArticle` en `App.tsx`), **`Exportar Markdown (.md)`** y **`Eliminar protocolo`** sin abandonar el apunte.
+- **Tira de Triage Unificado en `Dashboard` y Badges en `Ctrl+K`**: Filtros rápidos (`Todos`, `Inbox`, `Críticos`, `Prioridad`, `Verificados`) con cola inline, badges de estado en `Modificados recientemente`, carpetas expandidas y resultados de `CommandPalette`.
+- **Utilitarios Compartidos (`clinicalMarks.ts` y `exportMarkdown.ts`)**: Consolidación única de lectura/escritura sincronizada de marcas clínicas (`CLINICAL_MARK_META`, filtros/conteos) y descarga Markdown (.md) con pruebas unitarias en `clinicalMarks.test.ts`.
+
+### Changed
+- **Dock Contextual y Selector Real de Plantillas (`Dashboard` y `ArticleWorkspaceView`)**: Reemplazo del botón duplicado `Crear` por acceso directo **`Inbox`**, apertura de las 17 plantillas reales en el cajón `+` del Dashboard, y menú contextual en el orb `+` del artículo (`Lector`: marcas 1-tap, flashcards, favoritos, columnas; `Editor`/`Dividido`: bloques clínicos Markdown).
+- **Panel Derecho Accionable en Carpetas (`FolderExplorerView`) y Apertura a 1 Toque**: Reemplazo de la leyenda pasiva `"Marcas Clínicas (Menú ⋮)"` por filtros clicables de triage (`Crítico`, `Prioridad`, `Verificado`) y etiquetas de carpeta (`Etiquetas aquí`), además de botón explícito `Abrir carpeta` de 1 toque en los popovers de especialidad.
+
 ## [1.0.2] - 2026-11-22
 
 ### Changed

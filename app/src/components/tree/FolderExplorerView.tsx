@@ -27,10 +27,21 @@ import {
   Check,
   FileDown,
   ChevronDown,
+  ArrowUpRight,
 } from 'lucide-react'
 import { db, type NodeRow, type ArticleRow } from '../../db/db'
 import { saveArticle } from '../../db/articles'
 import { childrenOf, canMove, sortNodesBy, type SortCriteria } from '../../domain/tree'
+import {
+  CLINICAL_MARK_META,
+  mergeClinicalMarks,
+  readAllClinicalMarks,
+  saveAllClinicalMarks,
+  type ClinicalMark,
+} from '../../utils/clinicalMarks'
+import { downloadMarkdownFile } from '../../utils/exportMarkdown'
+
+export type { ClinicalMark }
 import {
   ClinicalBottomDock,
   DOCK_BTN_ACTIVE,
@@ -38,32 +49,6 @@ import {
   DOCK_BTN_IDLE,
 } from '../common/ClinicalBottomDock'
 
-export type ClinicalMark = 'warning' | 'critical' | 'verified'
-
-const CLINICAL_MARKS_STORAGE_KEY = 'sindecon_article_marks'
-
-function loadClinicalMarks(): Record<string, ClinicalMark> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const raw = window.localStorage.getItem(CLINICAL_MARKS_STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw)
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, ClinicalMark>) : {}
-  } catch {
-    return {}
-  }
-}
-
-function saveClinicalMarks(marks: Record<string, ClinicalMark>): void {
-  if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.setItem(CLINICAL_MARKS_STORAGE_KEY, JSON.stringify(marks))
-    } catch {
-      // Ignore quota errors
-    }
-  }
-  void db.meta.put({ key: 'clinical_marks', value: marks }).catch(() => {})
-}
 
 export interface FolderExplorerViewProps {
   folderNode: NodeRow
@@ -101,22 +86,6 @@ function formatClinicalDate(timestamp: number): string {
   }
 }
 
-function downloadMarkdownFile(title: string, bodyMd: string, tags: string[]) {
-  const safeName = (title || 'documento-clinico')
-    .replace(/[\\/:*?"<>|]/g, '-')
-    .trim()
-  const tagHeader = tags.length > 0 ? `Etiquetas: ${tags.map((t) => `#${t}`).join(' ')}\n\n` : ''
-  const content = `# ${title}\n\n${tagHeader}${bodyMd || ''}`
-  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${safeName}.md`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
 
 export function FolderExplorerView({
   folderNode,
@@ -159,7 +128,7 @@ export function FolderExplorerView({
   const [switcherFolderId, setSwitcherFolderId] = useState<string>(folderNode.id)
   const [switcherSearch, setSwitcherSearch] = useState('')
   const [clinicalMarks, setClinicalMarks] = useState<Record<string, ClinicalMark>>(() =>
-    loadClinicalMarks(),
+    readAllClinicalMarks(),
   )
 
   // Hydrate from IndexedDB db.meta if present (e.g. after .zip restore or Google Drive sync)
@@ -169,13 +138,10 @@ export function FolderExplorerView({
     undefined,
   )
 
-  const effectiveClinicalMarks = useMemo(() => {
-    const fromDb =
-      metaClinicalMarks?.value && typeof metaClinicalMarks.value === 'object'
-        ? (metaClinicalMarks.value as Record<string, ClinicalMark>)
-        : {}
-    return { ...fromDb, ...clinicalMarks }
-  }, [metaClinicalMarks, clinicalMarks])
+  const effectiveClinicalMarks = useMemo(
+    () => mergeClinicalMarks(metaClinicalMarks?.value, clinicalMarks),
+    [metaClinicalMarks, clinicalMarks],
+  )
 
   const menuContainerRef = useRef<HTMLDivElement | null>(null)
 
@@ -304,6 +270,21 @@ export function FolderExplorerView({
     return { warning, critical, verified }
   }, [allArticles, effectiveClinicalMarks])
 
+  const folderTags = useMemo(() => {
+    const tagCounts = new Map<string, number>()
+    for (const art of allArticles) {
+      const tags = articleMap.get(art.id)?.tags ?? []
+      for (const rawTag of tags) {
+        const clean = rawTag.trim()
+        if (!clean) continue
+        tagCounts.set(clean, (tagCounts.get(clean) ?? 0) + 1)
+      }
+    }
+    return [...tagCounts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 12)
+  }, [allArticles, articleMap])
+
   const handleSetClinicalMark = (nodeId: string, mark: ClinicalMark | null) => {
     setClinicalMarks((prev) => {
       const next = { ...effectiveClinicalMarks, ...prev }
@@ -312,7 +293,7 @@ export function FolderExplorerView({
       } else {
         next[nodeId] = mark
       }
-      saveClinicalMarks(next)
+      saveAllClinicalMarks(next)
       return next
     })
     setOpenMenuId(null)
@@ -326,7 +307,7 @@ export function FolderExplorerView({
         if (!mark) delete next[id]
         else next[id] = mark
       }
-      saveClinicalMarks(next)
+      saveAllClinicalMarks(next)
       return next
     })
   }
@@ -717,28 +698,45 @@ export function FolderExplorerView({
                       (n) => n.kind === 'article',
                     ).length
                     return (
-                      <button
+                      <div
                         key={folder.id}
-                        type="button"
-                        onClick={() => setSwitcherFolderId(folder.id)}
-                        onDoubleClick={() => {
-                          setIsFolderSwitcherOpen(false)
-                          onSelectNode(folder.id)
-                        }}
-                        className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs font-semibold transition ${
+                        className={`flex items-center gap-1 rounded-lg border pr-1 transition ${
                           isSelected
                             ? 'border-[var(--ch-accent)]/30 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
                             : 'border-transparent text-[var(--ch-text-primary)] hover:bg-[var(--ch-bg-secondary)]'
                         }`}
                       >
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          <Folder className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
-                          <span className="truncate">{folder.title}</span>
-                        </span>
-                        <span className="shrink-0 font-mono text-[10px] text-[var(--ch-text-muted)]">
-                          {isCurrentFolder ? `Actual (${count})` : count}
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setSwitcherFolderId(folder.id)}
+                          onDoubleClick={() => {
+                            setIsFolderSwitcherOpen(false)
+                            onSelectNode(folder.id)
+                          }}
+                          className="flex flex-1 min-w-0 items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs font-semibold cursor-pointer"
+                        >
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <Folder className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
+                            <span className="truncate">{folder.title}</span>
+                          </span>
+                          <span className="shrink-0 font-mono text-[10px] text-[var(--ch-text-muted)]">
+                            {isCurrentFolder ? `Actual (${count})` : count}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setIsFolderSwitcherOpen(false)
+                            onSelectNode(folder.id)
+                          }}
+                          title={`Abrir carpeta ${folder.title}`}
+                          aria-label={`Abrir carpeta ${folder.title}`}
+                          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--ch-text-muted)] hover:bg-[var(--ch-bg-elevated)] hover:text-[var(--cl-diagnostic)] cursor-pointer"
+                        >
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     )
                   })}
                 </div>
@@ -1480,25 +1478,81 @@ export function FolderExplorerView({
             )}
           </div>
 
-          {/* Legend for the 3 clinical marks drawn in the user's sketch */}
-          <div className="mt-1 rounded-lg border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5">
-            <div className="mb-1.5 font-mono text-[10px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
-              Marcas Clínicas (Menú ⋮)
+          {/* Actionable Clinical Triage Filters + Folder Tags (Dirección A+C) */}
+          <div className="mt-1 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-2.5 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[10px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
+                Filtrar Triage
+              </span>
+              {markFilter !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setMarkFilter('all')}
+                  className="text-[10px] font-semibold text-[var(--cl-diagnostic)] hover:underline cursor-pointer"
+                >
+                  Todos
+                </button>
+              )}
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold">
-              <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                <span>Prioridad</span>
-              </span>
-              <span className="inline-flex items-center gap-1 text-red-700 dark:text-red-300">
-                <OctagonAlert className="h-3.5 w-3.5" />
-                <span>Crítico</span>
-              </span>
-              <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>Verificado</span>
-              </span>
+            <div className="grid grid-cols-3 gap-1.5">
+              {(
+                [
+                  { key: 'critical', count: markCounts.critical, icon: OctagonAlert },
+                  { key: 'warning', count: markCounts.warning, icon: AlertTriangle },
+                  { key: 'verified', count: markCounts.verified, icon: CheckCircle2 },
+                ] as const
+              ).map(({ key, count, icon: Icon }) => {
+                const active = markFilter === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setMarkFilter((prev) => (prev === key ? 'all' : key))}
+                    className={`flex items-center justify-center gap-1 rounded-lg border px-1.5 py-1.5 text-[11px] font-bold transition cursor-pointer ${
+                      active
+                        ? CLINICAL_MARK_META[key].badgeClass
+                        : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-secondary)] hover:border-[var(--ch-accent)]'
+                    }`}
+                    title={`Filtrar por ${CLINICAL_MARK_META[key].label}`}
+                  >
+                    <Icon className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{CLINICAL_MARK_META[key].shortLabel}</span>
+                    <span className="font-mono text-[10px] opacity-80">{count}</span>
+                  </button>
+                )
+              })}
             </div>
+
+            {folderTags.length > 0 && (
+              <div className="border-t border-[var(--ch-border-subtle)] pt-2">
+                <div className="mb-1.5 font-mono text-[10px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
+                  Etiquetas aquí
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {folderTags.map(([tag, count]) => {
+                    const active = filterText.trim().toLowerCase() === `#${tag.toLowerCase()}`
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() =>
+                          setFilterText((prev) =>
+                            prev.trim().toLowerCase() === `#${tag.toLowerCase()}` ? '' : `#${tag}`,
+                          )
+                        }
+                        className={`rounded-md border px-2 py-0.5 font-mono text-[10px] font-semibold transition cursor-pointer ${
+                          active
+                            ? 'border-[var(--cl-accent)] bg-[var(--cl-accent)] text-white'
+                            : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-secondary)] hover:border-[var(--ch-accent)]'
+                        }`}
+                      >
+                        #{tag} ({count})
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </aside>
       </div>

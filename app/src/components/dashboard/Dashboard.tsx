@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Activity,
   AlertTriangle,
@@ -34,7 +35,15 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import type { NodeRow } from '../../db/db'
+import { db, type NodeRow } from '../../db/db'
+import {
+  CLINICAL_MARK_META,
+  countArticlesByTriage,
+  filterArticlesByTriage,
+  mergeClinicalMarks,
+  readAllClinicalMarks,
+  type ClinicalTriageFilter,
+} from '../../utils/clinicalMarks'
 import { exportToZip, importFromZip } from '../../db/exportImport'
 import type { MergeReport } from '../../domain/merge'
 import { childrenOf } from '../../domain/tree'
@@ -157,9 +166,22 @@ export function Dashboard({
   const taggedArticleIds = useArticlesWithTag(selectedTag)
   const [searchQuery, setSearchQuery] = useState('')
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
+  const [triageFilter, setTriageFilter] = useState<ClinicalTriageFilter>('all')
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
   const [activeMenuFolderId, setActiveMenuFolderId] = useState<string | null>(null)
   const [activeDrawer, setActiveDrawer] = useState<DockDrawerKey>(null)
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
+
+  const metaClinicalMarks = useLiveQuery(
+    () => db.meta.get('clinical_marks'),
+    [],
+    undefined,
+  )
+
+  const clinicalMarks = useMemo(
+    () => mergeClinicalMarks(metaClinicalMarks?.value, readAllClinicalMarks()),
+    [metaClinicalMarks],
+  )
 
   // Portabilidad ZIP local
   const zipInputRef = useRef<HTMLInputElement>(null)
@@ -182,10 +204,25 @@ export function Dashboard({
   )
   const inboxCount = inboxChildren.length
 
-  const totalArticles = useMemo(
-    () => nodes.filter((n) => n.kind === 'article').length,
+  const allArticles = useMemo(
+    () => nodes.filter((n) => n.kind === 'article'),
     [nodes],
   )
+
+  const triageCounts = useMemo(
+    () => countArticlesByTriage(allArticles, clinicalMarks, inboxFolder?.id),
+    [allArticles, clinicalMarks, inboxFolder?.id],
+  )
+
+  const triageFilteredArticles = useMemo(
+    () =>
+      filterArticlesByTriage(allArticles, clinicalMarks, inboxFolder?.id, triageFilter).sort(
+        (a, b) => b.updated_at - a.updated_at,
+      ),
+    [allArticles, clinicalMarks, inboxFolder?.id, triageFilter],
+  )
+
+  const totalArticles = allArticles.length
   const totalFolders = useMemo(
     () =>
       nodes.filter(
@@ -195,12 +232,8 @@ export function Dashboard({
   )
 
   const recentArticles = useMemo(
-    () =>
-      nodes
-        .filter((n) => n.kind === 'article')
-        .sort((a, b) => b.updated_at - a.updated_at)
-        .slice(0, 6),
-    [nodes],
+    () => triageFilteredArticles.slice(0, triageFilter === 'all' ? 6 : 12),
+    [triageFilteredArticles, triageFilter],
   )
 
   const filteredByTagArticles = useMemo(() => {
@@ -619,6 +652,99 @@ export function Dashboard({
               )}
             </div>
 
+            {/* Tira de Triage Clínico Unificado (Dirección A) */}
+            <div
+              className="flex flex-wrap items-center gap-1.5 mb-3"
+              role="group"
+              aria-label="Filtrar por estado de triage clínico"
+            >
+              {(
+                [
+                  { id: 'all', label: 'Todos', count: triageCounts.all },
+                  { id: 'inbox', label: 'Inbox', count: triageCounts.inbox },
+                  { id: 'critical', label: 'Críticos', count: triageCounts.critical },
+                  { id: 'warning', label: 'Prioridad', count: triageCounts.warning },
+                  { id: 'verified', label: 'Verificados', count: triageCounts.verified },
+                ] as Array<{ id: ClinicalTriageFilter; label: string; count: number }>
+              ).map((chip) => {
+                const isActive = triageFilter === chip.id
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() =>
+                      setTriageFilter((prev) => (prev === chip.id && chip.id !== 'all' ? 'all' : chip.id))
+                    }
+                    className={`min-h-[32px] px-2.5 py-1 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                      isActive
+                        ? 'bg-[var(--cl-accent)] border-[var(--cl-accent)] text-white'
+                        : 'bg-[var(--cl-surface)] border-[var(--cl-border)] text-[var(--cl-fg-2)] hover:border-[var(--cl-accent)] hover:text-[var(--cl-fg)]'
+                    }`}
+                  >
+                    <span>{chip.label}</span>
+                    <span className="font-mono tabular-nums text-[10px] opacity-85">
+                      {chip.count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {triageFilter !== 'all' && (
+              <section className="mb-3 bg-[var(--cl-surface)] border border-[var(--cl-accent-border)] rounded-xl p-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-[var(--cl-diagnostic)]">
+                    {triageFilter === 'inbox'
+                      ? `Cola Inbox (${triageFilteredArticles.length})`
+                      : `${CLINICAL_MARK_META[triageFilter].label} (${triageFilteredArticles.length})`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setTriageFilter('all')}
+                    className="text-[11px] font-semibold text-[var(--cl-muted)] hover:text-[var(--cl-fg)] cursor-pointer"
+                  >
+                    Limpiar filtro
+                  </button>
+                </div>
+                {triageFilteredArticles.length === 0 ? (
+                  <p className="text-xs text-[var(--cl-muted)] m-0">
+                    No hay protocolos en esta categoría de triage.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto">
+                    {triageFilteredArticles.slice(0, 12).map((art) => {
+                      const mark = clinicalMarks[art.id]
+                      const folderLabel = art.parent_id ? folderMap.get(art.parent_id) : 'Raíz'
+                      return (
+                        <button
+                          key={art.id}
+                          type="button"
+                          onClick={() => onSelectArticle(art.id)}
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--cl-border-soft)] bg-[var(--cl-surface-muted)] hover:border-[var(--cl-accent)] text-left flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <span className="block text-xs font-semibold text-[var(--cl-fg)] truncate">
+                              {art.title}
+                            </span>
+                            <span className="block font-mono text-[10px] text-[var(--cl-muted)] truncate">
+                              {folderLabel}
+                            </span>
+                          </div>
+                          {mark && (
+                            <span
+                              className={`shrink-0 px-2 py-0.5 rounded-full border font-mono text-[10px] font-bold ${CLINICAL_MARK_META[mark].badgeClass}`}
+                            >
+                              {CLINICAL_MARK_META[mark].shortLabel}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
             {/* Banner Modo Mover */}
             {moveMode && onMoveTarget && onCancelMove && (
               <div className="mb-3 px-3.5 py-2.5 rounded-[10px] bg-[var(--cl-accent-soft)] border border-[var(--cl-accent-border)] text-[var(--cl-fg)] text-xs font-semibold flex items-center justify-between gap-3 flex-wrap">
@@ -935,8 +1061,17 @@ export function Dashboard({
                                     )}
                                     <span className="truncate">{child.title}</span>
                                   </span>
-                                  <span className="font-mono tabular-nums text-[11px] text-[var(--cl-muted)] shrink-0">
-                                    {formatClinicalDate(child.updated_at)}
+                                  <span className="inline-flex items-center gap-1.5 shrink-0">
+                                    {clinicalMarks[child.id] && (
+                                      <span
+                                        className={`px-1.5 py-0.5 rounded-full border font-mono text-[10px] font-bold leading-none ${CLINICAL_MARK_META[clinicalMarks[child.id]].badgeClass}`}
+                                      >
+                                        {CLINICAL_MARK_META[clinicalMarks[child.id]].shortLabel}
+                                      </span>
+                                    )}
+                                    <span className="font-mono tabular-nums text-[11px] text-[var(--cl-muted)]">
+                                      {formatClinicalDate(child.updated_at)}
+                                    </span>
                                   </span>
                                 </button>
 
@@ -1055,34 +1190,62 @@ export function Dashboard({
               )}
             </section>
 
-            {/* Modificados Recientemente */}
+            {/* Modificados Recientemente / Cola de Triage */}
             <section className="bg-[var(--cl-surface)] border border-[var(--cl-border)] rounded-2xl p-4">
               <div className="flex items-center justify-between gap-2 mb-2.5">
-                <h3 className="text-sm font-bold text-[var(--cl-fg)] m-0">
-                  Modificados recientemente
-                </h3>
-                <Activity className="w-4 h-4 text-[var(--cl-muted)]" aria-hidden="true" />
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="text-sm font-bold text-[var(--cl-fg)] m-0 truncate">
+                    {triageFilter === 'all'
+                      ? 'Modificados recientemente'
+                      : triageFilter === 'inbox'
+                        ? `Inbox Triage (${recentArticles.length})`
+                        : `Triage · ${CLINICAL_MARK_META[triageFilter].label} (${recentArticles.length})`}
+                  </h3>
+                </div>
+                {triageFilter !== 'all' ? (
+                  <button
+                    type="button"
+                    onClick={() => setTriageFilter('all')}
+                    className="text-[11px] font-semibold text-[var(--cl-diagnostic)] hover:underline cursor-pointer shrink-0"
+                  >
+                    Ver todos
+                  </button>
+                ) : (
+                  <Activity className="w-4 h-4 text-[var(--cl-muted)]" aria-hidden="true" />
+                )}
               </div>
 
               {recentArticles.length === 0 ? (
                 <p className="text-xs text-[var(--cl-muted)] m-0">
-                  Tus fichas clínicas editadas recientemente aparecerán aquí.
+                  {triageFilter === 'all'
+                    ? 'Tus fichas clínicas editadas recientemente aparecerán aquí.'
+                    : 'No hay fichas clínicas en este estado de triage.'}
                 </p>
               ) : (
                 <div className="flex flex-col gap-1.5">
                   {recentArticles.map((article) => {
                     const parentTitle = article.parent_id ? folderMap.get(article.parent_id) : null
+                    const mark = clinicalMarks[article.id]
                     return (
                       <button
                         key={article.id}
                         type="button"
                         onClick={() => onSelectArticle(article.id)}
-                        className="w-full px-2.5 py-2 rounded-lg bg-[var(--cl-surface-muted)] border border-[var(--cl-border-soft)] hover:border-[var(--cl-accent)] text-xs text-[var(--cl-fg)] flex items-center justify-between gap-2.5 text-left cursor-pointer transition-colors"
+                        className="w-full px-2.5 py-2 rounded-lg bg-[var(--cl-surface-muted)] border border-[var(--cl-border-soft)] hover:border-[var(--cl-accent)] text-xs text-[var(--cl-fg)] flex items-center justify-between gap-2 text-left cursor-pointer transition-colors"
                       >
-                        <span className="truncate font-medium">{article.title}</span>
-                        <span className="text-[11px] text-[var(--cl-muted)] shrink-0">
-                          {parentTitle || formatClinicalDate(article.updated_at)}
-                        </span>
+                        <span className="truncate font-medium min-w-0 flex-1">{article.title}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {mark && (
+                            <span
+                              className={`px-1.5 py-0.5 rounded-full border font-mono text-[10px] font-bold leading-none ${CLINICAL_MARK_META[mark].badgeClass}`}
+                            >
+                              {CLINICAL_MARK_META[mark].shortLabel}
+                            </span>
+                          )}
+                          <span className="text-[11px] text-[var(--cl-muted)]">
+                            {parentTitle || formatClinicalDate(article.updated_at)}
+                          </span>
+                        </div>
                       </button>
                     )
                   })}
@@ -1252,21 +1415,48 @@ export function Dashboard({
               </button>
 
               {templates.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveDrawer(null)
-                    onCreateFromTemplate(templates[0].node.title)
-                  }}
-                  className="min-h-[48px] px-3 py-2 rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] hover:bg-[var(--cl-surface-warm)] hover:border-[var(--cl-accent)] text-left cursor-pointer"
-                >
-                  <span className="block text-xs font-bold text-[var(--cl-fg)]">
-                    Desde plantilla ({templates.length})
-                  </span>
-                  <span className="block text-[11px] text-[var(--cl-muted)]">
-                    Iniciar desde «{templates[0].node.title}»
-                  </span>
-                </button>
+                <div className="sm:col-span-2 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowTemplatePicker((prev) => !prev)}
+                    aria-expanded={showTemplatePicker}
+                    className="w-full min-h-[48px] px-3 py-2 rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] hover:bg-[var(--cl-surface-warm)] hover:border-[var(--cl-accent)] text-left flex items-center justify-between gap-2 cursor-pointer"
+                  >
+                    <div>
+                      <span className="block text-xs font-bold text-[var(--cl-fg)]">
+                        Desde plantilla clínica ({templates.length})
+                      </span>
+                      <span className="block text-[11px] text-[var(--cl-muted)]">
+                        Elige cualquiera de las {templates.length} estructuras clínicas disponibles
+                      </span>
+                    </div>
+                    <ChevronRight
+                      className={`w-4 h-4 text-[var(--cl-diagnostic)] transition-transform shrink-0 ${
+                        showTemplatePicker ? 'rotate-90' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {showTemplatePicker && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto p-1.5 rounded-[10px] border border-[var(--cl-border-soft)] bg-[var(--cl-surface)]">
+                      {templates.map((tpl) => (
+                        <button
+                          key={tpl.node.id}
+                          type="button"
+                          onClick={() => {
+                            setShowTemplatePicker(false)
+                            setActiveDrawer(null)
+                            onCreateFromTemplate(tpl.node.title)
+                          }}
+                          className="min-h-[38px] px-2.5 py-1.5 rounded-lg border border-[var(--cl-border-soft)] bg-[var(--cl-surface-muted)] hover:bg-[var(--cl-accent-soft)] hover:border-[var(--cl-accent)] text-left text-xs font-semibold text-[var(--cl-fg)] truncate cursor-pointer transition-colors"
+                          title={tpl.node.title}
+                        >
+                          {tpl.node.title}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -1412,17 +1602,26 @@ export function Dashboard({
           <>
             <button
               type="button"
-              onClick={() => setActiveDrawer((prev) => (prev === 'create' ? null : 'create'))}
-              title="Crear carpeta o artículo"
-              aria-label="Crear carpeta o artículo"
+              onClick={() => {
+                setActiveDrawer(null)
+                setShowTemplatePicker(false)
+                setTriageFilter((prev) => (prev === 'inbox' ? 'all' : 'inbox'))
+              }}
+              title="Filtrar o revisar notas en Inbox Triage"
+              aria-label={`Triage Inbox (${inboxCount})`}
               className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${
-                activeDrawer === 'create'
+                triageFilter === 'inbox'
                   ? DOCK_BTN_ACTIVE
                   : DOCK_BTN_IDLE
               }`}
             >
-              <FolderPlus className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">Crear</span>
+              <Inbox className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Inbox</span>
+              {inboxCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-[var(--cl-accent)] text-white text-[10px] font-bold tabular-nums leading-none">
+                  {inboxCount}
+                </span>
+              )}
             </button>
 
             <button
