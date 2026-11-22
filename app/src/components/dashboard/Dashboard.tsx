@@ -446,7 +446,7 @@ export function Dashboard({
             </div>
 
             <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-[-0.025em] leading-[1.15] text-[var(--cl-fg)] m-0 truncate">
+              <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-[-0.025em] leading-[1.15] text-[var(--cl-fg)] m-0 truncate">
                 ¡Hola, {userName}!
               </h1>
               <p className="font-mono tabular-nums text-xs text-[var(--cl-muted)] mt-1 mb-0 flex items-center gap-2 flex-wrap">
@@ -533,7 +533,7 @@ export function Dashboard({
           {/* Columna Izquierda: Mi Repositorio + Buscar + Carpetas */}
           <section className="min-w-0" aria-label="Mi Repositorio clínico">
             <div className="flex items-center justify-between gap-3 flex-wrap mb-2.5">
-              <h2 className="text-xl font-bold tracking-[-0.02em] text-[var(--cl-fg)] m-0">
+              <h2 className="font-display text-xl font-bold tracking-[-0.02em] text-[var(--cl-fg)] m-0">
                 Mi Repositorio
               </h2>
 

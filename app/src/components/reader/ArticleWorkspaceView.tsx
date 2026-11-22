@@ -326,7 +326,7 @@ export function ArticleWorkspaceView({
   const showReaderPane = !effectiveEditMode || isSplitMode
 
   return (
-    <div className="clinical-home relative mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-[1400px] flex-col gap-4 px-3 pt-2 pb-28 sm:px-6">
+    <div className="clinical-home relative mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-[1400px] flex-col gap-4 px-3 pt-2 pb-36 sm:px-6 sm:pb-40">
       {/* 1. COMPACT 1-LINE FLOATING TOP BAR WITH INTERACTIVE BREADCRUMB POPOVER (Opción 1) */}
       <header
         ref={popoverRef}
@@ -357,8 +357,8 @@ export function ArticleWorkspaceView({
               title="Explorar todas las carpetas y protocolos sin salir del artículo"
               className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition ${
                 isBreadcrumbPopoverOpen
-                  ? 'border-[var(--ch-accent)] bg-[var(--ch-accent)] text-white shadow-xs'
-                  : 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)] text-[var(--ch-accent)] hover:bg-[var(--ch-accent)] hover:text-white'
+                  ? 'border-[var(--ch-accent-solid)] bg-[var(--ch-accent-solid)] text-white shadow-xs'
+                  : 'border-[var(--ch-accent)]/40 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)] hover:border-[var(--ch-accent-solid)] hover:bg-[var(--ch-accent-solid)] hover:text-white'
               }`}
             >
               <FolderOpen className="h-3.5 w-3.5 shrink-0" />
@@ -373,7 +373,7 @@ export function ArticleWorkspaceView({
             </button>
 
             <div className="flex min-w-0 items-center gap-1.5">
-              <h1 className="truncate font-serif text-base font-semibold tracking-tight text-[var(--ch-text-primary)] sm:text-lg">
+              <h1 className="truncate font-display text-base font-bold tracking-tight text-[var(--ch-text-primary)] sm:text-lg">
                 {articleNode.title}
               </h1>
               <button
@@ -1096,21 +1096,17 @@ export function ArticleWorkspaceView({
       {/* 3. PERSISTENT FLOATING BOTTOM PILL DOCK WITH CENTERED CIRCULAR BUTTON (+) */}
       <nav
         aria-label="Barra inferior contextual del artículo"
-        className="fixed bottom-3 left-1/2 z-30 flex w-[95%] max-w-4xl -translate-x-1/2 items-center justify-between gap-1.5 rounded-full border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)]/95 px-2.5 py-2 shadow-[var(--ch-shadow-modal)] backdrop-blur-md sm:gap-2 sm:px-5"
+        className="clinical-dock fixed bottom-3 left-1/2 z-30 flex w-[95%] max-w-4xl -translate-x-1/2 items-center justify-between gap-1.5 rounded-full px-2.5 py-1.5 sm:gap-2 sm:px-5"
       >
         {/* Left Dock Tools: Unique Mode Switchers */}
-        <div className="flex items-center gap-1 sm:gap-1.5">
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => {
               setIsSplitMode(false)
               onSetEditMode(false)
             }}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition sm:px-3 ${
-              !effectiveEditMode && !isSplitMode
-                ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
-                : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
-            }`}
+            className={`clinical-dock-btn ${!effectiveEditMode && !isSplitMode ? 'clinical-dock-btn-active' : ''}`}
           >
             <Eye className="h-3.5 w-3.5" />
             <span>Lector</span>
@@ -1125,11 +1121,7 @@ export function ArticleWorkspaceView({
                 onSetEditMode(true)
               }
             }}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition disabled:opacity-40 sm:px-3 ${
-              effectiveEditMode && !isSplitMode
-                ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
-                : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
-            }`}
+            className={`clinical-dock-btn ${effectiveEditMode && !isSplitMode ? 'clinical-dock-btn-active' : ''}`}
           >
             <PenLine className="h-3.5 w-3.5" />
             <span>Editor</span>
@@ -1147,11 +1139,7 @@ export function ArticleWorkspaceView({
                 })
               }
             }}
-            className={`hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition disabled:opacity-40 sm:inline-flex ${
-              isSplitMode
-                ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
-                : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
-            }`}
+            className={`clinical-dock-btn hidden sm:inline-flex ${isSplitMode ? 'clinical-dock-btn-active' : ''}`}
           >
             <Columns2 className="h-3.5 w-3.5" />
             <span>Dividido</span>
@@ -1166,20 +1154,20 @@ export function ArticleWorkspaceView({
           onClick={() => setIsOrbDrawerOpen((prev) => !prev)}
           aria-label="Abrir cajón de bloques clínicos"
           title="Insertar bloque clínico en el artículo"
-          className="flex h-11 w-11 shrink-0 -translate-y-2 items-center justify-center rounded-full border-4 border-[var(--ch-bg-primary)] bg-[var(--ch-accent)] text-white shadow-lg transition hover:scale-105 disabled:opacity-40 sm:h-12 sm:w-12"
+          className="clinical-dock-orb"
         >
           <Plus className={`h-5 w-5 transition-transform ${isOrbDrawerOpen ? 'rotate-45' : ''}`} />
         </button>
 
         {/* Right Dock Tools: Flashcards, Importar IA, Imprimir PDF, Google Docs */}
-        <div className="flex items-center justify-end gap-1 sm:gap-1.5">
+        <div className="flex items-center justify-end gap-1">
           <button
             type="button"
             disabled={isPdfArticle}
             onClick={() => {
               if (!isPdfArticle) onOpenFlashcards()
             }}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-[var(--ch-text-primary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)] disabled:opacity-40 sm:px-3"
+            className="clinical-dock-btn text-[var(--ch-text-primary)]"
           >
             <BrainCircuit className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
             <span>Flashcards</span>
@@ -1191,7 +1179,7 @@ export function ArticleWorkspaceView({
             onClick={() => {
               if (!isPdfArticle) onOpenSmartImport()
             }}
-            className="hidden items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)] disabled:opacity-40 md:inline-flex"
+            className="clinical-dock-btn hidden md:inline-flex"
           >
             <Sparkles className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
             <span>Importar IA</span>
@@ -1201,7 +1189,7 @@ export function ArticleWorkspaceView({
             <button
               type="button"
               onClick={onOpenExportPdf}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)] sm:px-3"
+              className="clinical-dock-btn"
             >
               <Printer className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
               <span className="hidden sm:inline">Imprimir</span>
@@ -1213,7 +1201,7 @@ export function ArticleWorkspaceView({
             <button
               type="button"
               onClick={onOpenExportGoogleDocs}
-              className="hidden items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)] lg:inline-flex"
+              className="clinical-dock-btn hidden lg:inline-flex"
             >
               <FileOutput className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
               <span>Google Docs</span>

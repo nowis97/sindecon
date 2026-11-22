@@ -217,7 +217,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
             disabled={loading}
             className={`inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
               mode === 'structural'
-                ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                ? 'bg-[var(--ch-accent-solid)] text-white shadow-xs'
                 : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
             }`}
           >
@@ -231,7 +231,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
             disabled={loading}
             className={`inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
               mode === 'local_ai'
-                ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                ? 'bg-[var(--ch-accent-solid)] text-white shadow-xs'
                 : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
             }`}
           >
@@ -245,7 +245,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
             disabled={loading}
             className={`inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
               mode === 'cloud_ai'
-                ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                ? 'bg-[var(--ch-accent-solid)] text-white shadow-xs'
                 : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
             }`}
           >
@@ -467,7 +467,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
                 <Zap className="h-5 w-5" />
               )}
             </span>
-            <h4 className="font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+            <h4 className="font-display text-sm font-semibold text-[var(--ch-text-primary)]">
               Listo para crear flashcards clínicas
             </h4>
             <p className="mt-1 max-w-md text-xs leading-relaxed text-[var(--ch-text-muted)]">
@@ -531,7 +531,7 @@ export const GenerateFlashcardsModal: React.FC<GenerateFlashcardsModalProps> = (
                       onClick={() => setPreviewCardIndex(previewCardIndex === idx ? null : idx)}
                       className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
                         previewCardIndex === idx
-                          ? 'border-[var(--ch-accent)] bg-[var(--ch-accent)] text-white'
+                          ? 'border-[var(--ch-accent-solid)] bg-[var(--ch-accent-solid)] text-white'
                           : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-secondary)]'
                       }`}
                     >

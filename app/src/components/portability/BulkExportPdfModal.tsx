@@ -351,7 +351,7 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
               <span
                 className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] font-semibold ${
                   selectedIds.size > 0
-                    ? 'bg-[var(--ch-accent)] text-white'
+                    ? 'bg-[var(--ch-accent-solid)] text-white'
                     : 'bg-[var(--ch-bg-elevated)] text-[var(--ch-text-muted)]'
                 }`}
               >
@@ -454,7 +454,7 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
           >
             <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
             <div>
-              <strong className="block font-serif text-xs font-semibold text-[var(--ch-text-primary)]">
+              <strong className="block font-display text-xs font-semibold text-[var(--ch-text-primary)]">
                 1 Columna Continua
               </strong>
               <span className="text-[11px] text-[var(--ch-text-muted)]">
@@ -474,7 +474,7 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
           >
             <Columns2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
             <div>
-              <strong className="block font-serif text-xs font-semibold text-[var(--ch-text-primary)]">
+              <strong className="block font-display text-xs font-semibold text-[var(--ch-text-primary)]">
                 2 Columnas Ficha Médica
               </strong>
               <span className="text-[11px] text-[var(--ch-text-muted)]">

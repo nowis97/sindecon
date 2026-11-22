@@ -11,10 +11,10 @@ import {
 } from 'lucide-react'
 
 export const PILL_BTN_PRIMARY =
-  'inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-[var(--ch-accent)] px-5 text-xs font-semibold text-white shadow-xs transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45'
+  'inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-[var(--ch-accent-solid)] px-5 text-xs font-semibold text-white shadow-xs transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50'
 
 export const PILL_BTN_SECONDARY =
-  'inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-4 text-xs font-semibold text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)] disabled:cursor-not-allowed disabled:opacity-45'
+  'inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-4 text-xs font-semibold text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)] disabled:cursor-not-allowed disabled:opacity-55'
 
 export const PILL_BTN_DANGER =
   'inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-red-600 px-5 text-xs font-semibold text-white shadow-xs transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-45'
@@ -131,7 +131,7 @@ export function BaseModal({
                 {displayTitle && (
                   <h3
                     id={titleId}
-                    className="truncate font-serif text-lg font-semibold tracking-tight text-[var(--ch-text-primary)]"
+                    className="truncate font-display text-lg font-semibold tracking-tight text-[var(--ch-text-primary)]"
                   >
                     {displayTitle}
                   </h3>

@@ -84,6 +84,10 @@ export function MarkdownEditor({
         [Crepe.Feature.Latex]: false,
       },
       featureConfigs: {
+        [Crepe.Feature.Placeholder]: {
+          text: "Escribe apuntes clínicos o usa '/' para insertar bloques…",
+          mode: 'doc',
+        },
         [Crepe.Feature.CodeMirror]: {
           languages: [
             plainLanguage('mermaid'),

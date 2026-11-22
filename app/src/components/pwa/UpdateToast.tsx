@@ -20,7 +20,7 @@ export function UpdateToast({ needRefresh, onUpdate, onDismiss }: UpdateToastPro
           <Sparkles className="h-4 w-4" />
         </span>
         <div className="min-w-0">
-          <strong className="block font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+          <strong className="block font-display text-sm font-semibold text-[var(--ch-text-primary)]">
             Nueva versión clínica disponible
           </strong>
           <span className="block text-xs text-[var(--ch-text-muted)]">
@@ -32,7 +32,7 @@ export function UpdateToast({ needRefresh, onUpdate, onDismiss }: UpdateToastPro
       <div className="flex shrink-0 items-center gap-2">
         <button
           type="button"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--ch-accent)] px-4 text-xs font-semibold text-white shadow-xs transition hover:opacity-95"
+          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--ch-accent-solid)] px-4 text-xs font-semibold text-white shadow-xs transition hover:opacity-95"
           onClick={onUpdate}
         >
           <RefreshCw className="h-3.5 w-3.5" />

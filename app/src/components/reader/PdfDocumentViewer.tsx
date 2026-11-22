@@ -388,7 +388,7 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
           <a
             href={blobUrl}
             download={downloadFilename}
-            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[var(--ch-accent)] px-5 text-xs font-semibold text-white shadow-xs transition hover:opacity-95"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[var(--ch-accent-solid)] px-5 text-xs font-semibold text-white shadow-xs transition hover:opacity-95"
           >
             <Download className="h-3.5 w-3.5" />
             <span>Descargar archivo PDF</span>
@@ -455,7 +455,7 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
             type="button"
             className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition ${
               isAnnotationMode
-                ? 'border-[var(--ch-accent)] bg-[var(--ch-accent)] text-white shadow-xs'
+                ? 'border-[var(--ch-accent-solid)] bg-[var(--ch-accent-solid)] text-white shadow-xs'
                 : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-secondary)] hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)]'
             }`}
             onClick={() => setIsAnnotationMode((prev) => !prev)}
@@ -497,7 +497,7 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
               type="button"
               className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
                 activeTool === 'pen'
-                  ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                  ? 'bg-[var(--ch-accent-solid)] text-white shadow-xs'
                   : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
               }`}
               onClick={() => handleSelectTool('pen')}
@@ -510,7 +510,7 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
               type="button"
               className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
                 activeTool === 'highlighter'
-                  ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                  ? 'bg-[var(--ch-accent-solid)] text-white shadow-xs'
                   : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
               }`}
               onClick={() => handleSelectTool('highlighter')}
@@ -523,7 +523,7 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
               type="button"
               className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
                 activeTool === 'eraser'
-                  ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                  ? 'bg-[var(--ch-accent-solid)] text-white shadow-xs'
                   : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
               }`}
               onClick={() => handleSelectTool('eraser')}

@@ -2,6 +2,18 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.0.1] - 2026-11-22
+
+### Changed
+- **Unificación Tipográfica `SINDECON Clínico`**: Carga de `Plus Jakarta Sans`, `Inter` y `JetBrains Mono` en `index.html`, mapeo de `--font-sans`, `--font-display`, `--font-mono` en Tailwind y `--font-main` en CSS, y reemplazo de `font-serif` y escalas heredadas de Milkdown Crepe (`Noto Serif` 42px) por encabezados y texto clínico consistentes entre Dashboard, Carpetas, Lector A4, Editor, Impresión y Modales.
+- **Barras Inferiores Cohesivas (Ghost Pills)**: Estandarización del dock flotante inferior en `FolderExplorerView` y `ArticleWorkspaceView` con clases compartidas `.clinical-dock`, `.clinical-dock-btn` y `.clinical-dock-orb` (en `@layer components`), preservando la visibilidad adaptativa en móviles y añadiendo margen inferior (`pb-36 sm:pb-40`) para evitar solapamientos.
+- **Encabezado y Tabla de Carpeta**: Alineación horizontal de filtros clínicos y selector `Orden:` en una sola fila en escritorio, y reemplazo de `⋮` visible por texto accesible en cabecera de tabla.
+
+### Fixed
+- **Contraste en Modo Oscuro (`Guardia UCI`)**: Separación entre `--ch-accent-solid` (`#0f766e` para botones primarios con texto blanco) y `--ch-accent` (`#2dd4bf` para pestañas activas, iconos, enlaces y bordes en tema oscuro), además de mejor contraste en botones deshabilitados y badge de cabecera de `Dashboard`.
+- **Diagramas Mermaid dentro de Hoja A4 en Modo Oscuro**: Conservación de superficie y tinta claras dentro de `.a4-sheet .mermaid-viewer-card` y `.mermaid-tag` para que `"Algoritmo / Esquema"` permanezca legible sobre la ficha blanca A4.
+- **Hidratación Limpia en Editor y Copy Coherente**: Ajuste de `isArticleReady` en `App.tsx` para esperar la carga del artículo seleccionado antes de montar `MarkdownEditor`, localización de placeholder de Crepe al español, soporte de tema oscuro para Crepe (`--crepe-color-*`) y corrección de texto `"Editar"` -> `"Editor"` en `ArticleReader.tsx`.
+
 ## [1.0.0] - 2026-11-22
 
 ### Added

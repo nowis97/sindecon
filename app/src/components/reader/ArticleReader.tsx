@@ -1525,7 +1525,7 @@ export function ArticleReader({
       {isPrintView ? (
         !markdown.trim() ? (
           <div className={`print-reader-view empty ${alignmentClass}`}>
-            <p className="muted empty-reader">Este artículo está vacío. Toca "Editar" para redactar contenido.</p>
+            <p className="muted empty-reader">Este artículo está vacío. Toca "Editor" para redactar contenido.</p>
           </div>
         ) : (
           <div className={`print-reader-view ${alignmentClass}`}>
@@ -1549,7 +1549,7 @@ export function ArticleReader({
       ) : !markdown.trim() ? (
         <div className="a4-sheet-container">
           <div className={`article-reader-view a4-sheet empty ${alignmentClass}`}>
-            <p className="muted empty-reader">Este artículo está vacío. Toca "Editar" para redactar contenido.</p>
+            <p className="muted empty-reader">Este artículo está vacío. Toca "Editor" para redactar contenido.</p>
           </div>
         </div>
       ) : (
