@@ -401,8 +401,8 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
   return (
     <div ref={containerRef} className={`pdf-document-viewer clinical-home ${className}`}>
       {/* Barra de herramientas superior del visor */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2.5 border-b border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-4 py-2.5">
-        <div className="flex min-w-0 max-w-xs items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2.5 border-b border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-4 py-2.5 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+        <div className="flex min-w-0 max-w-xs items-center gap-2 md:justify-self-start">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
             <FileText className="h-4 w-4" />
           </span>
@@ -420,7 +420,7 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
         </div>
 
         {/* Controles de Zoom */}
-        <div className="inline-flex items-center rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-0.5">
+        <div className="inline-flex items-center rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-0.5 md:justify-self-center">
           <button
             type="button"
             className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--ch-text-secondary)] transition hover:bg-[var(--ch-bg-elevated)] hover:text-[var(--ch-text-primary)]"
@@ -450,7 +450,7 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
         </div>
 
         {/* Acciones principales */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 md:justify-self-end">
           <button
             type="button"
             className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition ${

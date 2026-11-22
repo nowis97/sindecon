@@ -31,6 +31,12 @@ import {
 import { db, type NodeRow, type ArticleRow } from '../../db/db'
 import { saveArticle } from '../../db/articles'
 import { childrenOf, canMove, sortNodesBy, type SortCriteria } from '../../domain/tree'
+import {
+  ClinicalBottomDock,
+  DOCK_BTN_ACTIVE,
+  DOCK_BTN_BASE,
+  DOCK_BTN_IDLE,
+} from '../common/ClinicalBottomDock'
 
 export type ClinicalMark = 'warning' | 'critical' | 'verified'
 
@@ -1716,106 +1722,112 @@ export function FolderExplorerView({
         </div>
       )}
 
-      {/* 4. BOTTOM TOOLS BAR WITH CENTERED CIRCULAR BUTTON (Matching Dashboard ghost-pill dock) */}
-      <nav
-        aria-label="Barra inferior de herramientas de carpeta"
-        className="clinical-dock fixed bottom-3 left-1/2 z-30 flex w-[95%] max-w-4xl -translate-x-1/2 items-center justify-between gap-2 rounded-full px-3 py-1.5 sm:px-5"
-      >
-        {/* Left Tools */}
-        <div className="flex items-center gap-1 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => onCreateArticle(folderNode.id)}
-            className="clinical-dock-btn text-[var(--ch-text-primary)]"
-          >
-            <FileText className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
-            <span>Nuevo Artículo</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onCreateSubfolder(folderNode.id)}
-            className="clinical-dock-btn hidden sm:inline-flex"
-          >
-            <Folder className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
-            <span>Subcarpeta</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setIsSelectionMode((prev) => !prev)
-              if (isSelectionMode) setSelectedIds([])
-            }}
-            className={`clinical-dock-btn ${isSelectionMode ? 'clinical-dock-btn-active' : ''}`}
-          >
-            <CheckSquare className="h-3.5 w-3.5" />
-            <span>Seleccionar</span>
-          </button>
-        </div>
-
-        {/* Center Raised Circular Action Button (+) */}
-        <button
-          type="button"
-          onClick={() => setIsOrbDrawerOpen((prev) => !prev)}
-          aria-label="Abrir menú central de creación e importación"
-          title="Crear o importar en esta carpeta"
-          className="clinical-dock-orb"
-        >
-          <Plus className={`h-5 w-5 transition-transform ${isOrbDrawerOpen ? 'rotate-45' : ''}`} />
-        </button>
-
-        {/* Right Tools */}
-        <div className="flex items-center justify-end gap-1 overflow-x-auto">
-          {onSmartImport && (
+      {/* 4. BOTTOM TOOLS BAR WITH CENTERED CIRCULAR BUTTON */}
+      <ClinicalBottomDock
+        ariaLabel="Barra inferior de herramientas de carpeta"
+        orbLabel="Abrir menú central de creación e importación"
+        orbTitle="Crear o importar en esta carpeta"
+        onOrbClick={() => setIsOrbDrawerOpen((prev) => !prev)}
+        orbIcon={
+          <Plus
+            className={`h-6 w-6 stroke-[2.4] transition-transform ${isOrbDrawerOpen ? 'rotate-45' : ''}`}
+          />
+        }
+        left={
+          <>
             <button
               type="button"
-              onClick={() => onSmartImport(folderNode.id)}
-              className="clinical-dock-btn"
-              title="Importar apuntes con IA en esta carpeta"
+              onClick={() => onCreateArticle(folderNode.id)}
+              title="Nuevo Artículo"
+              aria-label="Nuevo Artículo"
+              className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE} text-[var(--ch-text-primary)]`}
             >
-              <Sparkles className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
-              <span className="hidden md:inline">Importar IA</span>
+              <FileText className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+              <span className="hidden sm:inline">Nuevo Artículo</span>
             </button>
-          )}
 
-          {onUploadPdf && (
             <button
               type="button"
-              onClick={() => onUploadPdf(folderNode.id)}
-              className="clinical-dock-btn hidden sm:inline-flex"
-              title="Subir documento PDF a esta carpeta"
+              onClick={() => onCreateSubfolder(folderNode.id)}
+              title="Nueva Subcarpeta"
+              aria-label="Nueva Subcarpeta"
+              className={`hidden md:inline-flex md:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
             >
-              <FileUp className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
-              <span>Subir PDF</span>
+              <Folder className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+              <span>Subcarpeta</span>
             </button>
-          )}
 
-          {onBulkExportPdf && allArticles.length > 0 && (
             <button
               type="button"
-              onClick={() => onBulkExportPdf(folderNode.id)}
-              className="clinical-dock-btn hidden md:inline-flex"
-              title="Exportar carpeta como Compendio PDF"
+              onClick={() => {
+                setIsSelectionMode((prev) => !prev)
+                if (isSelectionMode) setSelectedIds([])
+              }}
+              title="Seleccionar múltiples documentos"
+              aria-label="Seleccionar"
+              className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${isSelectionMode ? DOCK_BTN_ACTIVE : DOCK_BTN_IDLE}`}
             >
-              <Printer className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
-              <span>Compendio PDF</span>
+              <CheckSquare className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Seleccionar</span>
             </button>
-          )}
+          </>
+        }
+        right={
+          <>
+            {onSmartImport && (
+              <button
+                type="button"
+                onClick={() => onSmartImport(folderNode.id)}
+                className={`inline-flex md:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
+                title="Importar apuntes con IA en esta carpeta"
+                aria-label="Importar IA"
+              >
+                <Sparkles className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+                <span className="hidden md:inline">Importar IA</span>
+              </button>
+            )}
 
-          {onSortFolderAlphabetically && children.length > 1 && (
-            <button
-              type="button"
-              onClick={() => onSortFolderAlphabetically(folderNode.id)}
-              className="clinical-dock-btn"
-              title="Ordenar carpeta alfabéticamente (A-Z)"
-            >
-              <ArrowUpDown className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
-              <span className="hidden lg:inline">A–Z</span>
-            </button>
-          )}
-        </div>
-      </nav>
+            {onUploadPdf && (
+              <button
+                type="button"
+                onClick={() => onUploadPdf(folderNode.id)}
+                className={`hidden sm:inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
+                title="Subir documento PDF a esta carpeta"
+                aria-label="Subir PDF"
+              >
+                <FileUp className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+                <span>Subir PDF</span>
+              </button>
+            )}
+
+            {onBulkExportPdf && allArticles.length > 0 && (
+              <button
+                type="button"
+                onClick={() => onBulkExportPdf(folderNode.id)}
+                className={`hidden lg:inline-flex lg:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
+                title="Exportar carpeta como Compendio PDF"
+                aria-label="Compendio PDF"
+              >
+                <Printer className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+                <span>Compendio PDF</span>
+              </button>
+            )}
+
+            {onSortFolderAlphabetically && children.length > 1 && (
+              <button
+                type="button"
+                onClick={() => onSortFolderAlphabetically(folderNode.id)}
+                className={`inline-flex lg:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
+                title="Ordenar carpeta alfabéticamente (A-Z)"
+                aria-label="Ordenar A-Z"
+              >
+                <ArrowUpDown className="h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+                <span className="hidden lg:inline">A–Z</span>
+              </button>
+            )}
+          </>
+        }
+      />
     </div>
   )
 }

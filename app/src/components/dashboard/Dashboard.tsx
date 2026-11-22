@@ -41,6 +41,12 @@ import { childrenOf } from '../../domain/tree'
 import { useAllTags, useArticlesWithTag } from '../../hooks/useSearch'
 import type { Theme } from '../../hooks/useTheme'
 import { getSyncStatusDetails, type SyncProgress, type SyncState } from '../../pwa/syncEngine'
+import {
+  ClinicalBottomDock,
+  DOCK_BTN_ACTIVE,
+  DOCK_BTN_BASE,
+  DOCK_BTN_IDLE,
+} from '../common/ClinicalBottomDock'
 import { AlertDialog } from '../common/DialogModal'
 
 export interface DashboardProps {
@@ -1394,23 +1400,25 @@ export function Dashboard({
       )}
 
       {/* Barra Inferior Flotante en Píldora con Círculo Central */}
-      <div className="fixed left-0 right-0 bottom-3.5 flex justify-center px-3.5 pointer-events-none z-40">
-        <nav
-          data-dock-trigger
-          aria-label="Barra inferior de herramientas"
-          className="pointer-events-auto w-[min(960px,100%)] rounded-full border border-[var(--cl-border)] bg-[var(--cl-surface)] px-3.5 py-1.5 grid grid-cols-[1fr_auto_1fr] items-center gap-2"
-          style={{ boxShadow: 'var(--cl-shadow-dock)' }}
-        >
-          <div className="flex items-center justify-end gap-1 overflow-x-auto">
+      <ClinicalBottomDock
+        ariaLabel="Barra inferior de herramientas"
+        dockTrigger={true}
+        zIndexClass="z-40"
+        orbLabel="Menú principal de creación y captura rápida"
+        orbTitle="Crear o capturar rápidamente"
+        onOrbClick={() => setActiveDrawer((prev) => (prev === 'create' ? null : 'create'))}
+        orbIcon={<Plus className="w-6 h-6 stroke-[2.4]" />}
+        left={
+          <>
             <button
               type="button"
               onClick={() => setActiveDrawer((prev) => (prev === 'create' ? null : 'create'))}
               title="Crear carpeta o artículo"
               aria-label="Crear carpeta o artículo"
-              className={`min-h-[40px] px-2.5 sm:px-3 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors ${
+              className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${
                 activeDrawer === 'create'
-                  ? 'bg-[var(--cl-surface-warm)] text-[var(--cl-fg)]'
-                  : 'text-[var(--cl-fg-2)] hover:bg-[var(--cl-surface-warm)] hover:text-[var(--cl-fg)]'
+                  ? DOCK_BTN_ACTIVE
+                  : DOCK_BTN_IDLE
               }`}
             >
               <FolderPlus className="w-4 h-4 shrink-0" />
@@ -1422,7 +1430,7 @@ export function Dashboard({
               onClick={onOpenQuickCapture}
               title="Captura rápida a 1 toque (foto + nota) al Inbox"
               aria-label="Captura rápida"
-              className="min-h-[40px] px-2.5 sm:px-3 rounded-full text-xs font-semibold text-[var(--cl-fg-2)] hover:bg-[var(--cl-surface-warm)] hover:text-[var(--cl-fg)] inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors"
+              className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
             >
               <Camera className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Captura</span>
@@ -1434,35 +1442,25 @@ export function Dashboard({
                 onClick={onOpenStudy}
                 title="Repaso activo de flashcards SM-2"
                 aria-label="Repaso SM-2"
-                className="min-h-[40px] px-2.5 sm:px-3 rounded-full text-xs font-semibold text-[var(--cl-fg-2)] hover:bg-[var(--cl-surface-warm)] hover:text-[var(--cl-fg)] inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors"
+                className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
               >
                 <Brain className="w-4 h-4 shrink-0" />
                 <span className="hidden sm:inline">SM-2</span>
               </button>
             )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setActiveDrawer((prev) => (prev === 'create' ? null : 'create'))}
-            aria-label="Menú principal de creación y captura rápida"
-            title="Crear o capturar rápidamente"
-            className="w-14 h-14 -my-3.5 mx-1 rounded-full border-[3px] border-[var(--cl-surface)] bg-[var(--cl-accent)] hover:bg-[var(--cl-accent-hover)] text-white flex items-center justify-center cursor-pointer transition-all hover:scale-105"
-            style={{ boxShadow: '0 6px 18px rgba(15, 118, 110, 0.34)' }}
-          >
-            <Plus className="w-6 h-6 stroke-[2.4]" />
-          </button>
-
-          <div className="flex items-center justify-start gap-1 overflow-x-auto">
+          </>
+        }
+        right={
+          <>
             <button
               type="button"
               onClick={() => setActiveDrawer((prev) => (prev === 'import' ? null : 'import'))}
               title="Importar Texto, Markdown, PDF o Backup .zip"
               aria-label="Importar"
-              className={`min-h-[40px] px-2.5 sm:px-3 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors ${
+              className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${
                 activeDrawer === 'import'
-                  ? 'bg-[var(--cl-surface-warm)] text-[var(--cl-fg)]'
-                  : 'text-[var(--cl-fg-2)] hover:bg-[var(--cl-surface-warm)] hover:text-[var(--cl-fg)]'
+                  ? DOCK_BTN_ACTIVE
+                  : DOCK_BTN_IDLE
               }`}
             >
               <Download className="w-4 h-4 shrink-0" />
@@ -1474,10 +1472,10 @@ export function Dashboard({
               onClick={() => setActiveDrawer((prev) => (prev === 'export' ? null : 'export'))}
               title="Exportar compendio PDF, Backup .zip o Google Drive"
               aria-label="Exportar"
-              className={`min-h-[40px] px-2.5 sm:px-3 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors ${
+              className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${
                 activeDrawer === 'export'
-                  ? 'bg-[var(--cl-surface-warm)] text-[var(--cl-fg)]'
-                  : 'text-[var(--cl-fg-2)] hover:bg-[var(--cl-surface-warm)] hover:text-[var(--cl-fg)]'
+                  ? DOCK_BTN_ACTIVE
+                  : DOCK_BTN_IDLE
               }`}
             >
               <Upload className="w-4 h-4 shrink-0" />
@@ -1490,15 +1488,15 @@ export function Dashboard({
                 onClick={onOpenAiSettings}
                 title="Ajustes de IA Clínica"
                 aria-label="IA Clínica"
-                className="min-h-[40px] px-2.5 sm:px-3 rounded-full text-xs font-semibold text-[var(--cl-fg-2)] hover:bg-[var(--cl-surface-warm)] hover:text-[var(--cl-fg)] inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors"
+                className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
               >
                 <SlidersHorizontal className="w-4 h-4 shrink-0" />
                 <span className="hidden sm:inline">IA Clínica</span>
               </button>
             )}
-          </div>
-        </nav>
-      </div>
+          </>
+        }
+      />
 
       {/* Input oculto para importar backup .zip */}
       <input
