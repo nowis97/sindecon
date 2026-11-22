@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { FileText, Folder, Upload, Trash2, AlertTriangle, X } from 'lucide-react'
 import type { NodeRow } from '../../db/db'
 import {
   cleanPdfFilenameToTitle,
@@ -9,6 +10,12 @@ import {
   saveMultiplePdfsAsArticles,
   type SavedPdfArticleResult,
 } from '../../db/pdfArticles'
+import {
+  BaseModal,
+  PILL_BTN_PRIMARY,
+  PILL_BTN_SECONDARY,
+  CLINICAL_FIELD_CLASS,
+} from '../common/DialogModal'
 
 export interface UploadPdfModalProps {
   isOpen: boolean
@@ -52,23 +59,10 @@ export const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
       setIsDragOver(false)
     }
     wasOpenRef.current = isOpen
-
-    if (!isOpen) return
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isUploading) {
-        onClose()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, targetFolderId, isUploading, onClose])
-
-  if (!isOpen) return null
+  }, [isOpen, targetFolderId])
 
   const folders = nodes.filter(
-    (n) => n.kind === 'folder' && n.deleted_at === null && n.system !== 'templates'
+    (n) => n.kind === 'folder' && n.deleted_at === null && n.system !== 'templates',
   )
 
   const handleFilesSelected = (selectedFiles: FileList | File[]) => {
@@ -85,7 +79,7 @@ export const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
 
     if (validPdfFiles.length < fileArray.length) {
       setErrorMessage(
-        `Se descartaron ${fileArray.length - validPdfFiles.length} archivo(s) por no ser PDF.`
+        `Se descartaron ${fileArray.length - validPdfFiles.length} archivo(s) por no ser PDF.`,
       )
     }
 
@@ -102,7 +96,7 @@ export const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
 
   const handleTitleChange = (id: string, newTitle: string) => {
     setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, title: newTitle } : item))
+      prev.map((item) => (item.id === id ? { ...item, title: newTitle } : item)),
     )
   }
 
@@ -131,14 +125,14 @@ export const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
         })),
         (current, total) => {
           setProgress({ current, total })
-        }
+        },
       )
 
       onUploadComplete?.(results)
       onClose()
     } catch (err) {
       setErrorMessage(
-        err instanceof Error ? err.message : 'Ocurrió un error al subir los archivos PDF'
+        err instanceof Error ? err.message : 'Ocurrió un error al subir los archivos PDF',
       )
     } finally {
       setIsUploading(false)
@@ -148,281 +142,20 @@ export const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
   const targetFolderNode = folders.find((f) => f.id === selectedFolderId)
 
   return (
-    <div
-      className="dialog-overlay"
-      onClick={isUploading ? undefined : onClose}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="dialog-modal upload-pdf-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="dialog-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: '1.3rem' }}>📄</span>
-            <h3 style={{ margin: 0 }}>Subir Documentos PDF</h3>
-          </div>
-          {!isUploading && (
-            <button
-              type="button"
-              className="dialog-btn-close"
-              onClick={onClose}
-              aria-label="Cerrar"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-
-        <div
-          className="dialog-body"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 16,
-            maxHeight: 'calc(85vh - 130px)',
-            overflowY: 'auto',
-            padding: 20,
-          }}
-        >
-          {/* Selector de Carpeta de Destino */}
-          <div className="folder-select-group" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              📁 Carpeta de destino:
-            </label>
-            <select
-              value={selectedFolderId ?? ''}
-              onChange={(e) => setSelectedFolderId(e.target.value ? e.target.value : null)}
-              disabled={isUploading}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-subtle)',
-                background: 'var(--bg-card)',
-                color: 'var(--text-primary)',
-                fontSize: '0.9rem',
-                outline: 'none',
-              }}
-            >
-              <option value="">Raíz del árbol de conocimientos (Tema)</option>
-              {folders.map((f) => (
-                <option key={f.id} value={f.id}>
-                  📁 {f.title}
-                </option>
-              ))}
-            </select>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              {selectedFolderId
-                ? `Los PDFs se crearán como artículos dentro de "${targetFolderNode?.title || 'Carpeta seleccionada'}".`
-                : 'Los PDFs se crearán como artículos principales en la raíz.'}
-            </span>
-          </div>
-
-          {/* Zona Drag & Drop */}
-          <div
-            className={`upload-pdf-dropzone ${isDragOver ? 'drag-over' : ''}`}
-            onDragOver={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              if (!isUploading) setIsDragOver(true)
-            }}
-            onDragLeave={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setIsDragOver(false)
-            }}
-            onDrop={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setIsDragOver(false)
-              if (isUploading) return
-              if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-                handleFilesSelected(e.dataTransfer.files)
-              }
-            }}
-            onClick={() => !isUploading && fileInputRef.current?.click()}
-          >
-            <div style={{ fontSize: '2.2rem', marginBottom: 4 }}>📑</div>
-            <h4 style={{ margin: '0 0 4px 0', color: 'var(--text-primary)', fontSize: '0.96rem', fontWeight: 600 }}>
-              Arrastra aquí tus archivos PDF o haz clic para explorar
-            </h4>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              Puedes seleccionar uno o varios documentos (.pdf) simultáneamente
-            </p>
-            <button
-              type="button"
-              className="upload-pdf-browse-btn"
-              disabled={isUploading}
-              onClick={(e) => {
-                e.stopPropagation()
-                fileInputRef.current?.click()
-              }}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              <span>Explorar archivos PDF</span>
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".pdf,application/pdf"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                  handleFilesSelected(e.target.files)
-                }
-              }}
-            />
-          </div>
-
-          {/* Mensaje de Error */}
-          {errorMessage && (
-            <div
-              style={{
-                padding: '10px 14px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                color: '#ef4444',
-                fontSize: '0.85rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              <span>⚠️</span>
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {/* Barra de Progreso */}
-          {isUploading && progress && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                <span>Guardando documentos PDF en almacenamiento local...</span>
-                <span>{progress.current} / {progress.total}</span>
-              </div>
-              <div
-                style={{
-                  width: '100%',
-                  height: 6,
-                  backgroundColor: 'var(--bg-muted)',
-                  borderRadius: 3,
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    height: '100%',
-                    backgroundColor: 'var(--accent-primary)',
-                    width: `${progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%`,
-                    transition: 'width 0.2s ease',
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Lista de Documentos Seleccionados */}
-          {items.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Documentos listos para subir ({items.length}):
-                </span>
-                {!isUploading && (
-                  <button
-                    type="button"
-                    className="btn-upload-pdf-clear"
-                    onClick={handleClearAll}
-                    title="Descartar todos los archivos de la lista"
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                    <span>Quitar todos</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="upload-pdf-list">
-                {items.map((item) => (
-                  <div key={item.id} className="upload-pdf-item">
-                    <span className="upload-pdf-item-icon">📄</span>
-                    <div className="upload-pdf-item-details">
-                      <input
-                        type="text"
-                        className="upload-pdf-item-input"
-                        value={item.title}
-                        onChange={(e) => handleTitleChange(item.id, e.target.value)}
-                        disabled={isUploading}
-                        placeholder="Título del artículo..."
-                        title="Puedes cambiar el título antes de subir"
-                      />
-                      <div className="upload-pdf-item-meta">
-                        <span>Original: {item.file.name}</span>
-                        <span>•</span>
-                        <span>{item.sizeFormatted}</span>
-                      </div>
-                    </div>
-                    {!isUploading && (
-                      <button
-                        type="button"
-                        className="btn-upload-pdf-remove"
-                        onClick={() => handleRemoveItem(item.id)}
-                        title="Descartar este PDF"
-                        aria-label={`Descartar ${item.title}`}
-                      >
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2m-6 5v6m4-6v6" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="dialog-footer">
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      closeOnBackdrop={!isUploading}
+      hideCloseButton={isUploading}
+      title="Subir Documentos PDF"
+      subtitle="Guarda guías clínicas y PDFs directamente para lectura y anotación offline."
+      icon={<FileText className="h-5 w-5" />}
+      maxWidthClass="max-w-xl"
+      footer={
+        <>
           <button
             type="button"
-            className="btn-dialog-secondary dialog-btn-secondary"
+            className={PILL_BTN_SECONDARY}
             onClick={onClose}
             disabled={isUploading}
           >
@@ -430,42 +163,195 @@ export const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
           </button>
           <button
             type="button"
-            className="btn-dialog-primary dialog-btn-primary"
+            className={PILL_BTN_PRIMARY}
             onClick={handleStartUpload}
             disabled={isUploading || items.length === 0}
           >
-            {isUploading ? (
-              <>
-                <span className="btn-spinner" aria-hidden="true" />
-                <span>Guardando documentos...</span>
-              </>
-            ) : (
-              <>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                <span>
-                  {items.length === 1
-                    ? 'Subir 1 documento PDF'
-                    : `Subir ${items.length} documentos PDF`}
-                </span>
-              </>
-            )}
+            <Upload className="h-3.5 w-3.5" />
+            <span>
+              {isUploading
+                ? 'Guardando…'
+                : items.length === 1
+                  ? 'Subir 1 PDF'
+                  : `Subir ${items.length} PDFs`}
+            </span>
           </button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {/* Target Folder */}
+        <div className="flex flex-col gap-1.5">
+          <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--ch-text-secondary)]">
+            <Folder className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+            <span>Carpeta de destino</span>
+          </label>
+          <select
+            value={selectedFolderId ?? ''}
+            onChange={(e) => setSelectedFolderId(e.target.value ? e.target.value : null)}
+            disabled={isUploading}
+            className={CLINICAL_FIELD_CLASS}
+          >
+            <option value="">Raíz de Mi Repositorio</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.title}
+              </option>
+            ))}
+          </select>
+          <span className="text-[11px] text-[var(--ch-text-muted)]">
+            {selectedFolderId
+              ? `Se guardarán dentro de «${targetFolderNode?.title || 'Carpeta seleccionada'}».`
+              : 'Los PDFs se guardarán como fichas en la raíz.'}
+          </span>
         </div>
+
+        {/* Dropzone */}
+        <div
+          className={`flex cursor-pointer flex-col items-center rounded-2xl border-2 border-dashed p-6 text-center transition ${
+            isDragOver
+              ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)]'
+              : 'border-[var(--ch-border-strong)] bg-[var(--ch-bg-secondary)]/60 hover:border-[var(--ch-accent)]'
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if (!isUploading) setIsDragOver(true)
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setIsDragOver(false)
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setIsDragOver(false)
+            if (isUploading) return
+            if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+              handleFilesSelected(e.dataTransfer.files)
+            }
+          }}
+          onClick={() => !isUploading && fileInputRef.current?.click()}
+        >
+          <span className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
+            <Upload className="h-6 w-6" />
+          </span>
+          <h4 className="font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+            Arrastra tus PDFs o haz clic para explorar
+          </h4>
+          <p className="mt-1 mb-4 text-xs text-[var(--ch-text-muted)]">
+            Puedes seleccionar uno o varios documentos (.pdf) simultáneamente.
+          </p>
+          <button
+            type="button"
+            className={PILL_BTN_SECONDARY}
+            disabled={isUploading}
+            onClick={(e) => {
+              e.stopPropagation()
+              fileInputRef.current?.click()
+            }}
+          >
+            <Upload className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+            <span>Explorar archivos PDF</span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,application/pdf"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                handleFilesSelected(e.target.files)
+              }
+            }}
+          />
+        </div>
+
+        {errorMessage && (
+          <div className="flex items-center gap-2 rounded-2xl border border-red-500/35 bg-red-500/10 px-3.5 py-2.5 text-xs font-medium text-red-700 dark:text-red-300">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        {isUploading && progress && (
+          <div className="flex flex-col gap-1.5 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-3">
+            <div className="flex justify-between text-xs font-semibold text-[var(--ch-text-primary)]">
+              <span>Guardando documentos PDF en almacenamiento local…</span>
+              <span className="font-mono">
+                {progress.current} / {progress.total}
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--ch-bg-elevated)]">
+              <div
+                className="h-full bg-[var(--ch-accent)] transition-all duration-200"
+                style={{
+                  width: `${progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {items.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-semibold text-[var(--ch-text-primary)]">
+                Documentos listos para subir ({items.length})
+              </span>
+              {!isUploading && (
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--ch-text-muted)] hover:text-red-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>Quitar todos</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex max-h-52 flex-col gap-2 overflow-y-auto pr-0.5">
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 p-3"
+                >
+                  <FileText className="h-5 w-5 shrink-0 text-[var(--ch-accent)]" />
+                  <div className="min-w-0 flex-1">
+                    <input
+                      type="text"
+                      className={CLINICAL_FIELD_CLASS}
+                      value={item.title}
+                      onChange={(e) => handleTitleChange(item.id, e.target.value)}
+                      disabled={isUploading}
+                      placeholder="Título del artículo…"
+                    />
+                    <div className="mt-1 flex items-center gap-2 font-mono text-[10px] text-[var(--ch-text-muted)]">
+                      <span className="truncate">{item.file.name}</span>
+                      <span>•</span>
+                      <span className="shrink-0">{item.sizeFormatted}</span>
+                    </div>
+                  </div>
+                  {!isUploading && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(item.id)}
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--ch-text-muted)] transition hover:bg-red-500/10 hover:text-red-600"
+                      title="Descartar este PDF"
+                      aria-label={`Descartar ${item.title}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </BaseModal>
   )
 }

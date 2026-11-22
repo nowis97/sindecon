@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { Smartphone, Share, PlusSquare, CheckCircle2 } from 'lucide-react'
+import { BaseModal, PILL_BTN_PRIMARY } from '../common/DialogModal'
 
 interface IosInstallModalProps {
   isOpen: boolean
@@ -6,74 +7,66 @@ interface IosInstallModalProps {
 }
 
 export function IosInstallModal({ isOpen, onClose }: IosInstallModalProps) {
-  useEffect(() => {
-    if (!isOpen) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
-
-  if (!isOpen) return null
-
   return (
-    <div className="dialog-overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="dialog-modal ios-install-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="dialog-header">
-          <h3>📲 Instalar SINDECON en iPhone / iPad</h3>
-          <button type="button" className="dialog-btn-close" onClick={onClose} aria-label="Cerrar">
-            ✕
-          </button>
-        </div>
-
-        <div className="dialog-body ios-install-body">
-          <p className="ios-install-lead">
-            Para instalar SINDECON en tu pantalla de inicio y usarla sin conexión en el hospital:
-          </p>
-
-          <div className="ios-install-steps">
-            <div className="ios-step-card">
-              <div className="ios-step-num">1</div>
-              <div className="ios-step-content">
-                <strong>Toca el botón Compartir</strong>
-                <p>
-                  En la barra inferior o superior de Safari, pulsa el icono de compartir{' '}
-                  <span className="ios-icon-badge">⎋</span> / <span className="ios-icon-badge">⬆️</span>.
-                </p>
-              </div>
-            </div>
-
-            <div className="ios-step-card">
-              <div className="ios-step-num">2</div>
-              <div className="ios-step-content">
-                <strong>Selecciona &quot;Añadir a pantalla de inicio&quot;</strong>
-                <p>
-                  Desplaza hacia abajo en el menú de opciones y toca{' '}
-                  <span className="ios-icon-badge">➕ Añadir a pantalla de inicio</span>.
-                </p>
-              </div>
-            </div>
-
-            <div className="ios-step-card">
-              <div className="ios-step-num">3</div>
-              <div className="ios-step-content">
-                <strong>Confirma &quot;Añadir&quot;</strong>
-                <p>
-                  Toca <strong>Añadir</strong> en la esquina superior derecha. ¡Listo! La app abrirá
-                  a pantalla completa y funcionará 100% offline.
-                </p>
-              </div>
-            </div>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Instalar en iPhone / iPad"
+      subtitle="Acceso instantáneo a pantalla completa y 100% offline en guardia."
+      icon={<Smartphone className="h-5 w-5" />}
+      maxWidthClass="max-w-md"
+      footer={
+        <button type="button" className={PILL_BTN_PRIMARY} onClick={onClose}>
+          Entendido
+        </button>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/60 p-3.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ch-accent)] font-mono text-xs font-bold text-white">
+            1
+          </span>
+          <div className="text-xs leading-relaxed text-[var(--ch-text-secondary)]">
+            <strong className="flex items-center gap-1.5 text-sm text-[var(--ch-text-primary)]">
+              <Share className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+              <span>Toca el botón Compartir</span>
+            </strong>
+            <p className="mt-1">En la barra de Safari, pulsa el ícono de compartir.</p>
           </div>
         </div>
 
-        <div className="dialog-footer">
-          <button type="button" className="btn-dialog-primary" onClick={onClose}>
-            Entendido
-          </button>
+        <div className="flex items-start gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/60 p-3.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ch-accent)] font-mono text-xs font-bold text-white">
+            2
+          </span>
+          <div className="text-xs leading-relaxed text-[var(--ch-text-secondary)]">
+            <strong className="flex items-center gap-1.5 text-sm text-[var(--ch-text-primary)]">
+              <PlusSquare className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+              <span>Añadir a pantalla de inicio</span>
+            </strong>
+            <p className="mt-1">
+              Desplázate en el menú de opciones y selecciona{' '}
+              <strong>«Añadir a pantalla de inicio»</strong>.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/60 p-3.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ch-accent)] font-mono text-xs font-bold text-white">
+            3
+          </span>
+          <div className="text-xs leading-relaxed text-[var(--ch-text-secondary)]">
+            <strong className="flex items-center gap-1.5 text-sm text-[var(--ch-text-primary)]">
+              <CheckCircle2 className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+              <span>Confirma «Añadir»</span>
+            </strong>
+            <p className="mt-1">
+              Toca <strong>Añadir</strong> arriba a la derecha. SINDECON abrirá sin conexión y a
+              pantalla completa.
+            </p>
+          </div>
         </div>
       </div>
-    </div>
+    </BaseModal>
   )
 }

@@ -1,3 +1,4 @@
+import { Cloud } from 'lucide-react'
 import type { SyncState, SyncProgress } from '../../pwa/syncEngine'
 
 interface SyncIndicatorProps {
@@ -20,26 +21,35 @@ export function SyncIndicator({
   const getStatusDetails = () => {
     if (!isConnected) {
       return {
-        status: 'disconnected',
+        dotClass: 'bg-slate-400',
+        pillClass:
+          'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)]',
         label: 'Drive',
-        title: 'Google Drive no conectado. Haz click para activar sincronización y backup automático.',
+        title:
+          'Google Drive no conectado. Haz clic para activar sincronización y backup automático.',
       }
     }
 
     if (isSessionExpired) {
       return {
-        status: 'paused',
-        label: 'Drive',
-        title: 'Sesión de Google Drive en pausa (token temporal expirado). Haz clic para reconectar y sincronizar cuando lo desees.',
+        dotClass: 'bg-amber-500',
+        pillClass:
+          'border-amber-500/35 bg-amber-500/12 text-amber-800 dark:text-amber-300',
+        label: 'Drive (pausa)',
+        title:
+          'Sesión de Google Drive en pausa (token expirado). Haz clic para reconectar y sincronizar.',
       }
     }
 
     switch (syncState) {
       case 'syncing':
       case 'checking': {
-        const percent = syncProgress?.percent !== undefined ? Math.round(syncProgress.percent) : null
+        const percent =
+          syncProgress?.percent !== undefined ? Math.round(syncProgress.percent) : null
         return {
-          status: 'syncing',
+          dotClass: 'bg-[var(--ch-accent)] animate-pulse',
+          pillClass:
+            'border-[var(--ch-accent)]/35 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]',
           label: percent !== null ? `Sync ${percent}%` : 'Sincronizando…',
           title: syncProgress?.message
             ? `${syncProgress.message} (${percent ?? 0}%)`
@@ -48,20 +58,25 @@ export function SyncIndicator({
       }
       case 'offline':
         return {
-          status: 'offline',
+          dotClass: 'bg-slate-400',
+          pillClass:
+            'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-muted)]',
           label: 'Offline',
           title: 'Modo Offline. Los cambios se guardan localmente y se sincronizarán al reconectar.',
         }
       case 'error':
         return {
-          status: 'error',
+          dotClass: 'bg-red-500',
+          pillClass: 'border-red-500/35 bg-red-500/12 text-red-700 dark:text-red-300',
           label: 'Error Sync',
-          title: 'Error de sincronización con Google Drive. Haz click para ver detalles y reintentar.',
+          title: 'Error de sincronización con Google Drive. Haz clic para ver detalles y reintentar.',
         }
       case 'idle':
       default:
         return {
-          status: 'synced',
+          dotClass: 'bg-emerald-500',
+          pillClass:
+            'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
           label: lastSyncedAt
             ? `Sync ${lastSyncedAt.toLocaleTimeString(undefined, {
                 hour: '2-digit',
@@ -75,36 +90,19 @@ export function SyncIndicator({
     }
   }
 
-  const { status, label, title } = getStatusDetails()
+  const { dotClass, pillClass, label, title } = getStatusDetails()
 
   return (
     <button
       type="button"
-      className={`sync-indicator-chip sync-status-${status}`}
+      className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 font-mono text-[11px] font-semibold transition hover:border-[var(--ch-accent)] ${pillClass}`}
       onClick={onClick}
       title={title}
       aria-label="Estado de sincronización en la nube"
     >
-      <svg
-        className="sync-chip-cloud-icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
-      </svg>
-      <span className={`sync-status-dot dot-${status}`} />
-      <span className="sync-status-label">{label}</span>
-      {status === 'syncing' && syncProgress && (
-        <span
-          className="sync-chip-progress-bar"
-          style={{ width: `${Math.max(5, Math.min(100, syncProgress.percent))}%` }}
-        />
-      )}
+      <Cloud className="h-3.5 w-3.5 shrink-0" />
+      <span className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
+      <span className="truncate">{label}</span>
     </button>
   )
 }

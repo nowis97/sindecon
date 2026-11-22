@@ -1,4 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  Folder,
+  FolderOpen,
+  FileText,
+  Inbox,
+  BookOpen,
+  Star,
+  ChevronRight,
+  ChevronDown,
+  MoreHorizontal,
+  Plus,
+  Sparkles,
+  FileInput,
+  FileUp,
+  Printer,
+  ArrowUpDown,
+  Pencil,
+  FolderInput,
+  Trash2,
+  X,
+} from 'lucide-react'
 import type { NodeRow } from '../../db/db'
 import { canMove, childrenOf } from '../../domain/tree'
 
@@ -424,11 +445,31 @@ export function TreeView({
                 }}
                 aria-label={isCollapsed ? 'Desplegar carpeta' : 'Colapsar carpeta'}
               >
-                {hasChildren ? '▾' : '·'}
+                {hasChildren ? (
+                  isCollapsed ? (
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )
+                ) : (
+                  <span className="inline-block h-1 w-1 rounded-full bg-current opacity-40" />
+                )}
               </button>
             )}
-            <span className={`tree-icon ${isFolder ? 'tree-icon-folder' : 'tree-icon-article'}`}>
-              {isFolder ? (isCollapsed ? '📁' : '📂') : '📄'}
+            <span className={`tree-icon flex items-center justify-center ${isFolder ? 'tree-icon-folder' : 'tree-icon-article'}`}>
+              {isFolder ? (
+                node.system === 'inbox' ? (
+                  <Inbox className="h-4 w-4 text-[var(--ch-accent)]" />
+                ) : node.system === 'templates' ? (
+                  <BookOpen className="h-4 w-4 text-[var(--ch-accent)]" />
+                ) : isCollapsed ? (
+                  <Folder className="h-4 w-4 text-[var(--ch-accent)]" />
+                ) : (
+                  <FolderOpen className="h-4 w-4 text-[var(--ch-accent)]" />
+                )
+              ) : (
+                <FileText className="h-3.5 w-3.5 text-[var(--ch-text-secondary)]" />
+              )}
             </span>
             <span className="tree-title">{node.title}</span>
 
@@ -439,8 +480,8 @@ export function TreeView({
             )}
 
             {!isFolder && isFav && (
-              <span className="tree-article-fav-indicator" title="Artículo favorito">
-                ⭐
+              <span className="tree-article-fav-indicator inline-flex items-center text-amber-500" title="Artículo favorito">
+                <Star className="h-3 w-3 fill-amber-500" />
               </span>
             )}
 
@@ -453,7 +494,7 @@ export function TreeView({
               >
                 <button
                   type="button"
-                  className={`btn-tree-row-menu ${isMenuOpen ? 'active' : ''}`}
+                  className={`btn-tree-row-menu inline-flex items-center justify-center ${isMenuOpen ? 'active' : ''}`}
                   title="Opciones"
                   aria-label={`Opciones para ${node.title}`}
                   onClick={(e) => {
@@ -469,7 +510,7 @@ export function TreeView({
                     }
                   }}
                 >
-                  ···
+                  <MoreHorizontal className="h-3.5 w-3.5" />
                 </button>
 
                 {isMenuOpen && (
@@ -481,14 +522,15 @@ export function TreeView({
                     {node.kind === 'article' && onToggleFavorite && (
                       <button
                         type="button"
-                        className="context-menu-item"
+                        className="context-menu-item flex items-center gap-2"
                         onClick={(e) => {
                           e.stopPropagation()
                           setActiveMenuId(null)
                           onToggleFavorite(node.id)
                         }}
                       >
-                        {isFav ? '☆ Quitar de Favoritos' : '⭐ Anclar a Favoritos'}
+                        <Star className={`h-3.5 w-3.5 ${isFav ? 'fill-amber-500 text-amber-500' : 'text-[var(--ch-accent)]'}`} />
+                        <span>{isFav ? 'Quitar de Favoritos' : 'Anclar a Favoritos'}</span>
                       </button>
                     )}
 
@@ -496,89 +538,96 @@ export function TreeView({
                       <>
                         <button
                           type="button"
-                          className="context-menu-item"
+                          className="context-menu-item flex items-center gap-2"
                           onClick={(e) => {
                             e.stopPropagation()
                             setActiveMenuId(null)
                             onCreateChild?.(node.id, 'article')
                           }}
                         >
-                          ➕ Nuevo artículo aquí
+                          <Plus className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+                          <span>Nuevo artículo aquí</span>
                         </button>
                         <button
                           type="button"
-                          className="context-menu-item"
+                          className="context-menu-item flex items-center gap-2"
                           onClick={(e) => {
                             e.stopPropagation()
                             setActiveMenuId(null)
                             onCreateChild?.(node.id, 'folder')
                           }}
                         >
-                          📁 Nueva subcarpeta
+                          <Folder className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+                          <span>Nueva subcarpeta</span>
                         </button>
                         {onSmartImport && (
                           <button
                             type="button"
-                            className="context-menu-item"
+                            className="context-menu-item flex items-center gap-2"
                             onClick={(e) => {
                               e.stopPropagation()
                               setActiveMenuId(null)
                               onSmartImport(node.id)
                             }}
                           >
-                            🪄 Importar aquí
+                            <Sparkles className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+                            <span>Importar con IA</span>
                           </button>
                         )}
                         {onBulkImport && (
                           <button
                             type="button"
-                            className="context-menu-item"
+                            className="context-menu-item flex items-center gap-2"
                             onClick={(e) => {
                               e.stopPropagation()
                               setActiveMenuId(null)
                               onBulkImport(node.id)
                             }}
                           >
-                            📥 Importar archivos .md
+                            <FileInput className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+                            <span>Importar archivos .md</span>
                           </button>
                         )}
                         {onUploadPdf && (
                           <button
                             type="button"
-                            className="context-menu-item"
+                            className="context-menu-item flex items-center gap-2"
                             onClick={(e) => {
                               e.stopPropagation()
                               setActiveMenuId(null)
                               onUploadPdf(node.id)
                             }}
                           >
-                            📄 Subir PDFs
+                            <FileUp className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+                            <span>Subir PDFs</span>
                           </button>
                         )}
                         {onBulkExportPdf && (
                           <button
                             type="button"
-                            className="context-menu-item"
+                            className="context-menu-item flex items-center gap-2"
                             onClick={(e) => {
                               e.stopPropagation()
                               setActiveMenuId(null)
                               onBulkExportPdf(node.id)
                             }}
                           >
-                            🖨️ Exportar compendio PDF
+                            <Printer className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+                            <span>Exportar compendio PDF</span>
                           </button>
                         )}
                         {onSortFolderAlphabetically && (
                           <button
                             type="button"
-                            className="context-menu-item"
+                            className="context-menu-item flex items-center gap-2"
                             onClick={(e) => {
                               e.stopPropagation()
                               setActiveMenuId(null)
                               onSortFolderAlphabetically(node.id)
                             }}
                           >
-                            🔤 Ordenar alfabéticamente (A-Z)
+                            <ArrowUpDown className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+                            <span>Ordenar alfabéticamente (A–Z)</span>
                           </button>
                         )}
                         <hr className="context-menu-divider" />
@@ -589,26 +638,28 @@ export function TreeView({
                       <>
                         <button
                           type="button"
-                          className="context-menu-item"
+                          className="context-menu-item flex items-center gap-2"
                           onClick={(e) => {
                             e.stopPropagation()
                             setActiveMenuId(null)
                             onRenameNode?.(node.id)
                           }}
                         >
-                          ✏️ Renombrar
+                          <Pencil className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+                          <span>Renombrar</span>
                         </button>
                         {node.system !== 'inbox' && (
                           <button
                             type="button"
-                            className="context-menu-item"
+                            className="context-menu-item flex items-center gap-2"
                             onClick={(e) => {
                               e.stopPropagation()
                               setActiveMenuId(null)
                               onMoveNode?.(node.id)
                             }}
                           >
-                            📦 Mover
+                            <FolderInput className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+                            <span>Mover a…</span>
                           </button>
                         )}
                         {node.system !== 'inbox' && (
@@ -616,14 +667,15 @@ export function TreeView({
                             <hr className="context-menu-divider" />
                             <button
                               type="button"
-                              className="context-menu-item item-danger"
+                              className="context-menu-item item-danger flex items-center gap-2"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setActiveMenuId(null)
                                 onDeleteNode?.(node.id)
                               }}
                             >
-                              🗑️ Eliminar
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span>Eliminar</span>
                             </button>
                           </>
                         )}
@@ -735,10 +787,17 @@ export function TreeView({
             className="favorites-header"
             onClick={() => setFavoritesCollapsed(!favoritesCollapsed)}
           >
-            <span className="favorites-header-title">⭐ Favoritos / Clave</span>
+            <span className="favorites-header-title inline-flex items-center gap-1.5">
+              <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+              <span>Favoritos / Clave</span>
+            </span>
             <span className="favorites-header-count">{favoriteNodes.length}</span>
             <span className={`favorites-caret ${favoritesCollapsed ? 'collapsed' : 'expanded'}`}>
-              ▾
+              {favoritesCollapsed ? (
+                <ChevronRight className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
             </span>
           </div>
 
@@ -768,19 +827,21 @@ export function TreeView({
                     }}
                     onClick={() => onSelect(fav.id)}
                   >
-                    <span className="tree-icon">⭐</span>
+                    <span className="tree-icon inline-flex items-center text-amber-500">
+                      <Star className="h-3.5 w-3.5 fill-amber-500" />
+                    </span>
                     <span className="tree-title">{fav.title}</span>
                     {onToggleFavorite && (
                       <button
                         type="button"
-                        className="btn-remove-fav"
+                        className="btn-remove-fav inline-flex items-center justify-center"
                         title="Quitar de favoritos"
                         onClick={(e) => {
                           e.stopPropagation()
                           onToggleFavorite(fav.id)
                         }}
                       >
-                        ×
+                        <X className="h-3 w-3" />
                       </button>
                     )}
                   </div>

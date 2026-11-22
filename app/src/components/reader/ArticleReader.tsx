@@ -1,4 +1,13 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  Columns2,
+  FileText,
+  AlignJustify,
+  AlignLeft,
+  ListTree,
+  Printer,
+  FileOutput,
+} from 'lucide-react'
 import { MermaidViewer } from './MermaidViewer'
 import { AssetImage } from './AssetImage'
 import { PdfDocumentViewer } from './PdfDocumentViewer'
@@ -14,6 +23,9 @@ export interface ArticleReaderProps {
   articleTitle?: string
   folderPath?: string
   suppressDocHeader?: boolean
+  hideReaderToolbar?: boolean
+  externalIsTwoColumns?: boolean
+  externalIsJustified?: boolean
 }
 
 export type CalloutKind =
@@ -994,6 +1006,15 @@ function getCalloutIcon(kind: CalloutKind) {
   }
 }
 
+function slugifyHeading(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 function renderBlock(
   block: Block,
   key: string | number,
@@ -1006,8 +1027,13 @@ function renderBlock(
   switch (block.type) {
     case 'header': {
       const Tag = `h${Math.min(block.level, 6)}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
+      const anchorId = `reader-sec-${slugifyHeading(block.text)}`
       return (
-        <Tag key={key} className={`reader-heading h${block.level}${fullWidthClass}`}>
+        <Tag
+          key={key}
+          id={anchorId}
+          className={`reader-heading h${block.level}${fullWidthClass} scroll-mt-24`}
+        >
           {renderFormattedInline(block.text, onWikiLinkClick)}
         </Tag>
       )
@@ -1240,8 +1266,11 @@ export function ArticleReader({
   articleTitle,
   folderPath,
   suppressDocHeader = false,
+  hideReaderToolbar = false,
+  externalIsTwoColumns,
+  externalIsJustified,
 }: ArticleReaderProps) {
-  const [isTwoColumns, setIsTwoColumns] = useState<boolean>(() => {
+  const [internalIsTwoColumns, setInternalIsTwoColumns] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('sindecon_reader_columns')
       return saved !== null ? saved === '2' : true
@@ -1250,7 +1279,7 @@ export function ArticleReader({
     }
   })
 
-  const [isJustified, setIsJustified] = useState<boolean>(() => {
+  const [internalIsJustified, setInternalIsJustified] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('sindecon_reader_text_align')
       return saved !== null ? saved === 'justify' : true
@@ -1259,8 +1288,11 @@ export function ArticleReader({
     }
   })
 
+  const isTwoColumns = externalIsTwoColumns ?? internalIsTwoColumns
+  const isJustified = externalIsJustified ?? internalIsJustified
+
   const toggleColumns = () => {
-    setIsTwoColumns((prev) => {
+    setInternalIsTwoColumns((prev) => {
       const next = !prev
       try {
         localStorage.setItem('sindecon_reader_columns', next ? '2' : '1')
@@ -1270,7 +1302,7 @@ export function ArticleReader({
   }
 
   const toggleAlignment = () => {
-    setIsJustified((prev) => {
+    setInternalIsJustified((prev) => {
       const next = !prev
       try {
         localStorage.setItem('sindecon_reader_text_align', next ? 'justify' : 'left')
@@ -1295,6 +1327,22 @@ export function ArticleReader({
     }
     return partitionBlocksIntoSheets(preparedDoc.bodyBlocks)
   }, [preparedDoc.bodyBlocks, isTwoColumns])
+
+  const sectionHeadings = useMemo(() => {
+    const list: Array<{ text: string; id: string; level: number }> = []
+    const seen = new Set<string>()
+    for (const b of preparedDoc.bodyBlocks) {
+      if (b.type === 'header' && (b.level === 2 || b.level === 3)) {
+        const cleanText = b.text.replace(/[*_`~]/g, '').trim()
+        const id = `reader-sec-${slugifyHeading(b.text)}`
+        if (cleanText && !seen.has(id)) {
+          seen.add(id)
+          list.push({ text: cleanText, id, level: b.level })
+        }
+      }
+    }
+    return list
+  }, [preparedDoc.bodyBlocks])
 
   const sheetContainerRef = useRef<HTMLDivElement | null>(null)
 
@@ -1364,46 +1412,112 @@ export function ArticleReader({
           : `article-reader-container ${isPdfArticle ? 'pdf-container-full' : ''}`
       }
     >
-      {!isPrintView && !isPdfArticle && (
-        <div className="reader-toolbar-row">
-          <button
-            type="button"
-            className={`btn-reader-align-toggle ${isJustified ? 'active' : ''}`}
-            onClick={toggleAlignment}
-            title={isJustified ? 'Cambiar a alineación izquierda' : 'Cambiar a texto justificado'}
-          >
-            {isJustified ? '↔️ Justificado' : '⬅️ Izquierda'}
-          </button>
+      {!isPrintView && !isPdfArticle && !hideReaderToolbar && (
+        <div className="mb-4 flex flex-col gap-2.5 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] p-3 shadow-[var(--ch-shadow-card)]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* Left: Layout & Alignment Controls */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 font-mono text-[11px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
+                Formato Dossier:
+              </span>
+              <button
+                type="button"
+                onClick={toggleColumns}
+                title={
+                  isTwoColumns
+                    ? 'Cambiar a vista de 1 columna continua'
+                    : 'Cambiar a diseño de 2 columnas (Ficha clínica A4)'
+                }
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                  isTwoColumns
+                    ? 'border-[var(--ch-accent)]/40 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
+                    : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+                }`}
+              >
+                {isTwoColumns ? (
+                  <Columns2 className="h-3.5 w-3.5" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5" />
+                )}
+                <span>{isTwoColumns ? '2 Columnas (Ficha A4)' : '1 Columna'}</span>
+              </button>
 
-          <button
-            type="button"
-            className={`btn-reader-layout-toggle ${isTwoColumns ? 'active' : ''}`}
-            onClick={toggleColumns}
-            title={isTwoColumns ? 'Cambiar a vista de 1 columna' : 'Cambiar a diseño de 2 columnas (Ficha médica)'}
-          >
-            {isTwoColumns ? '📖 Vista 2 Columnas (Word)' : '📄 Vista 1 Columna'}
-          </button>
+              <button
+                type="button"
+                onClick={toggleAlignment}
+                title={
+                  isJustified
+                    ? 'Cambiar a alineación izquierda'
+                    : 'Cambiar a texto justificado editorial'
+                }
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                  isJustified
+                    ? 'border-[var(--ch-accent)]/40 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
+                    : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
+                }`}
+              >
+                {isJustified ? (
+                  <AlignJustify className="h-3.5 w-3.5" />
+                ) : (
+                  <AlignLeft className="h-3.5 w-3.5" />
+                )}
+                <span>{isJustified ? 'Justificado' : 'Izquierda'}</span>
+              </button>
 
-          {onOpenExportPdf && (
-            <button
-              type="button"
-              className="btn-reader-export-pdf"
-              onClick={onOpenExportPdf}
-              title="Exportar este artículo a PDF o Imprimir"
-            >
-              🖨️ Exportar PDF
-            </button>
-          )}
+              <span className="ml-1 rounded-full bg-[var(--ch-bg-secondary)] px-2.5 py-0.5 font-mono text-[11px] text-[var(--ch-text-muted)]">
+                {sheets.length} {sheets.length === 1 ? 'página A4' : 'páginas A4'}
+              </span>
+            </div>
 
-          {onOpenExportGoogleDocs && (
-            <button
-              type="button"
-              className="btn-toolbar-action btn-export-gdocs"
-              onClick={onOpenExportGoogleDocs}
-              title="Exportar a Google Docs con diseño clínico y Mermaid"
-            >
-              📄 Google Docs
-            </button>
+            {/* Right: Export to PDF / Google Docs */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {onOpenExportPdf && (
+                <button
+                  type="button"
+                  onClick={onOpenExportPdf}
+                  title="Imprimir o exportar ficha clínica a PDF"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-1 text-xs font-semibold text-[var(--ch-text-primary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)]"
+                >
+                  <Printer className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+                  <span>Imprimir / PDF</span>
+                </button>
+              )}
+
+              {onOpenExportGoogleDocs && (
+                <button
+                  type="button"
+                  onClick={onOpenExportGoogleDocs}
+                  title="Exportar a Google Docs con diseño clínico y diagramas Mermaid"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-1 text-xs font-semibold text-[var(--ch-text-primary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)]"
+                >
+                  <FileOutput className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+                  <span>Google Docs</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Interactive Section Outline (Índice Rápido de Secciones del Protocolo) */}
+          {sectionHeadings.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-[var(--ch-border-subtle)] pt-2">
+              <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] font-semibold tracking-wider text-[var(--ch-text-muted)] uppercase">
+                <ListTree className="h-3 w-3 text-[var(--ch-accent)]" />
+                <span>Secciones:</span>
+              </span>
+              {sectionHeadings.map((sec) => (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById(sec.id)
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
+                  className="inline-flex items-center rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:bg-[var(--ch-accent-soft)] hover:text-[var(--ch-accent)]"
+                >
+                  {sec.text}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}

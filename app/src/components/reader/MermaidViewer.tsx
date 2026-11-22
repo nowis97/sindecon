@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle, Maximize2, X } from 'lucide-react'
 
 let mermaidIdCounter = 0
 
@@ -150,7 +151,10 @@ export function MermaidViewer({ code, isPrintView = false, className = '' }: Mer
   if (error) {
     return (
       <div className="mermaid-error">
-        <p className="error-title">⚠ Diagrama mermaid no válido</p>
+        <p className="error-title inline-flex items-center gap-1.5">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+          <span>Diagrama mermaid no válido</span>
+        </p>
         <pre className="mermaid-code-fallback">{code}</pre>
       </div>
     )
@@ -179,8 +183,9 @@ export function MermaidViewer({ code, isPrintView = false, className = '' }: Mer
               type="button"
               onClick={() => setIsFullscreen(!isFullscreen)}
               title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+              className="inline-flex items-center justify-center"
             >
-              {isFullscreen ? '✕' : '⛶'}
+              {isFullscreen ? <X className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </button>
           </div>
         </div>

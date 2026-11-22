@@ -1,7 +1,24 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import {
+  Printer,
+  Search,
+  Folder,
+  Tag,
+  FileText,
+  Columns2,
+  Check,
+  X,
+} from 'lucide-react'
 import type { NodeRow } from '../../db/db'
 import { db } from '../../db/db'
 import { pathTo, collectDescendantIds } from '../../domain/tree'
+import {
+  BaseModal,
+  PILL_BTN_PRIMARY,
+  PILL_BTN_SECONDARY,
+  PILL_INPUT_CLASS,
+  CLINICAL_FIELD_CLASS,
+} from '../common/DialogModal'
 
 export interface BulkExportPdfOptions {
   columns: '1' | '2'
@@ -35,17 +52,14 @@ export function filterArticlesForExport(
 ): NodeRow[] {
   const q = searchQuery.trim().toLowerCase()
   return articles.filter((art) => {
-    // Filtro de texto por título
     if (q && !art.title.toLowerCase().includes(q)) {
       return false
     }
-    // Filtro por carpeta (artículo en esa carpeta o en alguna de sus subcarpetas)
     if (folderFilter !== 'all') {
       const path = pathTo(liveNodes, art.id)
       const isInFolder = path.some((p) => p.id === folderFilter)
       if (!isInFolder) return false
     }
-    // Filtro por etiqueta
     if (tagFilter !== 'all') {
       const tags = tagsByNode.get(art.id) ?? []
       if (!tags.includes(tagFilter)) return false
@@ -90,7 +104,6 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [tagsByNode, setTagsByNode] = useState<Map<string, string[]>>(new Map())
 
-  // Filtrar notas activas y carpetas válidas
   const liveNodes = useMemo(() => nodes.filter((n) => n.deleted_at === null), [nodes])
   const articleNodes = useMemo(
     () =>
@@ -106,7 +119,6 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
     [liveNodes],
   )
 
-  // Cargar etiquetas desde IndexedDB y opciones guardadas al abrir
   useEffect(() => {
     if (!isOpen) return
 
@@ -133,7 +145,6 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
       }
     } catch {}
 
-    // Configuración inicial de selección según initialFolderId
     if (initialFolderId) {
       setFolderFilter(initialFolderId)
       const folderNode = folderNodes.find((f) => f.id === initialFolderId)
@@ -150,17 +161,11 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
     setSearchQuery('')
     setTagFilter('all')
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
     return () => {
       isMounted = false
-      window.removeEventListener('keydown', handleKeyDown)
     }
   }, [isOpen, initialFolderId, liveNodes, folderNodes, articleNodes])
 
-  // Todas las etiquetas únicas disponibles en las notas
   const allUniqueTags = useMemo(() => {
     const set = new Set<string>()
     tagsByNode.forEach((tags) => {
@@ -169,7 +174,6 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
     return Array.from(set).sort((a, b) => a.localeCompare(b))
   }, [tagsByNode])
 
-  // Filtrado reactivo de artículos
   const filteredArticles = useMemo(() => {
     return filterArticlesForExport(
       articleNodes,
@@ -180,8 +184,6 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
       tagsByNode,
     )
   }, [articleNodes, searchQuery, folderFilter, tagFilter, liveNodes, tagsByNode])
-
-  if (!isOpen) return null
 
   const handleToggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -237,330 +239,282 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div
-        className="modal-content bulk-export-pdf-modal"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 840, width: '95%' }}
-      >
-        <div className="modal-header">
-          <div className="header-title-group">
-            <div className="topic-modal-title-line">
-              <span className="topic-modal-icon">🖨️</span>
-              <h3>Exportación Masiva a PDF (Compendio Clínico)</h3>
-            </div>
-            <span className="header-subtitle">
-              Selecciona múltiples artículos médicos y combínalos en un único documento PDF de alta fidelidad.
-            </span>
-          </div>
-          <button className="btn-close" onClick={onClose} aria-label="Cerrar modal">
-            ✕
-          </button>
-        </div>
-
-        <div className="bulk-export-pdf-body" style={{ maxHeight: 'calc(85vh - 130px)', overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Título del compendio */}
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="field-main-label" htmlFor="compilation-title-input">
-              Título del Compendio (Nombre sugerido para el archivo PDF):
-            </label>
-            <input
-              id="compilation-title-input"
-              type="text"
-              className="dialog-input"
-              value={compilationTitle}
-              onChange={(e) => setCompilationTitle(e.target.value)}
-              placeholder="Ej. Compendio de Infectología Pediátrica"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-sm)' }}
-            />
-          </div>
-
-          {/* Barra de Filtros y Búsqueda */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: 10,
-              background: 'var(--bg-muted)',
-              padding: 12,
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            {/* Buscador de artículos */}
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: 4 }}>
-                🔍 Buscar por título:
-              </label>
-              <input
-                type="text"
-                className="dialog-input"
-                placeholder="Escribe para filtrar…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem' }}
-              />
-            </div>
-
-            {/* Filtro por carpeta */}
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: 4 }}>
-                📁 Filtrar por carpeta:
-              </label>
-              <select
-                className="dialog-input"
-                value={folderFilter}
-                onChange={(e) => setFolderFilter(e.target.value)}
-                style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem' }}
-              >
-                <option value="all">Todas las carpetas ({articleNodes.length})</option>
-                {folderNodes.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    📁 {f.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Filtro por etiqueta */}
-            {allUniqueTags.length > 0 && (
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: 4 }}>
-                  🏷️ Filtrar por etiqueta:
-                </label>
-                <select
-                  className="dialog-input"
-                  value={tagFilter}
-                  onChange={(e) => setTagFilter(e.target.value)}
-                  style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem' }}
-                >
-                  <option value="all">Todas las etiquetas</option>
-                  {allUniqueTags.map((t) => (
-                    <option key={t} value={t}>
-                      #{t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* Lista de Selección de Artículos */}
-          <div
-            style={{
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
-              overflow: 'hidden',
-            }}
-          >
-            {/* Cabecera de la lista con botones de acción masiva */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '10px 14px',
-                background: 'var(--bg-muted)',
-                borderBottom: '1px solid var(--border-subtle)',
-                flexWrap: 'wrap',
-                gap: 8,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>
-                  📑 Artículos ({filteredArticles.length} visibles)
-                </span>
-                <span
-                  style={{
-                    fontSize: '0.78rem',
-                    padding: '2px 8px',
-                    borderRadius: 9999,
-                    backgroundColor: selectedIds.size > 0 ? 'var(--accent-primary)' : 'var(--border-subtle)',
-                    color: selectedIds.size > 0 ? '#ffffff' : 'var(--text-muted)',
-                    fontWeight: 600,
-                  }}
-                >
-                  {selectedIds.size} {selectedIds.size === 1 ? 'seleccionado' : 'seleccionados'}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  type="button"
-                  className="btn-dialog-secondary"
-                  onClick={handleSelectAllVisible}
-                  style={{ padding: '3px 8px', fontSize: '0.78rem' }}
-                >
-                  ✓ Seleccionar visibles
-                </button>
-                <button
-                  type="button"
-                  className="btn-dialog-secondary"
-                  onClick={handleDeselectAllVisible}
-                  style={{ padding: '3px 8px', fontSize: '0.78rem' }}
-                >
-                  ✕ Deseleccionar visibles
-                </button>
-              </div>
-            </div>
-
-            {/* Listado de artículos con checkboxes */}
-            <div style={{ maxHeight: 240, overflowY: 'auto' }}>
-              {filteredArticles.length === 0 ? (
-                <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                  No se encontraron artículos con los filtros aplicados.
-                </div>
-              ) : (
-                filteredArticles.map((art) => {
-                  const isChecked = selectedIds.has(art.id)
-                  const tags = tagsByNode.get(art.id) ?? []
-                  const breadcrumbs = pathTo(liveNodes, art.id).slice(0, -1).map((n) => n.title).join(' › ')
-
-                  return (
-                    <label
-                      key={art.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '8px 14px',
-                        borderBottom: '1px solid var(--border-subtle)',
-                        cursor: 'pointer',
-                        backgroundColor: isChecked ? 'var(--accent-surface)' : 'transparent',
-                        transition: 'background-color 0.1s ease',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handleToggleSelect(art.id)}
-                          style={{ cursor: 'pointer', width: 16, height: 16 }}
-                        />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
-                          <span style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
-                            📄 {art.title}
-                          </span>
-                          {breadcrumbs && (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                              📁 {breadcrumbs}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {tags.length > 0 && (
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginLeft: 8 }}>
-                          {tags.slice(0, 3).map((t) => (
-                            <span
-                              key={t}
-                              style={{
-                                fontSize: '0.7rem',
-                                padding: '1px 6px',
-                                borderRadius: 9999,
-                                background: 'var(--pill-bg)',
-                                color: 'var(--pill-text)',
-                              }}
-                            >
-                              #{t}
-                            </span>
-                          ))}
-                          {tags.length > 3 && (
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                              +{tags.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </label>
-                  )
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Opciones de Maquetación de Impresión */}
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="field-main-label">Diseño de Maquetación en Papel:</label>
-            <div className="pdf-layout-grid">
-              <button
-                type="button"
-                className={`pdf-layout-card ${columns === '1' ? 'active' : ''}`}
-                onClick={() => handleSelectColumns('1')}
-              >
-                <div className="layout-badge-pill">Lectura Lineal</div>
-                <div className="layout-card-icon">📄</div>
-                <div className="layout-card-info">
-                  <strong>1 Columna</strong>
-                  <span>Diseño amplio y continuo. Ideal para lectura extensa.</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className={`pdf-layout-card ${columns === '2' ? 'active' : ''}`}
-                onClick={() => handleSelectColumns('2')}
-              >
-                <div className="layout-badge-pill recommended">Ficha Médica</div>
-                <div className="layout-card-icon">📖</div>
-                <div className="layout-card-info">
-                  <strong>2 Columnas</strong>
-                  <span>Diseño compacto estilo UptoDate/Word. Ahorra papel.</span>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Opciones del Compendio */}
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="field-main-label">Opciones del Compendio:</label>
-            <div className="pdf-options-list">
-              <label className="pdf-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={pageBreakBetween}
-                  onChange={(e) => handleTogglePageBreak(e.target.checked)}
-                />
-                <span>Separar cada artículo en una página nueva (Salto de página)</span>
-              </label>
-
-              <label className="pdf-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={includeHeader}
-                  onChange={(e) => setIncludeHeader(e.target.checked)}
-                />
-                <span>Incluir cabecera clínica en cada artículo (Título, fecha y ruta)</span>
-              </label>
-
-              <label className="pdf-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={includeTags}
-                  onChange={(e) => setIncludeTags(e.target.checked)}
-                />
-                <span>Incluir etiquetas en cada artículo</span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        {/* Acciones */}
-        <div className="modal-actions" style={{ padding: '14px 20px', borderTop: '1px solid var(--border-subtle)' }}>
-          <button type="button" className="btn-secondary" onClick={onClose}>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Exportación Masiva a PDF"
+      subtitle="Combina múltiples protocolos médicos en un único compendio clínico."
+      icon={<Printer className="h-5 w-5" />}
+      maxWidthClass="max-w-3xl"
+      footer={
+        <>
+          <button type="button" className={PILL_BTN_SECONDARY} onClick={onClose}>
             Cancelar
           </button>
           <button
             type="button"
-            className="btn-primary btn-print-confirm"
+            className={PILL_BTN_PRIMARY}
             disabled={selectedIds.size === 0}
             onClick={handleConfirm}
           >
-            🖨️ Imprimir / Guardar Compendio ({selectedIds.size} {selectedIds.size === 1 ? 'nota' : 'notas'})
+            <Printer className="h-3.5 w-3.5" />
+            <span>
+              Imprimir Compendio ({selectedIds.size} {selectedIds.size === 1 ? 'nota' : 'notas'})
+            </span>
+          </button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {/* Compilation Title */}
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="compilation-title-input"
+            className="text-xs font-semibold text-[var(--ch-text-secondary)]"
+          >
+            Título del compendio (nombre sugerido del PDF)
+          </label>
+          <input
+            id="compilation-title-input"
+            type="text"
+            className={PILL_INPUT_CLASS}
+            value={compilationTitle}
+            onChange={(e) => setCompilationTitle(e.target.value)}
+            placeholder="Ej. Compendio de Infectología Pediátrica"
+          />
+        </div>
+
+        {/* Filters */}
+        <div className="grid grid-cols-1 gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/60 p-3.5 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <label className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ch-text-secondary)]">
+              <Search className="h-3 w-3 text-[var(--ch-accent)]" />
+              <span>Buscar por título</span>
+            </label>
+            <input
+              type="text"
+              className={CLINICAL_FIELD_CLASS}
+              placeholder="Escribe para filtrar…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ch-text-secondary)]">
+              <Folder className="h-3 w-3 text-[var(--ch-accent)]" />
+              <span>Carpeta</span>
+            </label>
+            <select
+              className={CLINICAL_FIELD_CLASS}
+              value={folderFilter}
+              onChange={(e) => setFolderFilter(e.target.value)}
+            >
+              <option value="all">Todas las carpetas ({articleNodes.length})</option>
+              {folderNodes.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {allUniqueTags.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <label className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ch-text-secondary)]">
+                <Tag className="h-3 w-3 text-[var(--ch-accent)]" />
+                <span>Etiqueta</span>
+              </label>
+              <select
+                className={CLINICAL_FIELD_CLASS}
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+              >
+                <option value="all">Todas las etiquetas</option>
+                {allUniqueTags.map((t) => (
+                  <option key={t} value={t}>
+                    #{t}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Articles Selection List */}
+        <div className="overflow-hidden rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)]">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/70 px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[var(--ch-text-primary)]">
+                Artículos ({filteredArticles.length} visibles)
+              </span>
+              <span
+                className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] font-semibold ${
+                  selectedIds.size > 0
+                    ? 'bg-[var(--ch-accent)] text-white'
+                    : 'bg-[var(--ch-bg-elevated)] text-[var(--ch-text-muted)]'
+                }`}
+              >
+                {selectedIds.size} {selectedIds.size === 1 ? 'seleccionado' : 'seleccionados'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleSelectAllVisible}
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-2.5 py-1 text-[11px] font-semibold text-[var(--ch-text-secondary)] hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)]"
+              >
+                <Check className="h-3 w-3" />
+                <span>Seleccionar visibles</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDeselectAllVisible}
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] px-2.5 py-1 text-[11px] font-semibold text-[var(--ch-text-secondary)] hover:border-red-400 hover:text-red-600"
+              >
+                <X className="h-3 w-3" />
+                <span>Quitar visibles</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="max-h-60 divide-y divide-[var(--ch-border-subtle)] overflow-y-auto">
+            {filteredArticles.length === 0 ? (
+              <div className="px-4 py-8 text-center text-xs text-[var(--ch-text-muted)]">
+                No se encontraron artículos con los filtros aplicados.
+              </div>
+            ) : (
+              filteredArticles.map((art) => {
+                const isChecked = selectedIds.has(art.id)
+                const tags = tagsByNode.get(art.id) ?? []
+                const breadcrumbs = pathTo(liveNodes, art.id)
+                  .slice(0, -1)
+                  .map((n) => n.title)
+                  .join(' › ')
+
+                return (
+                  <label
+                    key={art.id}
+                    className={`flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5 transition ${
+                      isChecked
+                        ? 'bg-[var(--ch-accent-soft)]/55'
+                        : 'hover:bg-[var(--ch-bg-secondary)]/50'
+                    }`}
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleToggleSelect(art.id)}
+                        className="h-4 w-4 shrink-0 accent-[var(--ch-accent)]"
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--ch-text-primary)]">
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
+                          <span className="truncate">{art.title}</span>
+                        </div>
+                        {breadcrumbs && (
+                          <div className="truncate pl-5 font-mono text-[10px] text-[var(--ch-text-muted)]">
+                            {breadcrumbs}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {tags.length > 0 && (
+                      <div className="hidden shrink-0 flex-wrap gap-1 sm:flex">
+                        {tags.slice(0, 3).map((t) => (
+                          <span
+                            key={t}
+                            className="rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2 py-0.5 font-mono text-[10px] text-[var(--ch-text-secondary)]"
+                          >
+                            #{t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </label>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Layout Selector */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => handleSelectColumns('1')}
+            className={`flex items-start gap-3 rounded-2xl border p-3 text-left transition ${
+              columns === '1'
+                ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)]'
+                : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 hover:border-[var(--ch-accent)]/50'
+            }`}
+          >
+            <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+            <div>
+              <strong className="block font-serif text-xs font-semibold text-[var(--ch-text-primary)]">
+                1 Columna Continua
+              </strong>
+              <span className="text-[11px] text-[var(--ch-text-muted)]">
+                Diseño amplio ideal para lectura extensa.
+              </span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSelectColumns('2')}
+            className={`flex items-start gap-3 rounded-2xl border p-3 text-left transition ${
+              columns === '2'
+                ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)]'
+                : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 hover:border-[var(--ch-accent)]/50'
+            }`}
+          >
+            <Columns2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ch-accent)]" />
+            <div>
+              <strong className="block font-serif text-xs font-semibold text-[var(--ch-text-primary)]">
+                2 Columnas Ficha Médica
+              </strong>
+              <span className="text-[11px] text-[var(--ch-text-muted)]">
+                Diseño compacto estilo dossier que ahorra papel.
+              </span>
+            </div>
           </button>
         </div>
+
+        {/* Compilation Options */}
+        <div className="flex flex-col gap-2 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 p-3">
+          <label className="flex cursor-pointer items-center gap-2.5 text-xs font-medium text-[var(--ch-text-primary)]">
+            <input
+              type="checkbox"
+              checked={pageBreakBetween}
+              onChange={(e) => handleTogglePageBreak(e.target.checked)}
+              className="h-4 w-4 accent-[var(--ch-accent)]"
+            />
+            <span>Separar cada artículo en una página nueva (salto de página)</span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-2.5 text-xs font-medium text-[var(--ch-text-primary)]">
+            <input
+              type="checkbox"
+              checked={includeHeader}
+              onChange={(e) => setIncludeHeader(e.target.checked)}
+              className="h-4 w-4 accent-[var(--ch-accent)]"
+            />
+            <span>Incluir cabecera clínica en cada artículo</span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-2.5 text-xs font-medium text-[var(--ch-text-primary)]">
+            <input
+              type="checkbox"
+              checked={includeTags}
+              onChange={(e) => setIncludeTags(e.target.checked)}
+              className="h-4 w-4 accent-[var(--ch-accent)]"
+            />
+            <span>Incluir etiquetas en cada artículo</span>
+          </label>
+        </div>
       </div>
-    </div>
+    </BaseModal>
   )
 }

@@ -136,13 +136,15 @@ html[data-theme='dark'],
 /* ==========================================================================
    Base & Layout
    ========================================================================== */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
 
-input, select, textarea, button {
-  font-family: inherit;
-  color: inherit;
+  input, select, textarea, button {
+    font-family: inherit;
+    color: inherit;
+  }
 }
 
 body {
@@ -2064,7 +2066,7 @@ body {
    Article View (Notion Page & Reader)
    ========================================================================== */
 .article-container {
-  max-width: 900px;
+  max-width: 1440px;
   width: 100%;
   margin: 0 auto;
   display: flex;

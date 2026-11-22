@@ -1,4 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  FileUp,
+  FolderOpen,
+  FileText,
+  Folder,
+  Settings,
+  AlertTriangle,
+  X,
+} from 'lucide-react'
 import type { NodeRow } from '../../db/db'
 import {
   processFilesForBulkImport,
@@ -9,6 +18,12 @@ import {
   type CollisionStrategy,
   type BulkImportResult,
 } from '../../db/bulkArticles'
+import {
+  BaseModal,
+  PILL_BTN_PRIMARY,
+  PILL_BTN_SECONDARY,
+  CLINICAL_FIELD_CLASS,
+} from '../common/DialogModal'
 
 export interface BulkImportModalProps {
   isOpen: boolean
@@ -50,23 +65,10 @@ export function BulkImportModal({
       setIsDragOver(false)
     }
     wasOpenRef.current = isOpen
-
-    if (!isOpen) return
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isImporting) {
-        onClose()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, targetFolderId, isImporting, onClose])
-
-  if (!isOpen) return null
+  }, [isOpen, targetFolderId])
 
   const folders = nodes.filter(
-    (n) => n.kind === 'folder' && n.deleted_at === null && n.system !== 'templates'
+    (n) => n.kind === 'folder' && n.deleted_at === null && n.system !== 'templates',
   )
 
   const handleFilesSelected = async (files: FileList | File[]) => {
@@ -80,17 +82,16 @@ export function BulkImportModal({
         setErrorMessage('No se encontraron archivos Markdown (.md, .markdown) o ZIP válidos.')
       } else {
         setParsedItems((prev) => {
-          // Evitar duplicados exactos por nombre de archivo / ruta relativa
           const existingKeys = new Set(prev.map((i) => i.relativePath || i.originalFilename))
           const newItems = items.filter(
-            (i) => !existingKeys.has(i.relativePath || i.originalFilename)
+            (i) => !existingKeys.has(i.relativePath || i.originalFilename),
           )
           return [...prev, ...newItems]
         })
       }
     } catch (err) {
       setErrorMessage(
-        err instanceof Error ? err.message : 'Error al procesar los archivos seleccionados'
+        err instanceof Error ? err.message : 'Error al procesar los archivos seleccionados',
       )
     } finally {
       setIsParsing(false)
@@ -122,12 +123,11 @@ export function BulkImportModal({
           setProgress({ current, total })
         },
       })
-
       onImportComplete?.(result)
       onClose()
     } catch (err) {
       setErrorMessage(
-        err instanceof Error ? err.message : 'Ocurrió un error durante la importación'
+        err instanceof Error ? err.message : 'Ocurrió un error inesperado al importar las notas',
       )
     } finally {
       setIsImporting(false)
@@ -137,320 +137,20 @@ export function BulkImportModal({
   const targetFolderNode = folders.find((f) => f.id === selectedFolderId)
 
   return (
-    <div className="dialog-overlay" onClick={isImporting ? undefined : onClose} role="dialog" aria-modal="true">
-      <div
-        className="dialog-modal bulk-import-modal"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 740, width: '95%' }}
-      >
-        <div className="dialog-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: '1.3rem' }}>📥</span>
-            <h3 style={{ margin: 0 }}>Importación Masiva de Archivos Markdown</h3>
-          </div>
-          {!isImporting && (
-            <button
-              type="button"
-              className="dialog-btn-close"
-              onClick={onClose}
-              aria-label="Cerrar"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-
-        <div className="dialog-body bulk-import-body" style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: 'calc(85vh - 130px)', overflowY: 'auto', padding: 20 }}>
-          {/* Zona de Arrastrar y Soltar */}
-          <div
-            className={`bulk-import-dropzone ${isDragOver ? 'drag-over' : ''} ${isParsing ? 'parsing' : ''}`}
-            style={{
-              border: isDragOver ? '2px dashed var(--accent-primary)' : '2px dashed var(--border-strong)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '24px 16px',
-              textAlign: 'center',
-              backgroundColor: isDragOver ? 'var(--accent-surface)' : 'var(--bg-muted)',
-              cursor: isImporting || isParsing ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            onDragOver={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              if (!isImporting && !isParsing) setIsDragOver(true)
-            }}
-            onDragLeave={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setIsDragOver(false)
-            }}
-            onDrop={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setIsDragOver(false)
-              if (isImporting || isParsing) return
-              if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-                void handleFilesSelected(e.dataTransfer.files)
-              }
-            }}
-          >
-            <div style={{ fontSize: '2rem', marginBottom: 6 }}>📂</div>
-            <h4 style={{ margin: '0 0 6px 0', color: 'var(--text-primary)' }}>
-              {isParsing
-                ? 'Analizando y extrayendo metadatos...'
-                : 'Arrastra aquí tus archivos .md, carpetas o archivos .zip'}
-            </h4>
-            <p style={{ margin: '0 0 16px 0', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-              Compatible con Obsidian Vaults, Notion exports, guías clínicas y repositorios Markdown
-            </p>
-
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn-dialog-secondary"
-                disabled={isImporting || isParsing}
-                onClick={() => multiFileInputRef.current?.click()}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                📄 Seleccionar Archivos (.md, .zip)
-              </button>
-
-              <button
-                type="button"
-                className="btn-dialog-secondary"
-                disabled={isImporting || isParsing}
-                onClick={() => folderInputRef.current?.click()}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                📁 Seleccionar Carpeta Completa
-              </button>
-            </div>
-
-            {/* Inputs de archivo ocultos */}
-            <input
-              ref={multiFileInputRef}
-              type="file"
-              multiple
-              accept=".md,.markdown,.zip,application/zip,text/markdown"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                if (e.target.files) void handleFilesSelected(e.target.files)
-              }}
-            />
-            <input
-              ref={folderInputRef}
-              type="file"
-              multiple
-              // @ts-expect-error webkitdirectory es un atributo no estándar soportado por Chrome/Edge/Safari/Firefox
-              webkitdirectory=""
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                if (e.target.files) void handleFilesSelected(e.target.files)
-              }}
-            />
-          </div>
-
-          {/* Opciones de Configuración: Destino y Política de Duplicados */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: 12,
-              background: 'var(--bg-elevated)',
-              padding: 14,
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            {/* Carpeta de Destino */}
-            <div>
-              <label className="dialog-label" style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                📁 Carpeta de Destino:
-              </label>
-              <select
-                className="dialog-input"
-                value={selectedFolderId || ''}
-                disabled={isImporting}
-                onChange={(e) => setSelectedFolderId(e.target.value || null)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)' }}
-              >
-                <option value="">(Raíz / Nivel Principal)</option>
-                {folders.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    📁 {f.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Resolución de Duplicados */}
-            <div>
-              <label className="dialog-label" style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                ⚙️ Si ya existe un artículo con el mismo título:
-              </label>
-              <select
-                className="dialog-input"
-                value={collisionStrategy}
-                disabled={isImporting}
-                onChange={(e) => setCollisionStrategy(e.target.value as CollisionStrategy)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)' }}
-              >
-                <option value="suffix">Añadir sufijo numérico (ej. "Nota (1)")</option>
-                <option value="skip">Omitir (No importar si existe)</option>
-                <option value="overwrite">Sobrescribir contenido existente</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Previsualización del Lote */}
-          {parsedItems.length > 0 && (
-            <div
-              className="bulk-import-preview"
-              style={{
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '10px 14px',
-                  background: 'var(--bg-muted)',
-                  borderBottom: '1px solid var(--border-subtle)',
-                }}
-              >
-                <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                  📋 {parsedItems.length} {parsedItems.length === 1 ? 'nota detectada' : 'notas detectadas'} para{' '}
-                  {targetFolderNode ? `"${targetFolderNode.title}"` : 'la raíz'}
-                </span>
-                {!isImporting && (
-                  <button
-                    type="button"
-                    onClick={handleClearAll}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                      textDecoration: 'underline',
-                    }}
-                  >
-                    Vaciar lista
-                  </button>
-                )}
-              </div>
-
-              <div style={{ maxHeight: 220, overflowY: 'auto', padding: '6px 0' }}>
-                {parsedItems.map((item, index) => (
-                  <div
-                    key={`${item.originalFilename}-${index}`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '6px 14px',
-                      borderBottom: index < parsedItems.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                      fontSize: '0.85rem',
-                    }}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden', marginRight: 10 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>📄 {item.title}</span>
-                        {item.tags.length > 0 && (
-                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                            {item.tags.map((t) => (
-                              <span
-                                key={t}
-                                style={{
-                                  fontSize: '0.72rem',
-                                  padding: '1px 6px',
-                                  borderRadius: 9999,
-                                  background: 'var(--pill-bg)',
-                                  color: 'var(--pill-text)',
-                                }}
-                              >
-                                #{t}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {item.relativePath || item.originalFilename}
-                      </span>
-                    </div>
-
-                    {!isImporting && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(index)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--text-muted)',
-                          fontSize: '1rem',
-                          cursor: 'pointer',
-                          padding: '2px 6px',
-                        }}
-                        title="Quitar de la lista"
-                        aria-label="Quitar de la lista"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Barra de Progreso durante la Importación */}
-          {isImporting && progress && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                <span style={{ fontWeight: 600 }}>Guardando notas en la base de datos...</span>
-                <span>
-                  {progress.current} / {progress.total} (
-                  {Math.round((progress.current / Math.max(progress.total, 1)) * 100)}%)
-                </span>
-              </div>
-              <div
-                style={{
-                  width: '100%',
-                  height: 8,
-                  backgroundColor: 'var(--bg-muted)',
-                  borderRadius: 4,
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    height: '100%',
-                    backgroundColor: 'var(--accent-primary)',
-                    width: `${(progress.current / Math.max(progress.total, 1)) * 100}%`,
-                    transition: 'width 0.15s ease',
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Mensajes de Error */}
-          {errorMessage && (
-            <div className="dialog-error-text" style={{ padding: '8px 12px', borderRadius: 'var(--radius-sm)' }}>
-              ⚠️ {errorMessage}
-            </div>
-          )}
-        </div>
-
-        <div className="dialog-footer" style={{ padding: '14px 20px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      closeOnBackdrop={!isImporting}
+      hideCloseButton={isImporting}
+      title="Importación Masiva Markdown"
+      subtitle="Compatible con Obsidian Vaults, Notion, carpetas .md o paquetes .zip."
+      icon={<FileUp className="h-5 w-5" />}
+      maxWidthClass="max-w-2xl"
+      footer={
+        <>
           <button
             type="button"
-            className="btn-dialog-secondary"
+            className={PILL_BTN_SECONDARY}
             onClick={onClose}
             disabled={isImporting}
           >
@@ -458,16 +158,224 @@ export function BulkImportModal({
           </button>
           <button
             type="button"
-            className="btn-dialog-primary"
+            className={PILL_BTN_PRIMARY}
             onClick={handleStartImport}
             disabled={parsedItems.length === 0 || isImporting || isParsing}
           >
-            {isImporting
-              ? 'Importando…'
-              : `📥 Importar ${parsedItems.length > 0 ? `${parsedItems.length} ` : ''}Notas`}
+            <FileUp className="h-3.5 w-3.5" />
+            <span>
+              {isImporting
+                ? 'Importando…'
+                : `Importar ${parsedItems.length > 0 ? `${parsedItems.length} ` : ''}Notas`}
+            </span>
           </button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {/* Dropzone */}
+        <div
+          className={`flex flex-col items-center rounded-2xl border-2 border-dashed p-6 text-center transition ${
+            isDragOver
+              ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)]'
+              : 'border-[var(--ch-border-strong)] bg-[var(--ch-bg-secondary)]/60'
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if (!isImporting && !isParsing) setIsDragOver(true)
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setIsDragOver(false)
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setIsDragOver(false)
+            if (isImporting || isParsing) return
+            if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+              void handleFilesSelected(e.dataTransfer.files)
+            }
+          }}
+        >
+          <span className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
+            <FolderOpen className="h-6 w-6" />
+          </span>
+          <h4 className="font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+            {isParsing
+              ? 'Analizando archivos y metadatos…'
+              : 'Arrastra aquí tus archivos .md, carpetas o archivos .zip'}
+          </h4>
+          <p className="mt-1 mb-4 text-xs text-[var(--ch-text-muted)]">
+            Procesamiento 100% local en tu navegador sin subir archivos a la nube.
+          </p>
+
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              className={PILL_BTN_SECONDARY}
+              disabled={isImporting || isParsing}
+              onClick={() => multiFileInputRef.current?.click()}
+            >
+              <FileText className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+              <span>Seleccionar Archivos (.md, .zip)</span>
+            </button>
+            <button
+              type="button"
+              className={PILL_BTN_SECONDARY}
+              disabled={isImporting || isParsing}
+              onClick={() => folderInputRef.current?.click()}
+            >
+              <Folder className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+              <span>Seleccionar Carpeta</span>
+            </button>
+          </div>
+
+          <input
+            ref={multiFileInputRef}
+            type="file"
+            multiple
+            accept=".md,.markdown,.zip,application/zip,text/markdown"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              if (e.target.files) void handleFilesSelected(e.target.files)
+            }}
+          />
+          <input
+            ref={folderInputRef}
+            type="file"
+            multiple
+            // @ts-expect-error webkitdirectory es un atributo no estándar soportado por Chrome/Edge/Safari/Firefox
+            webkitdirectory=""
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              if (e.target.files) void handleFilesSelected(e.target.files)
+            }}
+          />
         </div>
+
+        {/* Settings Grid */}
+        <div className="grid grid-cols-1 gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 p-3.5 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--ch-text-secondary)]">
+              <Folder className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+              <span>Carpeta de destino</span>
+            </label>
+            <select
+              className={CLINICAL_FIELD_CLASS}
+              value={selectedFolderId || ''}
+              disabled={isImporting}
+              onChange={(e) => setSelectedFolderId(e.target.value || null)}
+            >
+              <option value="">(Raíz / Nivel Principal)</option>
+              {folders.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--ch-text-secondary)]">
+              <Settings className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
+              <span>Si existe título duplicado</span>
+            </label>
+            <select
+              className={CLINICAL_FIELD_CLASS}
+              value={collisionStrategy}
+              disabled={isImporting}
+              onChange={(e) => setCollisionStrategy(e.target.value as CollisionStrategy)}
+            >
+              <option value="suffix">Añadir sufijo numérico (ej. "Nota (1)")</option>
+              <option value="skip">Omitir si ya existe</option>
+              <option value="overwrite">Sobrescribir contenido existente</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Preview List */}
+        {parsedItems.length > 0 && (
+          <div className="overflow-hidden rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)]">
+            <div className="flex items-center justify-between border-b border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/70 px-4 py-2.5">
+              <span className="text-xs font-semibold text-[var(--ch-text-primary)]">
+                {parsedItems.length}{' '}
+                {parsedItems.length === 1 ? 'nota detectada' : 'notas detectadas'} para{' '}
+                {targetFolderNode ? `«${targetFolderNode.title}»` : 'la raíz'}
+              </span>
+              {!isImporting && (
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="text-xs font-semibold text-[var(--ch-text-muted)] underline hover:text-red-600"
+                >
+                  Vaciar lista
+                </button>
+              )}
+            </div>
+
+            <div className="max-h-52 divide-y divide-[var(--ch-border-subtle)] overflow-y-auto">
+              {parsedItems.map((item, index) => (
+                <div
+                  key={`${item.originalFilename}-${index}`}
+                  className="flex items-center justify-between gap-2 px-4 py-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--ch-text-primary)]">
+                      <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
+                      <span className="truncate">{item.title}</span>
+                    </div>
+                    <span className="block truncate pl-5 font-mono text-[10px] text-[var(--ch-text-muted)]">
+                      {item.relativePath || item.originalFilename}
+                    </span>
+                  </div>
+                  {!isImporting && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(index)}
+                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--ch-text-muted)] hover:bg-red-500/10 hover:text-red-600"
+                      title="Quitar de la lista"
+                      aria-label="Quitar de la lista"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Import Progress */}
+        {isImporting && progress && (
+          <div className="flex flex-col gap-1.5 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] p-3">
+            <div className="flex justify-between text-xs font-semibold text-[var(--ch-text-primary)]">
+              <span>Guardando notas en la base clínica…</span>
+              <span className="font-mono">
+                {progress.current} / {progress.total} (
+                {Math.round((progress.current / Math.max(progress.total, 1)) * 100)}%)
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--ch-bg-elevated)]">
+              <div
+                className="h-full bg-[var(--ch-accent)] transition-all duration-150"
+                style={{
+                  width: `${(progress.current / Math.max(progress.total, 1)) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="flex items-center gap-2 rounded-2xl border border-red-500/35 bg-red-500/10 px-3.5 py-2.5 text-xs font-medium text-red-700 dark:text-red-300">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
       </div>
-    </div>
+    </BaseModal>
   )
 }
