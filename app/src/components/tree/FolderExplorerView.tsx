@@ -478,11 +478,11 @@ export function FolderExplorerView({
   return (
     <div
       ref={menuContainerRef}
-      className="clinical-home relative mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1380px] flex-col gap-5 px-4 pt-3 pb-32 sm:px-6"
+      className="clinical-home relative mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1380px] flex-col gap-5 px-4 pt-3 pb-36 sm:px-6 sm:pb-40"
     >
       {/* 1. TOP-LEFT FOLDER HEADER WITH INTERACTIVE BREADCRUMB POPOVER (Opción 1) */}
-      <header className="relative z-35 flex flex-col gap-4 rounded-xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] p-4 shadow-[var(--ch-shadow-card)] sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="flex flex-wrap items-center gap-3">
+      <header className="relative z-35 flex flex-col gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] p-4 shadow-[var(--ch-shadow-card)] lg:flex-row lg:items-center lg:justify-between lg:px-6">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           {onGoBack && (
             <button
               type="button"
@@ -506,7 +506,7 @@ export function FolderExplorerView({
             }}
             title="Cambiar de especialidad o saltar a otro protocolo"
             aria-expanded={isFolderSwitcherOpen}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--ch-accent)]/25 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)] transition hover:bg-[var(--ch-accent)] hover:text-white"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--ch-accent)]/25 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)] transition hover:border-[var(--ch-accent-solid)] hover:bg-[var(--ch-accent-solid)] hover:text-white"
           >
             <FolderOpen className="h-5 w-5" />
           </button>
@@ -524,7 +524,7 @@ export function FolderExplorerView({
                 aria-expanded={isFolderSwitcherOpen}
                 className="group inline-flex min-w-0 items-center gap-1.5 rounded-lg text-left transition hover:text-[var(--ch-accent)]"
               >
-                <h1 className="truncate font-serif text-xl font-semibold tracking-tight text-[var(--ch-text-primary)] group-hover:text-[var(--ch-accent)] sm:text-2xl">
+                <h1 className="truncate font-display text-xl font-bold tracking-tight text-[var(--ch-text-primary)] group-hover:text-[var(--ch-accent)] sm:text-2xl">
                   {folderNode.title}
                 </h1>
                 <ChevronDown
@@ -579,7 +579,7 @@ export function FolderExplorerView({
         </div>
 
         {/* Clinical Mark Filter Pills & Sort Controls */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 lg:shrink-0 lg:justify-end">
           <button
             type="button"
             onClick={() => setMarkFilter('all')}
@@ -930,7 +930,7 @@ export function FolderExplorerView({
             </div>
             <span className="hidden sm:block">Fecha creación</span>
             <span className="hidden sm:block">Etiqueta</span>
-            <span className="text-right">⋮</span>
+            <span className="sr-only">Acciones</span>
           </div>
 
           {/* Document Rows */}
@@ -955,7 +955,7 @@ export function FolderExplorerView({
                 <button
                   type="button"
                   onClick={() => onCreateArticle(folderNode.id)}
-                  className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-[var(--ch-accent)] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-95"
+                  className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-[var(--ch-accent-solid)] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-95"
                 >
                   <Plus className="h-4 w-4" />
                   <span>Crear primer documento</span>
@@ -1128,7 +1128,7 @@ export function FolderExplorerView({
                         <button
                           type="button"
                           onClick={() => void handleSaveTags(art.id)}
-                          className="inline-flex items-center gap-1 rounded-md bg-[var(--ch-accent)] px-2.5 py-1 text-xs font-semibold text-white"
+                          className="inline-flex items-center gap-1 rounded-full bg-[var(--ch-accent-solid)] px-3 py-1 text-xs font-semibold text-white"
                         >
                           <Check className="h-3.5 w-3.5" />
                           <span>Guardar</span>
@@ -1716,17 +1716,17 @@ export function FolderExplorerView({
         </div>
       )}
 
-      {/* 4. BOTTOM TOOLS BAR WITH CENTERED CIRCULAR BUTTON (Matching the bottom line + circle in sketch) */}
+      {/* 4. BOTTOM TOOLS BAR WITH CENTERED CIRCULAR BUTTON (Matching Dashboard ghost-pill dock) */}
       <nav
         aria-label="Barra inferior de herramientas de carpeta"
-        className="fixed bottom-3 left-1/2 z-30 flex w-[95%] max-w-4xl -translate-x-1/2 items-center justify-between gap-2 rounded-full border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)]/95 px-3 py-2 shadow-[var(--ch-shadow-modal)] backdrop-blur-md sm:px-5"
+        className="clinical-dock fixed bottom-3 left-1/2 z-30 flex w-[95%] max-w-4xl -translate-x-1/2 items-center justify-between gap-2 rounded-full px-3 py-1.5 sm:px-5"
       >
         {/* Left Tools */}
-        <div className="flex items-center gap-1.5 overflow-x-auto">
+        <div className="flex items-center gap-1 overflow-x-auto">
           <button
             type="button"
             onClick={() => onCreateArticle(folderNode.id)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[var(--ch-text-primary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)]"
+            className="clinical-dock-btn text-[var(--ch-text-primary)]"
           >
             <FileText className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
             <span>Nuevo Artículo</span>
@@ -1735,7 +1735,7 @@ export function FolderExplorerView({
           <button
             type="button"
             onClick={() => onCreateSubfolder(folderNode.id)}
-            className="hidden items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)] sm:inline-flex"
+            className="clinical-dock-btn hidden sm:inline-flex"
           >
             <Folder className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
             <span>Subcarpeta</span>
@@ -1747,35 +1747,31 @@ export function FolderExplorerView({
               setIsSelectionMode((prev) => !prev)
               if (isSelectionMode) setSelectedIds([])
             }}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
-              isSelectionMode
-                ? 'border-[var(--ch-accent)] bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]'
-                : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
-            }`}
+            className={`clinical-dock-btn ${isSelectionMode ? 'clinical-dock-btn-active' : ''}`}
           >
             <CheckSquare className="h-3.5 w-3.5" />
             <span>Seleccionar</span>
           </button>
         </div>
 
-        {/* Center Raised Circular Action Button (`○` / `+`) */}
+        {/* Center Raised Circular Action Button (+) */}
         <button
           type="button"
           onClick={() => setIsOrbDrawerOpen((prev) => !prev)}
           aria-label="Abrir menú central de creación e importación"
           title="Crear o importar en esta carpeta"
-          className="flex h-12 w-12 shrink-0 -translate-y-2 items-center justify-center rounded-full border-4 border-[var(--ch-bg-primary)] bg-[var(--ch-accent)] text-white shadow-lg transition hover:scale-105"
+          className="clinical-dock-orb"
         >
           <Plus className={`h-5 w-5 transition-transform ${isOrbDrawerOpen ? 'rotate-45' : ''}`} />
         </button>
 
         {/* Right Tools */}
-        <div className="flex items-center justify-end gap-1.5 overflow-x-auto">
+        <div className="flex items-center justify-end gap-1 overflow-x-auto">
           {onSmartImport && (
             <button
               type="button"
               onClick={() => onSmartImport(folderNode.id)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)]"
+              className="clinical-dock-btn"
               title="Importar apuntes con IA en esta carpeta"
             >
               <Sparkles className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
@@ -1787,7 +1783,7 @@ export function FolderExplorerView({
             <button
               type="button"
               onClick={() => onUploadPdf(folderNode.id)}
-              className="hidden items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)] sm:inline-flex"
+              className="clinical-dock-btn hidden sm:inline-flex"
               title="Subir documento PDF a esta carpeta"
             >
               <FileUp className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
@@ -1799,7 +1795,7 @@ export function FolderExplorerView({
             <button
               type="button"
               onClick={() => onBulkExportPdf(folderNode.id)}
-              className="hidden items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)] md:inline-flex"
+              className="clinical-dock-btn hidden md:inline-flex"
               title="Exportar carpeta como Compendio PDF"
             >
               <Printer className="h-3.5 w-3.5 text-[var(--ch-accent)]" />
@@ -1811,7 +1807,7 @@ export function FolderExplorerView({
             <button
               type="button"
               onClick={() => onSortFolderAlphabetically(folderNode.id)}
-              className="inline-flex items-center gap-1 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-text-primary)]"
+              className="clinical-dock-btn"
               title="Ordenar carpeta alfabéticamente (A-Z)"
             >
               <ArrowUpDown className="h-3.5 w-3.5 text-[var(--ch-accent)]" />

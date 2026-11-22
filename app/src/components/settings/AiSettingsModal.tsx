@@ -210,7 +210,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
                   Gratis
                 </span>
               </div>
-              <strong className="font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+              <strong className="font-display text-sm font-semibold text-[var(--ch-text-primary)]">
                 Google Gemini
               </strong>
               <span className="font-mono text-[10px] text-[var(--ch-text-muted)]">
@@ -233,7 +233,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
                   Gratis
                 </span>
               </div>
-              <strong className="font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+              <strong className="font-display text-sm font-semibold text-[var(--ch-text-primary)]">
                 Groq Cloud
               </strong>
               <span className="font-mono text-[10px] text-[var(--ch-text-muted)]">
@@ -256,7 +256,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
                   De pago
                 </span>
               </div>
-              <strong className="font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+              <strong className="font-display text-sm font-semibold text-[var(--ch-text-primary)]">
                 OpenAI
               </strong>
               <span className="font-mono text-[10px] text-[var(--ch-text-muted)]">
@@ -277,7 +277,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
               href={currentGuide.portalUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-full border border-[var(--ch-accent)]/35 bg-[var(--ch-accent-soft)] px-3 py-1 text-[11px] font-semibold text-[var(--ch-accent)] transition hover:bg-[var(--ch-accent)] hover:text-white"
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--ch-accent)]/35 bg-[var(--ch-accent-soft)] px-3 py-1 text-[11px] font-semibold text-[var(--ch-accent)] transition hover:border-[var(--ch-accent-solid)] hover:bg-[var(--ch-accent-solid)] hover:text-white"
             >
               <span>Abrir {currentGuide.portalName}</span>
               <ExternalLink className="h-3 w-3" />

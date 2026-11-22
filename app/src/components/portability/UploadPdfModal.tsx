@@ -237,7 +237,7 @@ export const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
           <span className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
             <Upload className="h-6 w-6" />
           </span>
-          <h4 className="font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+          <h4 className="font-display text-sm font-semibold text-[var(--ch-text-primary)]">
             Arrastra tus PDFs o haz clic para explorar
           </h4>
           <p className="mt-1 mb-4 text-xs text-[var(--ch-text-muted)]">

@@ -23,7 +23,7 @@ export function IosInstallModal({ isOpen, onClose }: IosInstallModalProps) {
     >
       <div className="flex flex-col gap-3">
         <div className="flex items-start gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/60 p-3.5">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ch-accent)] font-mono text-xs font-bold text-white">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ch-accent-solid)] font-mono text-xs font-bold text-white">
             1
           </span>
           <div className="text-xs leading-relaxed text-[var(--ch-text-secondary)]">
@@ -36,7 +36,7 @@ export function IosInstallModal({ isOpen, onClose }: IosInstallModalProps) {
         </div>
 
         <div className="flex items-start gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/60 p-3.5">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ch-accent)] font-mono text-xs font-bold text-white">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ch-accent-solid)] font-mono text-xs font-bold text-white">
             2
           </span>
           <div className="text-xs leading-relaxed text-[var(--ch-text-secondary)]">
@@ -52,7 +52,7 @@ export function IosInstallModal({ isOpen, onClose }: IosInstallModalProps) {
         </div>
 
         <div className="flex items-start gap-3 rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/60 p-3.5">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ch-accent)] font-mono text-xs font-bold text-white">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--ch-accent-solid)] font-mono text-xs font-bold text-white">
             3
           </span>
           <div className="text-xs leading-relaxed text-[var(--ch-text-secondary)]">

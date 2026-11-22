@@ -196,7 +196,7 @@ export function SmartImportModal({
             onClick={() => setActiveTab('paste')}
             className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
               activeTab === 'paste'
-                ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                ? 'bg-[var(--ch-accent-solid)] text-white shadow-xs'
                 : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
             }`}
           >
@@ -208,7 +208,7 @@ export function SmartImportModal({
             onClick={() => setActiveTab('file')}
             className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
               activeTab === 'file'
-                ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                ? 'bg-[var(--ch-accent-solid)] text-white shadow-xs'
                 : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
             }`}
           >
@@ -226,7 +226,7 @@ export function SmartImportModal({
             <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
               <FileText className="h-5 w-5" />
             </span>
-            <strong className="font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+            <strong className="font-display text-sm font-semibold text-[var(--ch-text-primary)]">
               Haz clic para seleccionar un archivo Word (.docx) o .md
             </strong>
             <p className="mt-1 text-xs text-[var(--ch-text-muted)]">
@@ -440,7 +440,7 @@ export function SmartImportModal({
                   onClick={() => setPreviewMode('rendered')}
                   className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
                     previewMode === 'rendered'
-                      ? 'bg-[var(--ch-accent)] text-white'
+                      ? 'bg-[var(--ch-accent-solid)] text-white'
                       : 'text-[var(--ch-text-muted)]'
                   }`}
                 >
@@ -451,7 +451,7 @@ export function SmartImportModal({
                   onClick={() => setPreviewMode('raw')}
                   className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
                     previewMode === 'raw'
-                      ? 'bg-[var(--ch-accent)] text-white'
+                      ? 'bg-[var(--ch-accent-solid)] text-white'
                       : 'text-[var(--ch-text-muted)]'
                   }`}
                 >

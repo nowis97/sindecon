@@ -253,7 +253,7 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
                   type="button"
                   className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold transition ${
                     manualTab === 'edit'
-                      ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                      ? 'bg-[var(--ch-accent-solid)] text-white shadow-xs'
                       : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
                   }`}
                   onClick={() => setManualTab('edit')}
@@ -265,7 +265,7 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
                   type="button"
                   className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold transition ${
                     manualTab === 'preview'
-                      ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                      ? 'bg-[var(--ch-accent-solid)] text-white shadow-xs'
                       : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
                   }`}
                   onClick={() => setManualTab('preview')}
@@ -347,7 +347,7 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
                 <BrainCircuit className="h-6 w-6" />
               </div>
-              <h4 className="font-serif text-base font-semibold text-[var(--ch-text-primary)]">
+              <h4 className="font-display text-base font-semibold text-[var(--ch-text-primary)]">
                 Sin Flashcards en este Tema
               </h4>
               <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-[var(--ch-text-secondary)]">
@@ -403,7 +403,7 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
                           type="button"
                           className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold transition ${
                             editTab === 'edit'
-                              ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                              ? 'bg-[var(--ch-accent-solid)] text-white shadow-xs'
                               : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
                           }`}
                           onClick={() => setEditTab('edit')}
@@ -415,7 +415,7 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
                           type="button"
                           className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold transition ${
                             editTab === 'preview'
-                              ? 'bg-[var(--ch-accent)] text-white shadow-xs'
+                              ? 'bg-[var(--ch-accent-solid)] text-white shadow-xs'
                               : 'text-[var(--ch-text-secondary)] hover:text-[var(--ch-text-primary)]'
                           }`}
                           onClick={() => setEditTab('preview')}

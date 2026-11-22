@@ -203,7 +203,7 @@ export function BulkImportModal({
           <span className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
             <FolderOpen className="h-6 w-6" />
           </span>
-          <h4 className="font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+          <h4 className="font-display text-sm font-semibold text-[var(--ch-text-primary)]">
             {isParsing
               ? 'Analizando archivos y metadatos…'
               : 'Arrastra aquí tus archivos .md, carpetas o archivos .zip'}

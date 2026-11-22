@@ -383,7 +383,8 @@ function App() {
     (n) => n.kind === 'folder' && n.title === 'Inbox' && n.parent_id === null,
   )
   const isArticleReady =
-    selected?.kind === 'article' && (seedBody !== null || article !== undefined)
+    selected?.kind === 'article' &&
+    (seedBody !== null || article === null || article?.node_id === selected.id)
   const currentBody =
     (selected?.kind === 'article' && article?.node_id === selected.id
       ? article.body_md

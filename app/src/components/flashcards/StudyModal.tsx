@@ -142,7 +142,7 @@ export const StudyModal: React.FC<StudyModalProps> = ({
               <BrainCircuit className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <h3 className="font-serif text-lg font-semibold tracking-tight text-[var(--ch-text-primary)]">
+              <h3 className="font-display text-lg font-semibold tracking-tight text-[var(--ch-text-primary)]">
                 Repaso Activo SM-2
               </h3>
               <p className="mt-0.5 text-xs text-[var(--ch-text-muted)]">
@@ -197,7 +197,7 @@ export const StudyModal: React.FC<StudyModalProps> = ({
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
               <CheckCircle2 className="h-8 w-8" />
             </div>
-            <h2 className="font-serif text-xl font-semibold text-[var(--ch-text-primary)]">
+            <h2 className="font-display text-xl font-semibold text-[var(--ch-text-primary)]">
               ¡Sesión de Repaso Completada!
             </h2>
             <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-[var(--ch-text-secondary)]">
@@ -299,7 +299,7 @@ export const StudyModal: React.FC<StudyModalProps> = ({
               {!isFlipped ? (
                 <button
                   type="button"
-                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--ch-accent)] px-6 text-sm font-semibold text-white shadow-xs transition hover:opacity-95"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--ch-accent-solid)] px-6 text-sm font-semibold text-white shadow-xs transition hover:opacity-95"
                   onClick={handleFlip}
                 >
                   <Eye className="h-4 w-4" />

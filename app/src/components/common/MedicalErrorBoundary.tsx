@@ -74,7 +74,7 @@ export class MedicalErrorBoundary extends Component<Props, State> {
             </div>
 
             <div>
-              <h2 className="font-serif text-xl font-semibold text-[var(--ch-text-primary)]">
+              <h2 className="font-display text-xl font-semibold text-[var(--ch-text-primary)]">
                 Algo no salió como esperábamos
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-[var(--ch-text-secondary)]">

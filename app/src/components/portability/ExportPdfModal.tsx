@@ -110,7 +110,7 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
                 <span
                   className={`rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold ${
                     columns === '1'
-                      ? 'bg-[var(--ch-accent)] text-white'
+                      ? 'bg-[var(--ch-accent-solid)] text-white'
                       : 'border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-muted)]'
                   }`}
                 >
@@ -119,7 +119,7 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
                 <FileText className="h-4 w-4 text-[var(--ch-accent)]" />
               </div>
               <div>
-                <strong className="block font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+                <strong className="block font-display text-sm font-semibold text-[var(--ch-text-primary)]">
                   1 Columna Continua
                 </strong>
                 <span className="mt-0.5 block text-xs leading-snug text-[var(--ch-text-muted)]">
@@ -141,7 +141,7 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
                 <span
                   className={`rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold ${
                     columns === '2'
-                      ? 'bg-[var(--ch-accent)] text-white'
+                      ? 'bg-[var(--ch-accent-solid)] text-white'
                       : 'border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-muted)]'
                   }`}
                 >
@@ -150,7 +150,7 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
                 <Columns2 className="h-4 w-4 text-[var(--ch-accent)]" />
               </div>
               <div>
-                <strong className="block font-serif text-sm font-semibold text-[var(--ch-text-primary)]">
+                <strong className="block font-display text-sm font-semibold text-[var(--ch-text-primary)]">
                   2 Columnas Ficha A4
                 </strong>
                 <span className="mt-0.5 block text-xs leading-snug text-[var(--ch-text-muted)]">

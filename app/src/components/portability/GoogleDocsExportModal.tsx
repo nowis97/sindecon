@@ -398,7 +398,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
         {(status === 'rendering' || status === 'uploading') && (
           <div className="flex flex-col items-center rounded-2xl border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)]/50 p-6 text-center">
             <Loader2 className="mb-3 h-8 w-8 animate-spin text-[var(--ch-accent)]" />
-            <h4 className="font-serif text-base font-semibold text-[var(--ch-text-primary)]">
+            <h4 className="font-display text-base font-semibold text-[var(--ch-text-primary)]">
               {status === 'rendering'
                 ? 'Renderizando documento clínico…'
                 : 'Subiendo a Google Drive…'}
@@ -415,7 +415,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
         {status === 'success' && (
           <div className="flex flex-col items-center rounded-2xl border border-emerald-500/35 bg-emerald-500/8 p-5 text-center">
             <CheckCircle2 className="mb-2 h-10 w-10 text-emerald-600" />
-            <h4 className="font-serif text-base font-semibold text-[var(--ch-text-primary)]">
+            <h4 className="font-display text-base font-semibold text-[var(--ch-text-primary)]">
               Documento exportado con éxito
             </h4>
             <p className="mt-1 mb-4 text-xs text-[var(--ch-text-secondary)]">
@@ -450,7 +450,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
         {status === 'offline' && (
           <div className="flex flex-col items-center rounded-2xl border border-amber-500/35 bg-amber-500/10 p-5 text-center">
             <WifiOff className="mb-2 h-9 w-9 text-amber-600" />
-            <h4 className="font-serif text-base font-semibold text-[var(--ch-text-primary)]">
+            <h4 className="font-display text-base font-semibold text-[var(--ch-text-primary)]">
               Modo sin conexión (Offline)
             </h4>
             <p className="mt-1 mb-4 text-xs leading-relaxed text-[var(--ch-text-secondary)]">
@@ -499,7 +499,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
           <div className="flex flex-col gap-3 rounded-2xl border border-red-500/35 bg-red-500/8 p-4">
             <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
               <AlertTriangle className="h-5 w-5 shrink-0" />
-              <h4 className="font-serif text-sm font-semibold">
+              <h4 className="font-display text-sm font-semibold">
                 No se pudo completar la exportación
               </h4>
             </div>
@@ -534,7 +534,7 @@ export const GoogleDocsExportModal: React.FC<GoogleDocsExportModalProps> = ({
             <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--ch-accent-soft)] text-[var(--ch-accent)]">
               <Cloud className="h-5 w-5" />
             </span>
-            <h4 className="font-serif text-base font-semibold text-[var(--ch-text-primary)]">
+            <h4 className="font-display text-base font-semibold text-[var(--ch-text-primary)]">
               Conectar con Google Drive
             </h4>
             <p className="mt-1 mb-4 text-xs leading-relaxed text-[var(--ch-text-muted)]">

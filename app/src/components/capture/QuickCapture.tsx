@@ -159,7 +159,7 @@ export function QuickCapture({
         <div className="quick-capture-launcher">
           <button
             type="button"
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--ch-accent)] px-4 text-xs font-semibold text-white shadow-xs transition hover:opacity-95"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--ch-accent-solid)] px-4 text-xs font-semibold text-white shadow-xs transition hover:opacity-95"
             onClick={() => setInternalIsOpen(true)}
             title="Captura rápida a 1 toque (foto + nota) al Inbox"
           >
@@ -192,7 +192,7 @@ export function QuickCapture({
                   <div className="flex items-center gap-2">
                     <h3
                       id="quick-capture-title"
-                      className="font-serif text-lg font-semibold tracking-tight text-[var(--ch-text-primary)]"
+                      className="font-display text-lg font-semibold tracking-tight text-[var(--ch-text-primary)]"
                     >
                       Captura Rápida de Guardia
                     </h3>

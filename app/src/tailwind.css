@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 @theme {
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, sans-serif;
+  --font-serif: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --color-clinical-porcelain: #f4f7f9;
   --color-clinical-navy: #142337;
   --color-clinical-teal: #0f766e;
@@ -10,6 +14,7 @@
 
 .clinical-login,
 .clinical-home {
+  font-family: var(--font-sans);
   --cl-bg: #f4f7f9;
   --cl-bg-subtle: #edf2f6;
   --cl-surface: #ffffff;
@@ -49,6 +54,7 @@
   --ch-border-subtle: var(--cl-border);
   --ch-border-strong: var(--cl-accent-border);
   --ch-accent: var(--cl-accent);
+  --ch-accent-solid: #0f766e;
   --ch-accent-soft: var(--cl-accent-soft);
   --ch-shadow-card: var(--cl-shadow-card);
   --ch-shadow-modal: var(--cl-shadow-dock);
@@ -81,9 +87,13 @@
   --cl-accent: #0f766e;
   --cl-accent-hover: #115e59;
   --cl-accent-active: #134e4a;
-  --cl-accent-soft: rgba(45, 212, 191, 0.12);
+  --cl-accent-soft: rgba(45, 212, 191, 0.14);
   --cl-accent-border: rgba(45, 212, 191, 0.34);
   --cl-diagnostic: #2dd4bf;
+  --ch-accent: #2dd4bf;
+  --ch-accent-solid: #0f766e;
+  --ch-accent-soft: rgba(45, 212, 191, 0.14);
+  --ch-border-strong: rgba(45, 212, 191, 0.34);
   --cl-success: #34d399;
   --cl-success-soft: rgba(16, 185, 129, 0.12);
   --cl-success-border: rgba(52, 211, 153, 0.35);
@@ -117,8 +127,158 @@
   background: transparent;
 }
 
+.clinical-home .editor-host .milkdown {
+  --crepe-color-background: var(--ch-bg-elevated);
+  --crepe-color-on-background: var(--ch-text-primary);
+  --crepe-color-surface: var(--ch-bg-secondary);
+  --crepe-color-surface-low: var(--cl-surface-warm);
+  --crepe-color-on-surface: var(--ch-text-primary);
+  --crepe-color-on-surface-variant: var(--ch-text-secondary);
+  --crepe-color-outline: var(--ch-border-subtle);
+  --crepe-color-primary: var(--ch-accent);
+  --crepe-color-secondary: var(--ch-accent-soft);
+  --crepe-color-on-secondary: var(--ch-text-primary);
+  --crepe-color-inverse: var(--ch-text-primary);
+  --crepe-color-on-inverse: var(--ch-bg-elevated);
+  --crepe-color-inline-code: var(--ch-accent);
+  --crepe-color-error: var(--cl-danger);
+  --crepe-color-hover: var(--cl-surface-warm);
+  --crepe-color-selected: var(--ch-accent-soft);
+  --crepe-color-inline-area: var(--ch-bg-secondary);
+  --crepe-base-font-size: 15px;
+  --crepe-font-title: var(--font-display);
+  --crepe-font-default: var(--font-sans);
+  --crepe-font-code: var(--font-mono);
+  background: transparent;
+  color: var(--ch-text-primary);
+}
+
 .clinical-home .editor-host .milkdown .ProseMirror {
   padding: 20px 28px !important;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--ch-text-primary);
+}
+
+.clinical-home .editor-host .milkdown .ProseMirror h1,
+.clinical-home .editor-host .milkdown .ProseMirror h2,
+.clinical-home .editor-host .milkdown .ProseMirror h3,
+.clinical-home .editor-host .milkdown .ProseMirror h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--ch-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.clinical-home .editor-host .milkdown .ProseMirror h1 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  margin-top: 1.25rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--ch-border-subtle);
+}
+
+.clinical-home .editor-host .milkdown .ProseMirror h2 {
+  font-size: 1.2rem;
+  line-height: 1.3;
+  margin-top: 1.1rem;
+  color: var(--ch-accent);
+}
+
+.clinical-home .editor-host .milkdown .ProseMirror h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 0.9rem;
+}
+
+.clinical-home .editor-host .milkdown .ProseMirror h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 0.75rem;
+}
+
+/* Shared Floating Ghost-Pill Dock matching Dashboard */
+@layer components {
+  .clinical-dock {
+    background: color-mix(in srgb, var(--cl-surface) 95%, transparent);
+    border: 1px solid var(--ch-border-subtle);
+    box-shadow: var(--ch-shadow-modal);
+    backdrop-filter: blur(12px);
+  }
+
+  .clinical-dock-btn {
+    display: inline-flex;
+    min-height: 38px;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    padding: 0 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--ch-text-secondary);
+    background: transparent;
+    transition: background-color 150ms ease, color 150ms ease;
+    cursor: pointer;
+  }
+
+  .clinical-dock-btn:hover:not(:disabled) {
+    background: var(--cl-surface-warm);
+    color: var(--ch-text-primary);
+  }
+
+  .clinical-dock-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .clinical-dock-btn-active {
+    background: var(--ch-accent-soft);
+    color: var(--ch-accent);
+  }
+
+  .clinical-dock-btn-active:hover:not(:disabled) {
+    background: var(--ch-accent-soft);
+    color: var(--ch-accent);
+  }
+
+  .clinical-dock-orb {
+    display: flex;
+    height: 3rem;
+    width: 3rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 3px solid var(--cl-surface);
+    background: var(--ch-accent-solid);
+    color: #ffffff;
+    box-shadow: 0 6px 18px rgba(15, 118, 110, 0.34);
+    transform: translateY(-0.5rem);
+    transition: transform 150ms ease, background-color 150ms ease;
+    cursor: pointer;
+  }
+
+  .clinical-dock-orb:hover:not(:disabled) {
+    background: var(--cl-accent-hover);
+    transform: translateY(-0.5rem) scale(1.05);
+  }
+
+  .clinical-dock-orb:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.clinical-home .editor-host .milkdown .milkdown-code-block .preview {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 8px;
+  color: #142337;
 }
 
 .clinical-home .tree-row {
