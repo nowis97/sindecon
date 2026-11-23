@@ -2544,19 +2544,60 @@ body {
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content {
+  columns: unset;
+  column-count: unset;
+  display: flex;
+  flex-direction: column;
+  gap: 6pt;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-flow-band {
   columns: 2;
   column-count: 2;
   column-gap: 7mm;
   column-rule: none;
-  column-fill: auto;
+  column-fill: balance;
+  width: 100%;
   box-sizing: border-box;
   display: block;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-fullwidth-band {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4pt;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-fullwidth-band > .reader-heading,
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-flow-band > .reader-heading:first-child {
+  margin-top: 0;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-fullwidth-band .mermaid-viewer-card {
+  margin: 4pt 0;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-solo-figure-band {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-solo-figure-band .reader-image-figure {
+  max-width: min(460px, 100%);
+  margin: 4pt auto;
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content .full-width-block,
 .article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content .reader-table-wrapper.table-wide,
 .article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content .mermaid-viewer-card {
-  column-span: all;
   width: 100%;
   box-sizing: border-box;
 }
@@ -2613,7 +2654,23 @@ body {
 }
 
 .article-reader-view.a4-sheet.layout-two-columns .reader-image-figure {
-  margin: 8px auto;
+  margin: 6pt auto;
+  width: 100%;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-flow-band .reader-image {
+  width: auto;
+  max-width: 100%;
+  max-height: 290px;
+  object-fit: contain;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-fullwidth-band .reader-image,
+.article-reader-view.a4-sheet.layout-two-columns .a4-sheet-solo-figure-band .reader-image {
+  width: auto;
+  max-width: 100%;
+  max-height: 360px;
+  object-fit: contain;
 }
 
 .article-reader-view.layout-two-columns .reader-heading.h1 {
@@ -2745,7 +2802,7 @@ body {
 
 /* Figuras e Imágenes Médicas en Modo Lector */
 .reader-image-figure {
-  margin: 18px auto;
+  margin: 14px auto;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -2754,6 +2811,11 @@ body {
   max-width: 100%;
   break-inside: avoid;
   page-break-inside: avoid;
+}
+
+.reader-image-figure figcaption.reader-caption {
+  margin: 5pt 0 2pt 0;
+  width: 100%;
 }
 
 .reader-image {
@@ -2774,7 +2836,7 @@ body {
 .article-reader-view .reader-table-wrapper,
 .article-reader-view .mermaid-viewer-card,
 .article-reader-view .reader-code-block,
-.article-reader-view .reader-list,
+.article-reader-view .reader-list-item,
 .article-reader-view .reader-blockquote,
 .article-reader-view .reader-paragraph,
 .article-reader-view .reader-image-figure,
@@ -2920,8 +2982,10 @@ ol.reader-list-nested {
     padding: 20px 16px;
   }
 
-  .article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content {
+  .article-reader-view.a4-sheet.layout-two-columns .a4-sheet-content,
+  .article-reader-view.a4-sheet.layout-two-columns .a4-sheet-flow-band {
     columns: 1 !important;
+    column-count: 1 !important;
     column-rule: none !important;
     height: auto !important;
     max-height: none !important;
@@ -3421,6 +3485,120 @@ ol.reader-list-nested {
 .a4-sheet .mermaid-buttons button:hover {
   border-color: #0f766e;
   color: #0f766e;
+}
+
+.mermaid-viewport {
+  padding: 12px 14px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.mermaid-svg-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.08s ease-out;
+}
+
+.mermaid-svg-wrapper svg {
+  max-width: 100%;
+  height: auto !important;
+  display: block;
+  margin: 0 auto;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .mermaid-viewer-card:not(.fullscreen-mode):not(.is-zoomed) .mermaid-viewport {
+  max-height: 410px;
+}
+
+.article-reader-view.a4-sheet.layout-two-columns .mermaid-viewer-card:not(.fullscreen-mode):not(.is-zoomed) .mermaid-svg-wrapper svg {
+  width: auto !important;
+  max-width: 100%;
+  max-height: 382px;
+}
+
+.article-reader-view.a4-sheet.layout-single-column .mermaid-viewer-card:not(.fullscreen-mode):not(.is-zoomed) .mermaid-viewport {
+  max-height: 550px;
+}
+
+.article-reader-view.a4-sheet.layout-single-column .mermaid-viewer-card:not(.fullscreen-mode):not(.is-zoomed) .mermaid-svg-wrapper svg {
+  width: auto !important;
+  max-width: 100%;
+  max-height: 520px;
+}
+
+.mermaid-loading {
+  margin: 12px 0;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-subtle);
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.mermaid-error {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(217, 119, 6, 0.45);
+  background: rgba(254, 243, 199, 0.55);
+  color: #78350f;
+}
+
+.mermaid-error .error-title {
+  margin: 0 0 8px 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.mermaid-code-fallback {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.06);
+  font-size: 0.78rem;
+  overflow-x: auto;
+}
+
+.mermaid-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(8, 18, 26, 0.76);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.mermaid-fullscreen-overlay .mermaid-viewer-card.fullscreen-mode {
+  width: min(1160px, 96vw);
+  max-height: 92vh;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mermaid-fullscreen-overlay .mermaid-viewer-card.fullscreen-mode .mermaid-viewport {
+  flex: 1;
+  min-height: 360px;
+  max-height: calc(92vh - 54px);
+  overflow: auto;
+}
+
+.mermaid-fullscreen-overlay .mermaid-viewer-card.fullscreen-mode:not(.is-zoomed) .mermaid-svg-wrapper svg {
+  width: auto !important;
+  max-width: 100%;
+  max-height: calc(92vh - 92px);
 }
 
 /* ==========================================================================
@@ -5360,18 +5538,21 @@ select.dialog-input {
 
   /* Permitir bloques a ancho completo (1 columna dentro de 2 columnas) */
   .print-layout-two-columns .full-width-block,
+  .print-layout-two-columns .reader-print-fullwidth-group,
   .print-layout-two-columns .reader-table-wrapper.table-wide,
   .print-layout-two-columns .reader-table-container.table-wide,
   .print-layout-two-columns .mermaid-viewer-card,
   .print-layout-two-columns .reader-doc-title,
   .print-layout-two-columns .reader-doc-subtitle,
   body.print-columns-2 #print-article-document .full-width-block,
+  body.print-columns-2 #print-article-document .reader-print-fullwidth-group,
   body.print-columns-2 #print-article-document .reader-table-wrapper.table-wide,
   body.print-columns-2 #print-article-document .reader-table-container.table-wide,
   body.print-columns-2 #print-article-document .mermaid-viewer-card,
   body.print-columns-2 #print-article-document .reader-doc-title,
   body.print-columns-2 #print-article-document .reader-doc-subtitle,
   body.print-columns-2 #print-bulk-document .full-width-block,
+  body.print-columns-2 #print-bulk-document .reader-print-fullwidth-group,
   body.print-columns-2 #print-bulk-document .reader-table-wrapper.table-wide,
   body.print-columns-2 #print-bulk-document .reader-table-container.table-wide,
   body.print-columns-2 #print-bulk-document .mermaid-viewer-card,

@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
   Columns2,
   FileText,
@@ -850,10 +850,210 @@ export function estimateBlockHeight(block: Block): number {
 
 export const A4_TWO_COLUMN_CAPACITY_PX = 2100
 
+type EditorialUnit =
+  | { kind: 'hr'; blocks: [Extract<Block, { type: 'hr' }>] }
+  | {
+      kind: 'image-figure'
+      blocks: Block[]
+      image: Extract<Block, { type: 'image' }>
+      caption?: Extract<Block, { type: 'paragraph' }>
+    }
+  | { kind: 'fullwidth'; blocks: Block[] }
+  | { kind: 'flow'; blocks: [Block] }
+
+interface TwoColumnBand {
+  kind: 'flow' | 'full' | 'solo-figure'
+  units: EditorialUnit[]
+}
+
+function isFullWidthVisualBlock(block: Block): boolean {
+  if ('fullWidth' in block && block.fullWidth) return true
+  if (block.type === 'mermaid' || block.type === 'columns') return true
+  if (block.type === 'table') {
+    const colCount = Math.max(block.headers.length, ...block.rows.map((r) => r.length), 0)
+    if (colCount >= 3) return true
+  }
+  return false
+}
+
+function isCaptionParagraph(block: Block | undefined): block is Extract<Block, { type: 'paragraph' }> {
+  return Boolean(block && block.type === 'paragraph' && block.variant === 'caption')
+}
+
+function isShortLeadInParagraph(block: Block | undefined): block is Extract<Block, { type: 'paragraph' }> {
+  if (!block || block.type !== 'paragraph') return false
+  if (block.variant === 'caption' || block.variant === 'bibliography' || block.variant === 'subtitle') {
+    return false
+  }
+  return block.variant === 'secondary' || block.text.length <= 320
+}
+
+/**
+ * Agrupa bloques relacionados en unidades editoriales atómicas:
+ * - Empareja imagen + leyenda (`caption`) en una sola `<figure>` inseparable.
+ * - Mantiene el encabezado (`<h2>`/`<h3>`) e intro breve pegados al bloque `fullWidth` (Mermaid / tabla ancha / `:::columns`) al que introducen.
+ */
+export function groupEditorialUnits(blocks: Block[]): EditorialUnit[] {
+  const units: EditorialUnit[] = []
+  let i = 0
+
+  while (i < blocks.length) {
+    const curr = blocks[i]
+
+    if (curr.type === 'hr') {
+      units.push({ kind: 'hr', blocks: [curr] })
+      i++
+      continue
+    }
+
+    if (curr.type === 'image') {
+      const next = blocks[i + 1]
+      const caption = isCaptionParagraph(next) ? next : undefined
+      if (curr.fullWidth) {
+        units.push({
+          kind: 'fullwidth',
+          blocks: caption ? [curr, caption] : [curr],
+        })
+      } else {
+        units.push({
+          kind: 'image-figure',
+          blocks: caption ? [curr, caption] : [curr],
+          image: curr,
+          caption,
+        })
+      }
+      i += caption ? 2 : 1
+      continue
+    }
+
+    if (isFullWidthVisualBlock(curr)) {
+      // Un encabezado con `fullWidth: true` (ej. sección `:::ancho-completo`) solo agrupa si lleva visual tras él
+      if (curr.type === 'header') {
+        const next1 = blocks[i + 1]
+        const next2 = blocks[i + 2]
+        if (next1 && isFullWidthVisualBlock(next1) && next1.type !== 'header') {
+          const cap = isCaptionParagraph(blocks[i + 2]) ? (blocks[i + 2] as Extract<Block, { type: 'paragraph' }>) : undefined
+          units.push({
+            kind: 'fullwidth',
+            blocks: cap ? [curr, next1, cap] : [curr, next1],
+          })
+          i += cap ? 3 : 2
+          continue
+        }
+        if (isShortLeadInParagraph(next1) && next2 && isFullWidthVisualBlock(next2) && next2.type !== 'header') {
+          const cap = isCaptionParagraph(blocks[i + 3]) ? (blocks[i + 3] as Extract<Block, { type: 'paragraph' }>) : undefined
+          units.push({
+            kind: 'fullwidth',
+            blocks: cap ? [curr, next1, next2, cap] : [curr, next1, next2],
+          })
+          i += cap ? 4 : 3
+          continue
+        }
+        units.push({ kind: 'fullwidth', blocks: [curr] })
+        i++
+        continue
+      }
+
+      const next = blocks[i + 1]
+      const cap = isCaptionParagraph(next) ? next : undefined
+      units.push({
+        kind: 'fullwidth',
+        blocks: cap ? [curr, cap] : [curr],
+      })
+      i += cap ? 2 : 1
+      continue
+    }
+
+    if (curr.type === 'header') {
+      const next1 = blocks[i + 1]
+      const next2 = blocks[i + 2]
+      if (next1 && isFullWidthVisualBlock(next1) && next1.type !== 'header') {
+        const cap = isCaptionParagraph(next2) ? next2 : undefined
+        units.push({
+          kind: 'fullwidth',
+          blocks: cap ? [curr, next1, cap] : [curr, next1],
+        })
+        i += cap ? 3 : 2
+        continue
+      }
+      if (isShortLeadInParagraph(next1) && next2 && isFullWidthVisualBlock(next2) && next2.type !== 'header') {
+        const cap = isCaptionParagraph(blocks[i + 3]) ? (blocks[i + 3] as Extract<Block, { type: 'paragraph' }>) : undefined
+        units.push({
+          kind: 'fullwidth',
+          blocks: cap ? [curr, next1, next2, cap] : [curr, next1, next2],
+        })
+        i += cap ? 4 : 3
+        continue
+      }
+    }
+
+    units.push({ kind: 'flow', blocks: [curr] })
+    i++
+  }
+
+  return units
+}
+
+function estimateTwoColUnitBudget(unit: EditorialUnit): number {
+  if (unit.kind === 'hr') return 0
+  if (unit.kind === 'image-figure') {
+    const imgCost = Math.min(310, estimateBlockHeight(unit.image))
+    const capCost = unit.caption ? estimateBlockHeight(unit.caption) : 0
+    return imgCost + capCost
+  }
+  if (unit.kind === 'fullwidth') {
+    return unit.blocks.reduce((sum, b) => {
+      if (b.type === 'mermaid') {
+        const lines = Math.max(4, b.code.split('\n').length)
+        const cardH = Math.min(430, Math.max(240, lines * 26 + 80))
+        return sum + cardH * 2
+      }
+      if (b.type === 'table') {
+        const rowsCount = b.rows.length + 1
+        return sum + (rowsCount * 26 + 34) * 2
+      }
+      if (b.type === 'columns') {
+        return sum + estimateBlockHeight(b) * 2
+      }
+      if (b.type === 'image') {
+        return sum + 320 * 2
+      }
+      return sum + Math.ceil(estimateBlockHeight(b) * 1.15)
+    }, 0)
+  }
+  return estimateBlockHeight(unit.blocks[0])
+}
+
+export function buildTwoColumnBands(sheetBlocks: Block[]): TwoColumnBand[] {
+  const units = groupEditorialUnits(sheetBlocks)
+  const rawBands: TwoColumnBand[] = []
+
+  for (const unit of units) {
+    if (unit.kind === 'hr') continue
+    if (unit.kind === 'fullwidth') {
+      rawBands.push({ kind: 'full', units: [unit] })
+    } else {
+      const last = rawBands[rawBands.length - 1]
+      if (last && last.kind === 'flow') {
+        last.units.push(unit)
+      } else {
+        rawBands.push({ kind: 'flow', units: [unit] })
+      }
+    }
+  }
+
+  return rawBands.map((band) => {
+    if (band.kind === 'flow' && band.units.length === 1 && band.units[0].kind === 'image-figure') {
+      return { kind: 'solo-figure', units: band.units }
+    }
+    return band
+  })
+}
+
 /**
  * Pagina los bloques en hojas discretas estilo A4 para el modo a dos columnas.
- * Cada página física almacena contenido hasta llenar las 2 columnas (~2000px equivalentes)
- * o hasta encontrar un salto de página explícito (hr).
+ * Mantiene juntas las unidades atómicas (imagen + leyenda, encabezado + bloque ancho)
+ * y contabiliza el ancho doble (2x) de bloques a ancho completo sobre la capacidad A4.
  */
 export function paginateTwoColumnBlocks(
   blocks: Block[],
@@ -861,12 +1061,13 @@ export function paginateTwoColumnBlocks(
 ): Block[][] {
   if (blocks.length === 0) return [[]]
 
+  const units = groupEditorialUnits(blocks)
   const sheets: Block[][] = []
   let currentSheet: Block[] = []
   let currentSheetHeight = 0
 
-  for (const block of blocks) {
-    if (block.type === 'hr') {
+  for (const unit of units) {
+    if (unit.kind === 'hr') {
       if (currentSheet.length > 0) {
         sheets.push(currentSheet)
         currentSheet = []
@@ -875,15 +1076,15 @@ export function paginateTwoColumnBlocks(
       continue
     }
 
-    const blockHeight = estimateBlockHeight(block)
+    const unitHeight = estimateTwoColUnitBudget(unit)
 
-    if (currentSheet.length === 0 || currentSheetHeight + blockHeight <= capacityPx) {
-      currentSheet.push(block)
-      currentSheetHeight += blockHeight
+    if (currentSheet.length === 0 || currentSheetHeight + unitHeight <= capacityPx) {
+      currentSheet.push(...unit.blocks)
+      currentSheetHeight += unitHeight
     } else {
       sheets.push(currentSheet)
-      currentSheet = [block]
-      currentSheetHeight = blockHeight
+      currentSheet = [...unit.blocks]
+      currentSheetHeight = unitHeight
     }
   }
 
@@ -1169,7 +1370,14 @@ function renderBlock(
       )
     }
     case 'image':
-      return <AssetImage key={key} src={block.src} alt={block.alt} />
+      return (
+        <AssetImage
+          key={key}
+          src={block.src}
+          alt={block.alt}
+          className={block.fullWidth ? 'full-width-block' : ''}
+        />
+      )
     case 'pdf':
       return (
         <PdfDocumentViewer
@@ -1209,8 +1417,8 @@ function renderBlock(
         >
           {block.columns.map((colBlocks, colIdx) => (
             <div key={colIdx} className="article-column-item">
-              {colBlocks.map((childBlock, childIdx) =>
-                renderBlock(childBlock, `${key}-${colIdx}-${childIdx}`, onWikiLinkClick, articleTitle, isPrintView)
+              {groupEditorialUnits(colBlocks).map((unit, unitIdx) =>
+                renderEditorialUnit(unit, `${key}-${colIdx}-${unitIdx}`, onWikiLinkClick, articleTitle, isPrintView),
               )}
             </div>
           ))}
@@ -1255,6 +1463,85 @@ function renderBlock(
     default:
       return null
   }
+}
+
+function renderEditorialUnit(
+  unit: EditorialUnit,
+  key: string | number,
+  onWikiLinkClick: (uuid: string) => void,
+  articleTitle?: string,
+  isPrintView: boolean = false,
+): React.ReactNode {
+  if (unit.kind === 'hr') {
+    return renderBlock(unit.blocks[0], key, onWikiLinkClick, articleTitle, isPrintView)
+  }
+
+  if (unit.kind === 'image-figure') {
+    const captionNode = unit.caption
+      ? renderFormattedInline(unit.caption.text, onWikiLinkClick)
+      : undefined
+    return (
+      <AssetImage
+        key={key}
+        src={unit.image.src}
+        alt={unit.image.alt}
+        caption={captionNode}
+        className={unit.image.fullWidth ? 'full-width-block' : ''}
+      />
+    )
+  }
+
+  if (unit.kind === 'fullwidth') {
+    if (unit.blocks.length === 1) {
+      const b = unit.blocks[0]
+      if (b.type === 'image') {
+        return (
+          <AssetImage
+            key={key}
+            src={b.src}
+            alt={b.alt}
+            className="full-width-block"
+          />
+        )
+      }
+      return renderBlock(b, `${key}-0`, onWikiLinkClick, articleTitle, isPrintView)
+    }
+
+    // Agrupa visual ancho + caption (o heading introductorio) en bloque atómico
+    const first = unit.blocks[0]
+    const second = unit.blocks[1]
+    if (first.type === 'image' && isCaptionParagraph(second)) {
+      return (
+        <AssetImage
+          key={key}
+          src={first.src}
+          alt={first.alt}
+          caption={renderFormattedInline(second.text, onWikiLinkClick)}
+          className="full-width-block"
+        />
+      )
+    }
+
+    if (isPrintView) {
+      return (
+        <div key={key} className="reader-print-fullwidth-group full-width-block">
+          {unit.blocks.map((b, bIdx) =>
+            renderBlock(b, `${key}-${bIdx}`, onWikiLinkClick, articleTitle, isPrintView),
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <React.Fragment key={key}>
+        {unit.blocks.map((b, bIdx) =>
+          renderBlock(b, `${key}-${bIdx}`, onWikiLinkClick, articleTitle, isPrintView),
+        )}
+      </React.Fragment>
+    )
+  }
+
+  return renderBlock(unit.blocks[0], key, onWikiLinkClick, articleTitle, isPrintView)
 }
 
 export function ArticleReader({
@@ -1343,66 +1630,6 @@ export function ArticleReader({
     }
     return list
   }, [preparedDoc.bodyBlocks])
-
-  const sheetContainerRef = useRef<HTMLDivElement | null>(null)
-
-  useLayoutEffect(() => {
-    const container = sheetContainerRef.current
-    if (!container || isPrintView || !isTwoColumns) return
-
-    const syncSheetHeights = () => {
-      const isMobileViewport =
-        typeof window !== 'undefined' &&
-        typeof window.matchMedia === 'function' &&
-        window.matchMedia('(max-width: 820px)').matches
-
-      const sheetEls = container.querySelectorAll<HTMLElement>(
-        '.article-reader-view.a4-sheet.layout-two-columns',
-      )
-      for (const sheetEl of sheetEls) {
-        const contentEl = sheetEl.querySelector<HTMLElement>('.a4-sheet-content')
-        if (!contentEl) continue
-
-        contentEl.style.height = ''
-        sheetEl.style.height = ''
-
-        if (isMobileViewport) continue
-
-        const sheetStyle = getComputedStyle(sheetEl)
-        const minSheetH = parseFloat(sheetStyle.minHeight) || 1122
-        const padBottom = parseFloat(sheetStyle.paddingBottom) || 68
-        const baseH = Math.max(240, Math.floor(minSheetH - contentEl.offsetTop - padBottom))
-
-        contentEl.style.height = `${baseH}px`
-
-        if (contentEl.scrollWidth > contentEl.clientWidth + 2) {
-          let low = baseH
-          let high = Math.ceil(baseH * 2.5)
-          contentEl.style.height = `${high}px`
-          while (contentEl.scrollWidth > contentEl.clientWidth + 2 && high < baseH * 8) {
-            low = high
-            high *= 2
-            contentEl.style.height = `${high}px`
-          }
-          for (let iter = 0; iter < 10; iter++) {
-            const mid = Math.ceil((low + high) / 2)
-            contentEl.style.height = `${mid}px`
-            if (contentEl.scrollWidth > contentEl.clientWidth + 2) {
-              low = mid
-            } else {
-              high = mid
-            }
-          }
-          contentEl.style.height = `${high}px`
-        }
-      }
-    }
-
-    syncSheetHeights()
-    if (typeof window === 'undefined') return
-    window.addEventListener('resize', syncSheetHeights)
-    return () => window.removeEventListener('resize', syncSheetHeights)
-  }, [sheets, isTwoColumns, isJustified, markdown, isPrintView, suppressDocHeader])
 
   return (
     <div
@@ -1537,8 +1764,8 @@ export function ArticleReader({
                 )}
               </div>
             )}
-            {preparedDoc.bodyBlocks.map((block, idx) =>
-              renderBlock(block, idx, onWikiLinkClick, articleTitle, isPrintView),
+            {groupEditorialUnits(preparedDoc.bodyBlocks).map((unit, idx) =>
+              renderEditorialUnit(unit, idx, onWikiLinkClick, articleTitle, isPrintView),
             )}
           </div>
         )
@@ -1553,7 +1780,7 @@ export function ArticleReader({
           </div>
         </div>
       ) : (
-        <div ref={sheetContainerRef} className="a4-sheet-container">
+        <div className="a4-sheet-container">
           {sheets.map((sheetBlocks, sheetIdx) => (
             <React.Fragment key={sheetIdx}>
               {sheetIdx > 0 && (
@@ -1574,9 +1801,31 @@ export function ArticleReader({
                   </div>
                 )}
                 <div className="a4-sheet-content">
-                  {sheetBlocks.map((block, blockIdx) =>
-                    renderBlock(block, `s${sheetIdx}-${blockIdx}`, onWikiLinkClick, articleTitle, isPrintView)
-                  )}
+                  {isTwoColumns
+                    ? buildTwoColumnBands(sheetBlocks).map((band, bandIdx) => {
+                        const bandClass =
+                          band.kind === 'full'
+                            ? 'a4-sheet-fullwidth-band'
+                            : band.kind === 'solo-figure'
+                              ? 'a4-sheet-solo-figure-band'
+                              : 'a4-sheet-flow-band'
+                        return (
+                          <div key={`b-${sheetIdx}-${bandIdx}`} className={bandClass}>
+                            {band.units.map((unit, uIdx) =>
+                              renderEditorialUnit(
+                                unit,
+                                `s${sheetIdx}-b${bandIdx}-${uIdx}`,
+                                onWikiLinkClick,
+                                articleTitle,
+                                isPrintView,
+                              ),
+                            )}
+                          </div>
+                        )
+                      })
+                    : groupEditorialUnits(sheetBlocks).map((unit, unitIdx) =>
+                        renderEditorialUnit(unit, `s${sheetIdx}-${unitIdx}`, onWikiLinkClick, articleTitle, isPrintView),
+                      )}
                 </div>
                 <footer className="a4-sheet-page-footer">
                   <span className="a4-sheet-page-number">
