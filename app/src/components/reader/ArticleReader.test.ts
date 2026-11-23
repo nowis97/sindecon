@@ -6,6 +6,8 @@ import {
   partitionBlocksIntoSheets,
   estimateBlockHeight,
   paginateTwoColumnBlocks,
+  groupEditorialUnits,
+  buildTwoColumnBands,
   A4_TWO_COLUMN_CAPACITY_PX,
   type ArticleReaderProps,
 } from './ArticleReader'
@@ -718,6 +720,87 @@ describe('Plantilla Apuntes 5to-2 - Callouts naturales, bloques ancho completo y
     expect(preparedBare.docTitle).toBe('Shock Séptico')
     expect(preparedBare.docSubtitle).toBeNull()
     expect(preparedBare.bodyBlocks.some((b) => b.type === 'paragraph' && /Asignatura\s*·\s*Apuntes/i.test(b.text))).toBe(false)
+  })
+})
+
+describe('Opción A - Agrupación Atómica y Bandas de 2 Columnas (Imágenes + Mermaid)', () => {
+  it('empareja imagen + leyenda en la misma unidad y los agrupa sin separar entre hojas', () => {
+    const md = [
+      'Texto introductorio extenso.',
+      '',
+      '![Curva hemodinámica](asset://img-1)',
+      '',
+      '*Figura 1: Registro comparativo.*',
+    ].join('\n')
+
+    const prepared = prepareTemplateDocument(parseMarkdownBlocks(md), 'Shock')
+    const units = groupEditorialUnits(prepared.bodyBlocks)
+
+    const figUnit = units.find((u) => u.kind === 'image-figure')
+    expect(figUnit).toBeDefined()
+    if (figUnit && figUnit.kind === 'image-figure') {
+      expect(figUnit.image.src).toBe('asset://img-1')
+      expect(figUnit.caption?.text).toBe('*Figura 1: Registro comparativo.*')
+    }
+
+    // Si justo antes del fin de hoja casi no queda margen (~1850px ocupados), imagen y caption deben saltar juntas a hoja 2
+    const tightFiller = { type: 'paragraph' as const, text: 'X'.repeat(4900) }
+    const paginated = paginateTwoColumnBlocks([tightFiller, ...prepared.bodyBlocks], 2000)
+    expect(paginated.length).toBeGreaterThanOrEqual(2)
+    const lastSheet = paginated[paginated.length - 1]
+    expect(lastSheet.some((b) => b.type === 'image')).toBe(true)
+    expect(lastSheet.some((b) => b.type === 'paragraph' && b.variant === 'caption')).toBe(true)
+  })
+
+  it('mantiene encabezado e intro corta pegados a su Mermaid/Tabla en banda full-width y evita encabezados huérfanos', () => {
+    const md = [
+      '## 1. Evaluación inicial',
+      'Primer párrafo clínico detallado.',
+      '',
+      '- Punto A',
+      '- Punto B',
+      '',
+      '## 2. Algoritmo de Decisión',
+      '',
+      '```mermaid',
+      'flowchart TD',
+      '  A["Inicio"] --> B["Conducta"]',
+      '```',
+      '',
+      '![Panel vertical](asset://img-panel)',
+      '',
+      '*Figura 2: Panel aislado.*',
+      '',
+      '## 3. Posología',
+      'Dosis ajustada según función renal.',
+      '',
+      '| Fármaco | Dosis | Vía | Rango |',
+      '| --- | --- | --- | --- |',
+      '| Adenosina | 6 mg | IV | Bolo |',
+    ].join('\n')
+
+    const prepared = prepareTemplateDocument(parseMarkdownBlocks(md), 'Taquiarritmias')
+    const bands = buildTwoColumnBands(prepared.bodyBlocks)
+
+    expect(bands[0].kind).toBe('flow')
+    expect(bands[1].kind).toBe('full')
+    expect(bands[1].units[0].blocks.map((b) => b.type)).toEqual(['header', 'mermaid'])
+
+    expect(bands[2].kind).toBe('solo-figure')
+    expect(bands[3].kind).toBe('full')
+    expect(bands[3].units[0].blocks.map((b) => b.type)).toEqual(['header', 'paragraph', 'table'])
+
+    // Tampoco debe partir el encabezado de su diagrama Mermaid entre distintas hojas A4
+    const sheets = paginateTwoColumnBlocks(
+      [
+        { type: 'paragraph', text: 'X'.repeat(4500) },
+        { type: 'header', level: 2, text: '2. Algoritmo de Decisión' },
+        { type: 'mermaid', code: 'flowchart TD\nA-->B\nB-->C\nC-->D', fullWidth: true },
+      ],
+      2000,
+    )
+    expect(sheets).toHaveLength(2)
+    expect(sheets[1].map((b) => b.type)).toEqual(['header', 'mermaid'])
   })
 })
 

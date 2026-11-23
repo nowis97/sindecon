@@ -148,6 +148,19 @@ export function MermaidViewer({ code, isPrintView = false, className = '' }: Mer
     }
   }
 
+  const isZoomed = zoom !== 1 || pan.x !== 0 || pan.y !== 0
+
+  useEffect(() => {
+    if (!isFullscreen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsFullscreen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isFullscreen])
+
   if (error) {
     return (
       <div className="mermaid-error">
@@ -165,7 +178,9 @@ export function MermaidViewer({ code, isPrintView = false, className = '' }: Mer
   }
 
   const viewerContent = (
-    <div className={`mermaid-viewer-card ${isFullscreen ? 'fullscreen-mode' : ''} ${isPrintView ? 'is-print-view' : ''} ${className}`.trim()}>
+    <div
+      className={`mermaid-viewer-card ${isFullscreen ? 'fullscreen-mode' : ''} ${isZoomed ? 'is-zoomed' : ''} ${isPrintView ? 'is-print-view' : ''} ${className}`.trim()}
+    >
       {!isPrintView && (
         <div className="mermaid-controls">
           <span className="mermaid-tag">Algoritmo / Esquema</span>
@@ -204,7 +219,7 @@ export function MermaidViewer({ code, isPrintView = false, className = '' }: Mer
           className="mermaid-svg-wrapper"
           style={{
             transform: isPrintView ? 'none' : `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: 'top center',
+            transformOrigin: 'center center',
           }}
           dangerouslySetInnerHTML={{ __html: svg }}
         />
@@ -214,7 +229,15 @@ export function MermaidViewer({ code, isPrintView = false, className = '' }: Mer
 
   if (isFullscreen) {
     return (
-      <div className="mermaid-fullscreen-overlay">
+      <div
+        className="mermaid-fullscreen-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Diagrama clínico en pantalla completa"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setIsFullscreen(false)
+        }}
+      >
         {viewerContent}
       </div>
     )

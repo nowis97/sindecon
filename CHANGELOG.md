@@ -2,6 +2,17 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.2.2] - 2026-11-23
+
+### Changed
+- **Maquetación por Bandas en Lector A4 2 Columnas (`ArticleReader.tsx`, `index.css`)**: Reemplazo de `.a4-sheet-content` con altura congelada (`syncSheetHeights`) y `column-fill: auto` por bandas alternadas sin desborde horizontal: `.a4-sheet-flow-band` (`columns: 2; column-fill: balance`), `.a4-sheet-fullwidth-band` (mantiene encabezado introductorio e intro corta ≤ 320 caracteres junto a su Mermaid, tabla ≥ 3 cols o bloque `:::columns` y leyenda) y `.a4-sheet-solo-figure-band` (centrado de imágenes sueltas entre bloques anchos).
+- **Figuras Atómicas (`AssetImage.tsx`, `ArticleReader.tsx`)**: Soporte nativo de `caption` como `<figcaption className="reader-caption">` dentro de `<figure className="reader-image-figure">` (`break-inside: avoid`) para que imagen y leyenda permanezcan inseparables entre columnas y hojas.
+- **Paginación A4 y Contención Visual de Gráficos (`ArticleReader.tsx`, `MermaidViewer.tsx`, `index.css`)**: Cálculo de presupuesto doble (`2×`) en `paginateTwoColumnBlocks` para bloques `fullWidth`, límites verticales proporcionados en lectura de pantalla para imágenes (`290px`/`360px`) y diagramas Mermaid (`382px` en 2 columnas, `520px` en 1 columna y `calc(92vh - 92px)` en pantalla completa, liberando la altura al hacer zoom), además de `.reader-print-fullwidth-group` para `@media print`.
+
+### Fixed
+- **Desborde Horizontal y Solapamientos Asíncronos**: Eliminación completa de columnas fantasmas (antes `scrollWidth: 3384px` en Lector y `3577px` en Dividido) y solapamientos de imágenes sobre diagramas Mermaid / pie de página tras cargas asíncronas.
+- **Estilos de Pantalla y Pantalla Completa para Mermaid**: Adición de reglas CSS para `.mermaid-viewport`, `.mermaid-svg-wrapper`, `.mermaid-loading`, `.mermaid-error`, `.mermaid-fullscreen-overlay` (cierre con `Escape` y clic exterior), e hidratación limpia sin `setState` síncrono en `AssetImage.tsx`.
+
 ## [1.2.1] - 2026-11-22
 
 ### Fixed
