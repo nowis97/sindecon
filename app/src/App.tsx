@@ -719,6 +719,7 @@ function App() {
                     setTimeout(() => setIsExportPdfOpen(true), 80)
                   }}
                   onGoBack={() => setSelectedId(selected.parent_id)}
+                  onGoHome={() => setSelectedId(null)}
                   onOpenQuickCapture={() => setIsQuickCaptureOpen(true)}
                   onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
                   templates={templates}

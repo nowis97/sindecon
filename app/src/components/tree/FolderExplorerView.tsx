@@ -35,7 +35,8 @@ import {
 } from 'lucide-react'
 import { db, type NodeRow, type ArticleRow } from '../../db/db'
 import { saveArticle } from '../../db/articles'
-import { childrenOf, canMove, sortNodesBy, type SortCriteria } from '../../domain/tree'
+import { childrenOf, canMove, pathTo, sortNodesBy, type SortCriteria } from '../../domain/tree'
+import { ClinicalBackTrail } from '../common/ClinicalBackTrail'
 import {
   CLINICAL_MARK_META,
   mergeClinicalMarks,
@@ -76,6 +77,7 @@ export interface FolderExplorerViewProps {
   onEditArticle?: (nodeId: string) => void
   onPrintArticle?: (nodeId: string) => void
   onGoBack?: () => void
+  onGoHome?: () => void
   onOpenQuickCapture?: () => void
   onOpenCommandPalette?: () => void
   templates?: Array<{ node: NodeRow; body: string }>
@@ -130,6 +132,7 @@ export function FolderExplorerView({
   onEditArticle,
   onPrintArticle,
   onGoBack,
+  onGoHome,
   onOpenQuickCapture,
   onOpenCommandPalette,
   templates = [],
@@ -482,9 +485,10 @@ export function FolderExplorerView({
   }
 
   const isFolderFav = favoriteIds.includes(folderNode.id)
-  const parentFolder = folderNode.parent_id
-    ? nodes.find((n) => n.id === folderNode.parent_id) ?? null
-    : null
+  const folderAncestors = useMemo(
+    () => pathTo(nodes, folderNode.id).slice(0, -1),
+    [nodes, folderNode.id],
+  )
 
   const renderMarkBadge = (mark: ClinicalMark | undefined) => {
     if (!mark) return null
@@ -568,34 +572,29 @@ export function FolderExplorerView({
                 </button>
 
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
-                    {onGoBack && (
-                      <button
-                        type="button"
-                        onClick={onGoBack}
-                        className="inline-flex items-center gap-1 rounded-full border border-[var(--cl-border)] bg-[var(--cl-surface)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--cl-fg-2)] hover:border-[var(--cl-accent)] hover:text-[var(--cl-diagnostic)] cursor-pointer transition-colors"
-                        title={
-                          parentFolder ? `Volver a ${parentFolder.title}` : 'Volver a Mi Repositorio'
-                        }
-                      >
-                        <ArrowLeft className="h-3 w-3" />
-                        <span>{parentFolder ? parentFolder.title : 'Mi Repositorio'}</span>
-                      </button>
-                    )}
-                    <span className="text-[11px] text-[var(--cl-muted)]" aria-hidden="true">
-                      /
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSwitcherFolderId(folderNode.id)
-                        setSwitcherSearch('')
-                        setIsFolderSwitcherOpen((v) => !v)
-                      }}
-                      className="text-[11px] font-semibold text-[var(--cl-diagnostic)] hover:underline cursor-pointer"
-                    >
-                      Cambiar especialidad ▾
-                    </button>
+                  <div className="mb-1.5">
+                    <ClinicalBackTrail
+                      currentKind="folder"
+                      currentTitle={folderNode.title}
+                      ancestors={folderAncestors}
+                      onNavigateFolder={(id) =>
+                        onGoBack && id === folderNode.parent_id ? onGoBack() : onSelectNode(id)
+                      }
+                      onNavigateHome={() => (onGoHome ? onGoHome() : onGoBack?.())}
+                      trailing={
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSwitcherFolderId(folderNode.id)
+                            setSwitcherSearch('')
+                            setIsFolderSwitcherOpen((v) => !v)
+                          }}
+                          className="inline-flex min-h-[34px] shrink-0 items-center gap-1 rounded-full border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--cl-diagnostic)] transition hover:border-[var(--cl-accent)] hover:bg-[var(--cl-accent-soft)] cursor-pointer"
+                        >
+                          <span>Cambiar especialidad ▾</span>
+                        </button>
+                      }
+                    />
                   </div>
 
                   <div className="flex items-center gap-2 min-w-0">
