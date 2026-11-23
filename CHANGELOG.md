@@ -2,6 +2,15 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.2.3] - 2026-11-23
+
+### Added
+- **Ruta de Retorno Jerárquica Destacada (`ClinicalBackTrail`)**: Nuevo componente compartido (`ClinicalBackTrail.tsx` y pruebas en `ClinicalBackTrail.test.ts`) que muestra botones de regreso visibles (`34px`) en orden explícito de salida: **`Artículo → [Subcarpeta(s) → Carpeta] → Página principal`** (`←`), destacando en color sólido el paso inmediato hacia atrás y separando el selector desplegable (`Explorar ▾` / `Cambiar especialidad ▾`).
+
+### Changed
+- **Cabecera y Dock Inferior en Artículos (`ArticleWorkspaceView.tsx`)**: Separación en dos franjas limpias para que títulos largos no oculten la ruta de retorno, más botón directo **`← Carpeta`** / **`← Inicio`** en el dock inferior `ClinicalBottomDock`.
+- **Subcarpetas en Cadena (`FolderExplorerView.tsx`, `App.tsx`)**: Soporte multinivel completo de ancestros con botón directo a carpeta padre, carpetas superiores y `Página principal` (`onGoHome`).
+
 ## [1.2.2] - 2026-11-23
 
 ### Changed

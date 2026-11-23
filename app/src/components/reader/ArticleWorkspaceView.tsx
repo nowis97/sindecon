@@ -46,6 +46,7 @@ import {
   DOCK_BTN_BASE,
   DOCK_BTN_IDLE,
 } from '../common/ClinicalBottomDock'
+import { ClinicalBackTrail } from '../common/ClinicalBackTrail'
 import {
   ArticleReader,
   parseMarkdownBlocks,
@@ -343,51 +344,50 @@ export function ArticleWorkspaceView({
 
   return (
     <div className="clinical-home relative mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-[1400px] flex-col gap-4 px-3 pt-2 pb-36 sm:px-6 sm:pb-40">
-      {/* 1. COMPACT 1-LINE FLOATING TOP BAR WITH INTERACTIVE BREADCRUMB POPOVER (Opción 1) */}
+      {/* 1. CABECERA CLÍNICA CON RUTA DE RETORNO EN ORDEN (Artículo -> Subcarpeta -> Carpeta -> Página principal) */}
       <header
         ref={popoverRef}
-        className="relative z-35 flex flex-col gap-2.5 rounded-3xl border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)] px-4 py-2.5 shadow-[var(--ch-shadow-card)] sm:rounded-full sm:px-5"
+        className="relative z-35 flex flex-col gap-2.5 rounded-2xl border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)] px-4 py-3 shadow-[var(--ch-shadow-card)] sm:px-5"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {/* Left: Home Button + Interactive Breadcrumb Trigger Pill (▾) + Inline Article Title + Inline Tags + Clinical Status Mark */}
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onSelectNode(null)}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] px-3 py-1 text-xs font-semibold text-[var(--ch-text-secondary)] transition hover:border-[var(--ch-accent)] hover:text-[var(--ch-accent)]"
-              title="Volver a Inicio (Mi Repositorio)"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Inicio</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActivePopoverFolderId(parentFolder ? parentFolder.id : null)
-                setPopoverFilter('')
-                setIsBreadcrumbPopoverOpen((v) => !v)
-              }}
-              aria-expanded={isBreadcrumbPopoverOpen}
-              aria-label="Abrir navegador desplegable de especialidades y protocolos"
-              title="Explorar todas las carpetas y protocolos sin salir del artículo"
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition ${
-                isBreadcrumbPopoverOpen
-                  ? 'border-[var(--ch-accent-solid)] bg-[var(--ch-accent-solid)] text-white shadow-xs'
-                  : 'border-[var(--ch-accent)]/40 bg-[var(--ch-accent-soft)] text-[var(--ch-accent)] hover:border-[var(--ch-accent-solid)] hover:bg-[var(--ch-accent-solid)] hover:text-white'
-              }`}
-            >
-              <FolderOpen className="h-3.5 w-3.5 shrink-0" />
-              <span className="max-w-[165px] truncate">
-                {parentFolder ? parentFolder.title : 'Mi Repositorio'}
-              </span>
-              <ChevronDown
-                className={`h-3.5 w-3.5 shrink-0 transition-transform ${
-                  isBreadcrumbPopoverOpen ? 'rotate-180' : ''
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ch-border-subtle)] pb-2.5">
+          <ClinicalBackTrail
+            currentKind="article"
+            currentTitle={articleNode.title}
+            ancestors={folderCrumbPath}
+            onNavigateFolder={(folderId) => onSelectNode(folderId)}
+            onNavigateHome={() => onSelectNode(null)}
+            trailing={
+              <button
+                type="button"
+                onClick={() => {
+                  setActivePopoverFolderId(parentFolder ? parentFolder.id : null)
+                  setPopoverFilter('')
+                  setIsBreadcrumbPopoverOpen((v) => !v)
+                }}
+                aria-expanded={isBreadcrumbPopoverOpen}
+                aria-label="Abrir navegador desplegable de especialidades y protocolos"
+                title="Explorar todas las carpetas y protocolos sin salir del artículo"
+                className={`inline-flex min-h-[34px] shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer ${
+                  isBreadcrumbPopoverOpen
+                    ? 'border-[var(--ch-accent-solid)] bg-[var(--ch-accent-solid)] text-white shadow-xs'
+                    : 'border-[var(--ch-border-subtle)] bg-[var(--ch-bg-secondary)] text-[var(--ch-text-secondary)] hover:border-[var(--ch-accent)] hover:text-[var(--cl-diagnostic)]'
                 }`}
-              />
-            </button>
+              >
+                <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+                <span>Explorar</span>
+                <ChevronDown
+                  className={`h-3.5 w-3.5 shrink-0 transition-transform ${
+                    isBreadcrumbPopoverOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+            }
+          />
+        </div>
 
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* Left: Article Title + Rename + Favorite + Inline Tags + Clinical Status Mark */}
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <div className="flex min-w-0 items-center gap-1.5">
               <h1 className="truncate font-display text-base font-bold tracking-tight text-[var(--ch-text-primary)] sm:text-lg">
                 {articleNode.title}
@@ -1267,6 +1267,23 @@ export function ArticleWorkspaceView({
         }
         left={
           <>
+            <button
+              type="button"
+              onClick={() => onSelectNode(parentFolder ? parentFolder.id : null)}
+              title={
+                parentFolder
+                  ? `Volver atrás a «${parentFolder.title}»`
+                  : 'Volver atrás a Página principal'
+              }
+              aria-label={parentFolder ? `Volver a ${parentFolder.title}` : 'Volver a Página principal'}
+              className={`inline-flex sm:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE} font-bold text-[var(--ch-text-primary)]`}
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />
+              <span className="hidden md:inline max-w-[115px] truncate">
+                {parentFolder ? parentFolder.title : 'Inicio'}
+              </span>
+            </button>
+
             <button
               type="button"
               onClick={() => {
