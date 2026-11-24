@@ -1,3 +1,5 @@
+import { normalizeCalloutMarkdownEscapes, resolveBracketCallout } from './callouts'
+
 export interface ExtractedCard {
   front: string
   back: string
@@ -41,25 +43,50 @@ export function extractCardsFromMarkdown(articleTitle: string, markdown: string)
     }
   }
 
-  // 2. Callouts médicos (> [!PEARL], > [!WARNING], > [!TIP], etc.)
-  const calloutRegex = />\s*\[!(PEARL|WARNING|TIP|NOTE|INFO|CAUTION|ALERT)\](?:\s*([^\n]*))?\n((?:>[^\n]*\n?)+)/gi
-  while ((match = calloutRegex.exec(markdown)) !== null) {
-    const type = match[1].toUpperCase()
-    const calloutTitle = match[2]?.trim() || ''
-    const rawBody = match[3] || ''
-    const body = rawBody
-      .split('\n')
-      .map((l) => l.replace(/^>\s?/, '').trim())
-      .filter(Boolean)
-      .join('\n')
+  // 2. Callouts médicos (> [!PERLA], > [!PEARL], > [!PERLA: Nombre], > [!Nombre], > [!WARNING], > [!TIP], etc.)
+  const mdLines = markdown.split(/\r?\n/)
+  for (let li = 0; li < mdLines.length; li++) {
+    const trimmedLine = mdLines[li].trim()
+    const normalizedStart = normalizeCalloutMarkdownEscapes(trimmedLine)
+    if (!/^>\s*\[![^\]]+\]/.test(normalizedStart)) continue
 
-    if (body) {
-      const typeLabel = type === 'PEARL' ? '💡 Perla Clínica' : type === 'WARNING' ? '⚠️ Advertencia' : '📌 Clave'
-      const front = calloutTitle
-        ? `${title} — ${typeLabel}: ${calloutTitle}`
-        : `${title} — ${typeLabel}`
-      addCard(front, body)
+    const firstLine = trimmedLine.replace(/^>\s?/, '').trim()
+    const bodyLines: string[] = []
+    let lj = li + 1
+    while (lj < mdLines.length && mdLines[lj].trim().startsWith('>')) {
+      const peek = normalizeCalloutMarkdownEscapes(mdLines[lj].trim())
+      if (/^>\s*\[![^\]]+\]/.test(peek)) break
+      bodyLines.push(mdLines[lj].trim().replace(/^>\s?/, ''))
+      lj++
     }
+    li = lj - 1
+
+    const resolved = resolveBracketCallout(firstLine, bodyLines)
+    if (!resolved || !resolved.text) continue
+
+    if (resolved.kind === 'tip') {
+      if (resolved.rawTag === 'PEARL' && resolved.hasCustomTitle) {
+        addCard(`${title} — 💡 Perla Clínica: ${resolved.title}`, resolved.text)
+      } else if (resolved.hasCustomTitle) {
+        addCard(`${title} — 💡 ${resolved.title}`, resolved.text)
+      } else {
+        addCard(`${title} — 💡 Perla Clínica`, resolved.text)
+      }
+      continue
+    }
+
+    const categoryPrefix =
+      resolved.kind === 'warning'
+        ? '⚠️ Advertencia'
+        : resolved.kind === 'dosage'
+        ? '💊 Dosificación'
+        : resolved.kind === 'important'
+        ? '📋 Importante'
+        : '📌 Clave'
+    const front = resolved.hasCustomTitle
+      ? `${title} — ${categoryPrefix}: ${resolved.title}`
+      : `${title} — ${categoryPrefix}`
+    addCard(front, resolved.text)
   }
 
   // 3. Listas con conceptos en negrita: - **Término:** Definición o - **Término**: Definición

@@ -1,5 +1,6 @@
 import TurndownService from 'turndown'
 import mammoth from 'mammoth'
+import { stripWrappingBrackets } from './callouts'
 
 /**
  * Configuración de Turndown con soporte para tablas Markdown y formato limpio.
@@ -139,6 +140,12 @@ export function enrichClinicalMarkdown(markdown: string): string {
       continue
     }
 
+    // Respetar callouts ya formateados (> [!PERLA], > [!TIP], > [!Nombre], etc.)
+    if (/^\s*>\s*\[!/i.test(line)) {
+      result.push(line)
+      continue
+    }
+
     // Patrón 1: Advertencia / Red Flag / Contraindicación / Peligro
     const warningMatch = line.match(
       /^\s*(?:>|\*{1,2}|)\s*(?:ADVERTENCIA|ALERTA|RED FLAGS?|CUIDADO|PELIGRO|CONTRAINDICACI[OÓ]N|PRECAUCI[OÓ]N)\s*:\s*(.*)/i,
@@ -161,14 +168,50 @@ export function enrichClinicalMarkdown(markdown: string): string {
       continue
     }
 
-    // Patrón 3: Perla Clínica / Tip / Consejo
+    // Patrón 3: Perla / Tip / Consejo / Recomendación (preservando nombres propios)
     const tipMatch = line.match(
-      /^\s*(?:>|\*{1,2}|)\s*(?:PERLA CL[IÍ]NICA|TIP CL[IÍ]NICO|TIP|RECOMENDACI[OÓ]N|CONSEJO)\s*:\s*(.*)/i,
+      /^\s*(?:>|\*{1,2}|)\s*(PERLA(?:\s+(?:CL[IÍ]NICA|DE\s+[^:*\n]{2,45}|EUNACOM|QUIR[UÚ]RGICA|DIAGN[OÓ]STICA|TERAP[EÉ]UTICA|FARMACOL[OÓ]GICA|\[[^\]\n]+\]|[^:*\n]{2,40}))?|TIP(?:\s+CL[IÍ]NICO|\s+[^:*\n]{2,40})?|RECOMENDACI[OÓ]N(?:\s+[^:*\n]{2,40})?|CONSEJO(?:\s+[^:*\n]{2,40})?)\s*(?:\*{1,2})?\s*:\s*(.*)/i,
     )
     if (tipMatch) {
-      const content = tipMatch[1].replace(/\*{1,2}$/, '').trim()
-      result.push(`> [!TIP]`)
-      result.push(`> **Perla Clínica:** ${content || 'Recomendación práctica'}`)
+      const rawLabel = stripWrappingBrackets(tipMatch[1].replace(/[*]/g, '').trim())
+      const content = tipMatch[2].replace(/\*{1,2}$/, '').trim()
+      if (/^PERLA\s+CL[IÍ]NICA$/i.test(rawLabel)) {
+        result.push(`> [!TIP]`)
+        result.push(`> **Perla Clínica:** ${content || 'Recomendación práctica'}`)
+        continue
+      }
+      if (/^PERLA$/i.test(rawLabel)) {
+        const splitColon = content.match(/^([^:\n]{2,55}):\s+([\s\S]+)$/)
+        if (splitColon && !/^https?$/i.test(splitColon[1].trim())) {
+          result.push(`> [!PERLA] ${stripWrappingBrackets(splitColon[1].trim())}`)
+          result.push(`> ${splitColon[2].trim()}`)
+        } else {
+          result.push(`> [!PERLA]`)
+          result.push(`> ${content || 'Recomendación práctica'}`)
+        }
+        continue
+      }
+      const cleanLabelRaw = rawLabel
+        .replace(/^Perla\s*(?:[:\-–—]\s*|\s+)?\[([^\]\n]+)\]$/i, '$1')
+        .trim()
+      const cleanLabel =
+        cleanLabelRaw === cleanLabelRaw.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(cleanLabelRaw)
+          ? cleanLabelRaw
+              .split(/\s+/)
+              .map((word, idx) => {
+                const lower = word.toLowerCase()
+                if (idx > 0 && ['de', 'del', 'en', 'la', 'el', 'las', 'los', 'para', 'por', 'sobre', 'con', 'y', 'o'].includes(lower)) {
+                  return lower
+                }
+                if (word.length <= 4 && idx > 0) return word
+                return lower.charAt(0).toUpperCase() + lower.slice(1)
+              })
+              .join(' ')
+          : cleanLabelRaw
+      result.push(`> [!PERLA] ${cleanLabel}`)
+      if (content) {
+        result.push(`> ${content}`)
+      }
       continue
     }
 

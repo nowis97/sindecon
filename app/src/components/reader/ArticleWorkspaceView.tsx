@@ -1192,7 +1192,7 @@ export function ArticleWorkspaceView({
               onClick={() => {
                 setIsOrbDrawerOpen(false)
                 insertSnippet(
-                  '\n\n> [!TIP] Perla Clínica\n> - Dato clave de guardia.\n\n',
+                  '\n\n> [!PERLA] Nombre de la perla\n> - Dato clave de guardia.\n\n',
                 )
               }}
               className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-left text-xs font-semibold text-emerald-700 dark:text-emerald-300"

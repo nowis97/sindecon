@@ -26,6 +26,21 @@ A: Triptanes por vía oral o subcutánea (ej. Sumatriptán 50-100 mg).
     expect(cards[0].back).toContain('Iniciar betabloqueantes antes')
   })
 
+  it('extracts [!PERLA] with given/bracketed titles and Milkdown escapes without overwriting with Perla Clínica', () => {
+    const md = [
+      '# Derrame Pleural',
+      '> \\[!PERLA\\] \\[Criterio de Light\\]',
+      '> LDH pleural/sérica > 0.6 orienta a exudado.',
+      '',
+      '> [!Signo de Beck]',
+      '> Taponamiento cardíaco clásico.',
+    ].join('\n')
+
+    const cards = extractCardsFromMarkdown('Derrame Pleural', md)
+    expect(cards.some((c) => c.front === 'Derrame Pleural — 💡 Criterio de Light')).toBe(true)
+    expect(cards.some((c) => c.front === 'Derrame Pleural — 💡 Signo de Beck')).toBe(true)
+  })
+
   it('extracts bold list items (- **Term:** Definition)', () => {
     const md = `
 # Síndromes Clínicos

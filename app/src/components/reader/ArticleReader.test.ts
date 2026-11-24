@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import {
   ArticleReader,
   parseMarkdownBlocks,
@@ -801,6 +803,48 @@ describe('Opción A - Agrupación Atómica y Bandas de 2 Columnas (Imágenes + M
     )
     expect(sheets).toHaveLength(2)
     expect(sheets[1].map((b) => b.type)).toEqual(['header', 'mermaid'])
+  })
+})
+
+describe('Perlas con nombre dado y entre corchetes (Opción A con respaldo)', () => {
+  it('renderiza cabecera 💡 con el nombre dado (normal, entre corchetes o en cuerpo) y listas internas', () => {
+    const md = [
+      '# Apunte Test',
+      '',
+      '> [!PERLA] [Criterio de Light]',
+      '> - LDH pleural / sérica > 0.6',
+      '> - Proteínas pleural / sérica > 0.5',
+      '',
+      '> [!PERLA: Hiponatremia en IC]',
+      '',
+      '> [!Signo de Beck]',
+      '> Tríada de taponamiento cardíaco.',
+      '',
+      '> [!PERLA]',
+      '> **Control hemodinámico:** Mantener PAM >= 65 mmHg.',
+      '',
+      '**Perla de ECG:** Onda T picuda en V2-V4.',
+      '',
+      '> [!PERLA]',
+      '> Dato sin nombre propio usa respaldo genérico.',
+    ].join('\n')
+
+    const html = renderToStaticMarkup(
+      React.createElement(ArticleReader, {
+        markdown: md,
+        onWikiLinkClick: () => {},
+        articleTitle: 'Apunte Test',
+        hideReaderToolbar: true,
+      }),
+    )
+
+    expect(html).toContain('<div class="callout-header"><span class="callout-icon">💡</span><strong class="callout-title"><span>Criterio de Light</span></strong></div>')
+    expect(html).toContain('<ul class="callout-list">')
+    expect(html).toContain('<strong class="callout-title"><span>Hiponatremia en IC</span></strong>')
+    expect(html).toContain('<strong class="callout-title"><span>Signo de Beck</span></strong>')
+    expect(html).toContain('<strong class="callout-title"><span>Control hemodinámico</span></strong>')
+    expect(html).toContain('<strong class="callout-title"><span>Perla de ECG</span></strong>')
+    expect(html).toContain('<strong class="callout-inline-title"><span>Perla clínica:</span> </strong><span>Dato sin nombre propio usa respaldo genérico.</span>')
   })
 })
 

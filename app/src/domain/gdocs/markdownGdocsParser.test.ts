@@ -190,4 +190,46 @@ describe('markdownGdocsParser', () => {
       { kind: 'paragraph', text: 'Autor. Guía clínica. 2026.', variant: 'bibliography' },
     ])
   })
+
+  it('conserva nombres dados y nombres entre corchetes en perlas para Google Docs / Word', () => {
+    const md = [
+      '> [!PERLA] [Criterio de Light]',
+      '> LDH pleural/sérica > 0.6 indica exudado.',
+      '',
+      '> [!PERLA: Hiponatremia en IC]',
+      '',
+      '> [!Signo de Beck]',
+      '> Hipotensión, ruidos apagados e ingurgitación yugular.',
+      '',
+      '**Perla de ECG:** Onda T picuda en hiperkalemia.',
+    ].join('\n')
+
+    const blocks = parseMarkdownToClinicalBlocks(md)
+    expect(blocks).toEqual([
+      {
+        kind: 'callout',
+        calloutType: 'pearl',
+        title: 'Criterio de Light',
+        text: 'LDH pleural/sérica > 0.6 indica exudado.',
+      },
+      {
+        kind: 'callout',
+        calloutType: 'pearl',
+        title: 'Hiponatremia en IC',
+        text: '',
+      },
+      {
+        kind: 'callout',
+        calloutType: 'pearl',
+        title: 'Signo de Beck',
+        text: 'Hipotensión, ruidos apagados e ingurgitación yugular.',
+      },
+      {
+        kind: 'callout',
+        calloutType: 'pearl',
+        title: 'Perla de ECG',
+        text: 'Onda T picuda en hiperkalemia.',
+      },
+    ])
+  })
 })

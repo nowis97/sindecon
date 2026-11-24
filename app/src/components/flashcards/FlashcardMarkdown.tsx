@@ -1,4 +1,5 @@
 ﻿import React, { useMemo } from 'react'
+import { resolveBracketCallout } from '../../domain/callouts'
 
 interface FlashcardMarkdownProps {
   content: string
@@ -104,26 +105,26 @@ function parseMarkdownBlocks(md: string): FlashcardBlock[] {
     if (trimmed.startsWith('>')) {
       const quoteLines: string[] = []
       while (i < rawLines.length && rawLines[i].trim().startsWith('>')) {
+        if (quoteLines.length > 0 && /^>\s*(?:\\+\[|\[)![^\]]+(?:\\+\]|\])/.test(rawLines[i].trim())) {
+          break
+        }
         quoteLines.push(rawLines[i].trim().replace(/^>\s?/, ''))
         i++
       }
-      const fullQuote = quoteLines.join('\n')
-      const calloutMatch = fullQuote.match(/^\[!([A-Z_-]+)\](?:\s+(.*))?(\n[\s\S]*)?$/i)
+      const [firstQuoteLine = '', ...restQuoteLines] = quoteLines
+      const resolved = resolveBracketCallout(firstQuoteLine, restQuoteLines)
 
-      if (calloutMatch) {
-        const kind = calloutMatch[1].toLowerCase()
-        const title = calloutMatch[2] || (kind === 'warning' ? 'Alerta' : kind === 'tip' ? 'Perla Clínica' : 'Nota')
-        const bodyText = (calloutMatch[3] || '').trim()
+      if (resolved) {
         blocks.push({
           type: 'callout',
-          kind,
-          title,
-          text: bodyText,
+          kind: resolved.kind,
+          title: resolved.title,
+          text: resolved.text,
         })
       } else {
         blocks.push({
           type: 'blockquote',
-          text: fullQuote,
+          text: quoteLines.join('\n'),
         })
       }
       continue
