@@ -141,5 +141,15 @@ describe('BulkExportPdfModal Logic & Helpers', () => {
       expect(ids).toEqual(['art-1', 'art-2', 'art-3'])
       expect(ids).not.toContain('tpl-1')
     })
+
+    it('prioriza initialSelectedIds cuando viene desde la barra de selección múltiple', () => {
+      const ids = getInitialSelectedArticleIds(
+        mockNodes,
+        articles,
+        'folder-root',
+        ['art-2', 'art-2', 'id-inexistente'],
+      )
+      expect(ids).toEqual(['art-2'])
+    })
   })
 })

@@ -91,4 +91,35 @@ describe('FolderExplorerView Component Contract', () => {
     expect(templateCall).toEqual({ title: 'Protocolo Sepsis', parentId: 'folder-uci' })
     expect(studyScope).toEqual(['art-sepsis'])
   })
+
+  it('acepta onBulkExportPdf con folderId y lista opcional de artículos seleccionados', () => {
+    let exportCall: { folderId: string; selectedIds?: string[] } | null = null
+
+    const props: FolderExplorerViewProps = {
+      folderNode: {
+        id: 'folder-cardio',
+        parent_id: null,
+        kind: 'folder',
+        title: 'Cardiología',
+        order: 0,
+        system: null,
+        created_at: 1732147200000,
+        updated_at: 1732147200000,
+        deleted_at: null,
+      },
+      nodes: [],
+      onSelectNode: () => {},
+      onCreateArticle: () => {},
+      onCreateSubfolder: () => {},
+      onBulkExportPdf: (folderId, selectedIds) => {
+        exportCall = { folderId, selectedIds }
+      },
+    }
+
+    props.onBulkExportPdf?.('folder-cardio', ['art-iam', 'art-fa'])
+    expect(exportCall).toEqual({ folderId: 'folder-cardio', selectedIds: ['art-iam', 'art-fa'] })
+
+    props.onBulkExportPdf?.('folder-cardio')
+    expect(exportCall).toEqual({ folderId: 'folder-cardio', selectedIds: undefined })
+  })
 })

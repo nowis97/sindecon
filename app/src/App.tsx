@@ -155,6 +155,7 @@ function App() {
   })
   const [isBulkExportPdfOpen, setIsBulkExportPdfOpen] = useState(false)
   const [bulkExportPdfFolderId, setBulkExportPdfFolderId] = useState<string | null>(null)
+  const [bulkExportPdfSelectedIds, setBulkExportPdfSelectedIds] = useState<string[] | null>(null)
   const [bulkPrintState, setBulkPrintState] = useState<{
     active: boolean
     items: Array<{ node: NodeRow; article?: ArticleRow }>
@@ -319,8 +320,14 @@ function App() {
     setTimeout(cleanupPrint, 800)
   }
 
-  const handleOpenBulkExportPdf = (folderId?: string | null) => {
+  const handleOpenBulkExportPdf = (
+    folderId?: string | null,
+    selectedIds?: string[] | null,
+  ) => {
     setBulkExportPdfFolderId(folderId !== undefined ? folderId : null)
+    setBulkExportPdfSelectedIds(
+      selectedIds && selectedIds.length > 0 ? [...selectedIds] : null,
+    )
     setIsBulkExportPdfOpen(true)
   }
 
@@ -702,7 +709,9 @@ function App() {
                   onCreateSubfolder={(folderId) => handleOpenCreatePrompt('folder', folderId)}
                   onSmartImport={(folderId) => handleOpenSmartImport(folderId)}
                   onBulkImport={(folderId) => handleOpenBulkImport(folderId)}
-                  onBulkExportPdf={(folderId) => handleOpenBulkExportPdf(folderId)}
+                  onBulkExportPdf={(folderId, selectedIds) =>
+                    handleOpenBulkExportPdf(folderId, selectedIds)
+                  }
                   onUploadPdf={(folderId) => handleOpenUploadPdf(folderId)}
                   onSortFolderAlphabetically={handleSortFolderAlphabetically}
                   onToggleFavorite={toggleFavorite}
@@ -1083,9 +1092,11 @@ function App() {
         onClose={() => {
           setIsBulkExportPdfOpen(false)
           setBulkExportPdfFolderId(null)
+          setBulkExportPdfSelectedIds(null)
         }}
         nodes={nodes}
         initialFolderId={bulkExportPdfFolderId}
+        initialSelectedIds={bulkExportPdfSelectedIds}
         onConfirmExport={handleConfirmBulkExportPdf}
       />
 
