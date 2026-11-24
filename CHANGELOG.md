@@ -2,6 +2,16 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.2.4] - 2026-11-24
+
+### Added
+- **Soporte Unificado de Nombres Propios y Corchetes en Perlas (`callouts.ts`, `callouts.test.ts`)**: Nuevo módulo compartido (`resolveBracketCallout`, `matchNaturalPearlParagraph`, `stripWrappingBrackets`, `normalizeCalloutMarkdownEscapes`) para preservar el nombre dado en todas sus variantes (`> [!PERLA] Nombre`, `> [!PERLA] [Nombre]`, `> [!PERLA: Nombre]`, `> [!Nombre]`, `> [!PERLA]\n> [Nombre]...`, `> [!PERLA]\n> **Nombre:** ...`, y párrafos naturales como `**Perla de ECG:** ...`), limpiando los corchetes externos sin afectar `[links](url)` ni `[[wikilinks]]`.
+- **Cobertura End-to-End en Pruebas (`ArticleReader.test.ts`, `markdownGdocsParser.test.ts`, `smartImport.test.ts`, `cardExtractor.test.ts`, `FlashcardMarkdown.test.ts`)**: Nuevos tests para renderizado SSR de tarjetas con cabecera `💡`, listas internas, exportación Google Docs/Word, SmartImport y extracción/renderizado de flashcards con escapes de Milkdown (`\[!`).
+
+### Changed
+- **Tarjetas con Cabecera `💡 Nombre dado` y Listas Internas (`ArticleReader.tsx`, `index.css`)**: Las perlas con nombre propio se muestran con `.callout-header` (`💡` + título dado) y soporte de viñetas/listas numeradas (`renderCalloutBody`, estilos en pantalla e impresión), reservando el estilo inline compacto `Perla clínica:` únicamente como respaldo cuando no se especificó nombre.
+- **Editor Orb, SmartImport, Docs y Flashcards (`ArticleWorkspaceView.tsx`, `smartImport.ts`, `markdownGdocsParser.ts`, `cardExtractor.ts`, `FlashcardMarkdown.tsx`)**: Actualización del snippet del Orb (`> [!PERLA] Nombre de la perla`), preservación de etiquetas propias al importar (`PERLA DE ECG:`, `PERLA [Criterio]:`, `CONSEJO:`, `RECOMENDACIÓN:`), paridad en exportación Word/Docs y reconocimiento de `[!PERLA]` en español en flashcards.
+
 ## [1.2.3] - 2026-11-23
 
 ### Added

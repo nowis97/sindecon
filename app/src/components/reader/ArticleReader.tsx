@@ -13,6 +13,12 @@ import { AssetImage } from './AssetImage'
 import { PdfDocumentViewer } from './PdfDocumentViewer'
 import { WIKI_LINK_REGEX } from '../../domain/wikiLinks'
 import { stripOuterMarkdownFence } from '../../domain/smartImport'
+import {
+  matchNaturalPearlParagraph,
+  normalizeCalloutMarkdownEscapes,
+  resolveBracketCallout,
+  type ResolvedBracketCallout,
+} from '../../domain/callouts'
 
 export interface ArticleReaderProps {
   markdown: string
@@ -71,6 +77,7 @@ export type Block =
       title: string
       text: string
       inlineFormat?: boolean
+      hasCustomTitle?: boolean
       fullWidth?: boolean
     }
   | { type: 'blockquote'; text: string; fullWidth?: boolean }
@@ -82,32 +89,31 @@ export type Block =
       fullWidth?: boolean
     }
 
-function parseCalloutType(typeStr: string): { kind: CalloutKind; defaultTitle: string; icon: string } {
-  const upper = typeStr.toUpperCase()
-  if (['WARNING', 'ALERTA', 'ADVERTENCIA', 'RED-FLAGS', 'RED_FLAGS', 'CAUTION', 'PELIGRO'].includes(upper)) {
-    return { kind: 'warning', defaultTitle: 'Advertencia', icon: '🚨' }
+function pushResolvedCallout(blocks: Block[], resolved: ResolvedBracketCallout) {
+  if (resolved.isSecondaryNote) {
+    const noteContent = [
+      resolved.hasCustomTitle ? resolved.title : '',
+      resolved.text,
+    ]
+      .filter(Boolean)
+      .join('\n')
+    for (const para of noteContent.split(/\n+/).map((s) => s.trim()).filter(Boolean)) {
+      blocks.push({
+        type: 'paragraph',
+        text: para,
+        variant: 'secondary',
+      })
+    }
+    return
   }
-  if (['TIP', 'PERLA', 'PERLA-CLINICA', 'PERLA_CLINICA', 'CONSEJO'].includes(upper)) {
-    return { kind: 'tip', defaultTitle: 'Perla clínica', icon: '💡' }
-  }
-  if (['EXAMPLE', 'EJEMPLO', 'EJEMPLO-CLINICO', 'EJEMPLO_CLINICO', 'CASO'].includes(upper)) {
-    return { kind: 'example', defaultTitle: 'Ejemplo clínico', icon: '' }
-  }
-  if (['DEFINITION', 'DEFINICION', 'DEFINICIÓN', 'DEF'].includes(upper)) {
-    return { kind: 'definition', defaultTitle: 'Definición', icon: '' }
-  }
-  if (['DOSIS', 'DOSAGE', 'FARMACO', 'MEDICACION', 'DRUG'].includes(upper)) {
-    return { kind: 'dosage', defaultTitle: 'Dosis y Farmacología', icon: '💊' }
-  }
-  if (['IMPORTANT', 'IMPORTANTE', 'OJO'].includes(upper)) {
-    return { kind: 'important', defaultTitle: 'Importante', icon: '📋' }
-  }
-  return { kind: 'note', defaultTitle: 'Nota Clínica', icon: 'ℹ️' }
-}
 
-function isSecondaryNoteCalloutTag(typeStr: string): boolean {
-  const upper = typeStr.toUpperCase()
-  return ['NOTA', 'NOTA-SECUNDARIA', 'NOTA_SECUNDARIA', 'SECONDARY'].includes(upper)
+  blocks.push({
+    type: 'callout',
+    kind: resolved.kind,
+    title: resolved.title,
+    text: resolved.text,
+    hasCustomTitle: resolved.hasCustomTitle,
+  })
 }
 
 function isFigureCaptionLine(trimmed: string): boolean {
@@ -128,14 +134,23 @@ function extractRefMarker(trimmed: string): string | null {
 }
 
 export function matchNaturalCallout(trimmed: string): Block | null {
+  const pearl = matchNaturalPearlParagraph(trimmed)
+  if (pearl) {
+    return {
+      type: 'callout',
+      kind: 'tip',
+      title: pearl.title,
+      text: pearl.text,
+      hasCustomTitle: pearl.hasCustomTitle,
+      inlineFormat: pearl.inlineFormat,
+    }
+  }
+
+  const normalized = normalizeCalloutMarkdownEscapes(trimmed)
   const patterns: Array<{ regex: RegExp; kind: CalloutKind }> = [
     {
       regex: /^(?:\*\*|\*)?(Ejemplo\s+cl[ií]nico)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
       kind: 'example',
-    },
-    {
-      regex: /^(?:\*\*|\*)?(Perla\s+cl[ií]nica)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
-      kind: 'tip',
     },
     {
       regex: /^(?:\*\*|\*)?(Advertencia)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
@@ -148,7 +163,7 @@ export function matchNaturalCallout(trimmed: string): Block | null {
   ]
 
   for (const { regex, kind } of patterns) {
-    const m = trimmed.match(regex)
+    const m = normalized.match(regex)
     if (m) {
       return {
         type: 'callout',
@@ -463,58 +478,32 @@ export function parseMarkdownBlocks(md: string): Block[] {
       continue
     }
 
-    // 5. Callouts y Blockquotes (> [!TYPE] Title o directos [!TYPE])
+    // 5. Callouts y Blockquotes (> [!TYPE] Title, > [!PERLA: Nombre], > [!Nombre] o directos [!TYPE])
     if (trimmed.startsWith('>')) {
       const quoteLines: string[] = []
       while (i < rawLines.length && rawLines[i].trim().startsWith('>')) {
-        if (quoteLines.length > 0 && /^>\s*\[!([\p{L}_-]+)\]/iu.test(rawLines[i].trim())) {
+        if (quoteLines.length > 0 && /^>\s*\[![^\]]+\]/.test(rawLines[i].trim())) {
           break
         }
         quoteLines.push(rawLines[i].trim().replace(/^>\s?/, ''))
         i++
       }
-      const fullQuote = quoteLines.join('\n')
-      const calloutMatch = fullQuote.match(/^\[!([\p{L}_-]+)\](?:\s+(.*))?(\n[\s\S]*)?$/iu)
+      const [firstQuoteLine = '', ...restQuoteLines] = quoteLines
+      const resolvedCallout = resolveBracketCallout(firstQuoteLine, restQuoteLines)
 
-      if (calloutMatch) {
-        const tag = calloutMatch[1]
-        const customTitle = calloutMatch[2]?.trim()
-        const bodyText = (calloutMatch[3] || '').trim()
-
-        if (isSecondaryNoteCalloutTag(tag)) {
-          const noteContent = [customTitle, bodyText].filter(Boolean).join('\n')
-          for (const para of noteContent.split(/\n+/).map((s) => s.trim()).filter(Boolean)) {
-            blocks.push({
-              type: 'paragraph',
-              text: para,
-              variant: 'secondary',
-            })
-          }
-        } else {
-          const typeInfo = parseCalloutType(tag)
-          const resolvedTitle = bodyText ? customTitle || typeInfo.defaultTitle : typeInfo.defaultTitle
-          const resolvedText = bodyText || customTitle || ''
-          blocks.push({
-            type: 'callout',
-            kind: typeInfo.kind,
-            title: resolvedTitle,
-            text: resolvedText,
-          })
-        }
+      if (resolvedCallout) {
+        pushResolvedCallout(blocks, resolvedCallout)
       } else {
         blocks.push({
           type: 'blockquote',
-          text: fullQuote,
+          text: quoteLines.join('\n'),
         })
       }
       continue
     }
 
-    const directCalloutMatch = trimmed.match(/^\[!([\p{L}_-]+)\](?:\s+(.*))?$/iu)
-    if (directCalloutMatch) {
-      const tag = directCalloutMatch[1]
-      const typeInfo = parseCalloutType(tag)
-      let customTitle = directCalloutMatch[2]?.trim() || ''
+    if (/^\[![^\]]+\]/.test(trimmed)) {
+      const firstLine = trimmed
       const bodyLines: string[] = []
       i++
       while (i < rawLines.length) {
@@ -524,7 +513,7 @@ export function parseMarkdownBlocks(md: string): Block[] {
           i + 1 < rawLines.length &&
           (!rawLines[i + 1].trim() ||
             /^#{1,6}\s+/.test(rawLines[i + 1].trim()) ||
-            /^\[!([\p{L}_-]+)\]/iu.test(rawLines[i + 1].trim()) ||
+            /^\[![^\]]+\]/.test(rawLines[i + 1].trim()) ||
             rawLines[i + 1].trim().startsWith(':::') ||
             rawLines[i + 1].trim().startsWith('```') ||
             rawLines[i + 1].trim().startsWith('>'))
@@ -533,7 +522,7 @@ export function parseMarkdownBlocks(md: string): Block[] {
         }
         if (
           /^#{1,6}\s+/.test(nextTrimmed) ||
-          /^\[!([\p{L}_-]+)\]/iu.test(nextTrimmed) ||
+          /^\[![^\]]+\]/.test(nextTrimmed) ||
           nextTrimmed.startsWith(':::') ||
           nextTrimmed.startsWith('```') ||
           nextTrimmed.startsWith('---') ||
@@ -547,29 +536,11 @@ export function parseMarkdownBlocks(md: string): Block[] {
         i++
       }
 
-      if (!customTitle && bodyLines.length > 0 && bodyLines[0].toLowerCase().startsWith('dosificación:')) {
-        customTitle = bodyLines.shift()!
+      const resolvedCallout = resolveBracketCallout(firstLine, bodyLines)
+      if (resolvedCallout) {
+        pushResolvedCallout(blocks, resolvedCallout)
+        continue
       }
-
-      const bodyText = bodyLines.join('\n').trim()
-      if (isSecondaryNoteCalloutTag(tag)) {
-        const noteContent = [customTitle, bodyText].filter(Boolean).join('\n')
-        for (const para of noteContent.split(/\n+/).map((s) => s.trim()).filter(Boolean)) {
-          blocks.push({
-            type: 'paragraph',
-            text: para,
-            variant: 'secondary',
-          })
-        }
-      } else {
-        blocks.push({
-          type: 'callout',
-          kind: typeInfo.kind,
-          title: customTitle || typeInfo.defaultTitle,
-          text: bodyText,
-        })
-      }
-      continue
     }
 
     // 6a. Bloques a ancho completo (:::ancho-completo / :::fullwidth)
@@ -1207,6 +1178,51 @@ function getCalloutIcon(kind: CalloutKind) {
   }
 }
 
+function renderCalloutBody(
+  text: string,
+  onWikiLinkClick: (uuid: string) => void,
+): React.ReactNode {
+  const lines = text.split('\n').filter((l) => l.trim().length > 0)
+  const nodes: React.ReactNode[] = []
+  let idx = 0
+
+  while (idx < lines.length) {
+    const trimmed = lines[idx].trim()
+    const bulletMatch = trimmed.match(/^[-*+]\s+(.*)$/)
+    const orderedMatch = trimmed.match(/^\d+\.\s+(.*)$/)
+
+    if (bulletMatch || orderedMatch) {
+      const isOrdered = Boolean(orderedMatch)
+      const listItems: string[] = []
+      while (idx < lines.length) {
+        const curr = lines[idx].trim()
+        const m = isOrdered ? curr.match(/^\d+\.\s+(.*)$/) : curr.match(/^[-*+]\s+(.*)$/)
+        if (!m) break
+        listItems.push(m[1])
+        idx++
+      }
+      const ListTag = isOrdered ? 'ol' : 'ul'
+      nodes.push(
+        <ListTag key={`list-${idx}`} className="callout-list">
+          {listItems.map((item, itemIdx) => (
+            <li key={itemIdx}>{renderFormattedInline(item, onWikiLinkClick)}</li>
+          ))}
+        </ListTag>,
+      )
+      continue
+    }
+
+    nodes.push(
+      <p key={`p-${idx}`} className="callout-paragraph">
+        {renderFormattedInline(lines[idx], onWikiLinkClick)}
+      </p>,
+    )
+    idx++
+  }
+
+  return nodes
+}
+
 function slugifyHeading(text: string): string {
   return text
     .toLowerCase()
@@ -1244,20 +1260,42 @@ function renderBlock(
     case 'callout': {
       const isApuntesCallout =
         block.inlineFormat ||
-        block.kind === 'example' ||
-        block.kind === 'tip' ||
-        block.kind === 'warning' ||
-        block.kind === 'definition'
+        (!block.hasCustomTitle &&
+          (block.kind === 'example' ||
+            block.kind === 'tip' ||
+            block.kind === 'warning' ||
+            block.kind === 'definition'))
 
       if (isApuntesCallout) {
         const paragraphs = block.text ? block.text.split('\n') : []
         const firstLine = paragraphs[0] ?? ''
+        const firstStartsWithList = /^(?:[-*+]|\d+\.)\s+/.test(firstLine.trim())
         const rest = paragraphs.slice(1)
         const normalizedTitle = block.title
           ? block.title.endsWith(':')
             ? block.title
             : `${block.title}:`
           : ''
+
+        if (firstStartsWithList) {
+          return (
+            <div
+              key={key}
+              className={`reader-callout callout-${block.kind} callout-apuntes${fullWidthClass}`}
+            >
+              {normalizedTitle && (
+                <p className="callout-paragraph">
+                  <strong className="callout-inline-title">
+                    {renderFormattedInline(normalizedTitle, onWikiLinkClick)}
+                  </strong>
+                </p>
+              )}
+              <div className="callout-body">
+                {renderCalloutBody(block.text, onWikiLinkClick)}
+              </div>
+            </div>
+          )
+        }
 
         return (
           <div
@@ -1273,11 +1311,7 @@ function renderBlock(
               )}
               {firstLine && renderFormattedInline(firstLine, onWikiLinkClick)}
             </p>
-            {rest.map((p, pIdx) => (
-              <p key={pIdx + 1} className="callout-paragraph">
-                {renderFormattedInline(p, onWikiLinkClick)}
-              </p>
-            ))}
+            {rest.length > 0 && renderCalloutBody(rest.join('\n'), onWikiLinkClick)}
           </div>
         )
       }
@@ -1292,11 +1326,7 @@ function renderBlock(
           </div>
           {block.text && (
             <div className="callout-body">
-              {block.text.split('\n').map((p, pIdx) => (
-                <p key={pIdx} className="callout-paragraph">
-                  {renderFormattedInline(p, onWikiLinkClick)}
-                </p>
-              ))}
+              {renderCalloutBody(block.text, onWikiLinkClick)}
             </div>
           )}
         </div>

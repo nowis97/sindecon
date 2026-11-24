@@ -3223,6 +3223,10 @@ ol.reader-list-nested {
   font-size: 10.5pt;
 }
 
+.reader-callout .callout-header:last-child {
+  margin-bottom: 0;
+}
+
 .reader-callout .callout-icon {
   font-size: 1rem;
   display: inline-block;
@@ -3242,6 +3246,25 @@ ol.reader-list-nested {
 
 .reader-callout .callout-paragraph + .callout-paragraph {
   margin-top: 3pt;
+}
+
+.reader-callout .callout-list {
+  margin: 2pt 0 0 0;
+  padding-left: 14pt;
+  line-height: 1.15;
+  list-style-position: outside;
+}
+
+.reader-callout ul.callout-list {
+  list-style-type: disc;
+}
+
+.reader-callout ol.callout-list {
+  list-style-type: decimal;
+}
+
+.reader-callout .callout-list li + li {
+  margin-top: 2pt;
 }
 
 .reader-callout .callout-inline-title {
@@ -5875,6 +5898,10 @@ select.dialog-input {
     margin-bottom: 3pt !important;
   }
 
+  .reader-callout .callout-header:last-child {
+    margin-bottom: 0 !important;
+  }
+
   .reader-callout .callout-title,
   .reader-callout .callout-inline-title {
     font-weight: 700 !important;
@@ -5899,6 +5926,25 @@ select.dialog-input {
 
   .reader-callout .callout-paragraph + .callout-paragraph {
     margin-top: 3pt !important;
+  }
+
+  .reader-callout .callout-list {
+    margin: 2pt 0 0 0 !important;
+    padding-left: 14pt !important;
+    line-height: 1.15 !important;
+    list-style-position: outside !important;
+  }
+
+  .reader-callout ul.callout-list {
+    list-style-type: disc !important;
+  }
+
+  .reader-callout ol.callout-list {
+    list-style-type: decimal !important;
+  }
+
+  .reader-callout .callout-list li + li {
+    margin-top: 2pt !important;
   }
 
   /* Tablas Clínicas (Apuntes - Tabla) */

@@ -162,4 +162,21 @@ DOSIS: Amoxicilina / Clavulánico 1g cada 8h VO.
       expect(extractSuggestedTitle(wrappedInput)).toBe('Shock Anafiláctico')
     })
   })
+
+  it('preserva nombres dados en perlas, consejos y marcadores con corchetes durante SmartImport', () => {
+    const raw = [
+      'PERLA DE ECG: QRS ancho sugiere taquicardia ventricular.',
+      'PERLA [Criterio de Light]: Relación proteínas > 0.5.',
+      'CONSEJO: Medir potasio antes de iniciar furosemida.',
+      '> [!PERLA: Sodio en IC]',
+      '> Restricción hídrica solo si hiponatremia grave.',
+    ].join('\n')
+
+    const enriched = enrichClinicalMarkdown(raw)
+    expect(enriched).toContain('> [!PERLA] Perla de ECG')
+    expect(enriched).toContain('> QRS ancho sugiere taquicardia ventricular.')
+    expect(enriched).toContain('> [!PERLA] Criterio de Light')
+    expect(enriched).toContain('> [!PERLA] Consejo')
+    expect(enriched).toContain('> [!PERLA: Sodio en IC]')
+  })
 })

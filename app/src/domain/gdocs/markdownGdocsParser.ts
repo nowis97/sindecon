@@ -1,4 +1,8 @@
 import type { ClinicalCalloutType } from './docxClinicalStyles'
+import {
+  matchNaturalPearlParagraph,
+  resolveBracketCallout,
+} from '../callouts'
 
 export type ClinicalBlock =
   | { kind: 'heading'; level: 1 | 2 | 3 | 4; text: string; fullWidth?: boolean }
@@ -29,14 +33,20 @@ export type ClinicalBlock =
   | { kind: 'code'; language: string; code: string; fullWidth?: boolean }
 
 function matchNaturalGdocsCallout(trimmed: string): ClinicalBlock | null {
+  const pearl = matchNaturalPearlParagraph(trimmed)
+  if (pearl) {
+    return {
+      kind: 'callout',
+      calloutType: 'pearl',
+      title: pearl.title,
+      text: pearl.text,
+    }
+  }
+
   const patterns: Array<{ regex: RegExp; calloutType: ClinicalCalloutType }> = [
     {
       regex: /^(?:\*\*|\*)?(Ejemplo\s+cl[ií]nico)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
       calloutType: 'example',
-    },
-    {
-      regex: /^(?:\*\*|\*)?(Perla\s+cl[ií]nica)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
-      calloutType: 'pearl',
     },
     {
       regex: /^(?:\*\*|\*)?(Advertencia)(?:\*\*|\*)?\s*:\s*(?:\*\*|\*)?\s*(.+)$/i,
@@ -138,66 +148,45 @@ export function parseMarkdownToClinicalBlocks(markdown: string): ClinicalBlock[]
       continue
     }
 
-    // 4. Callouts médicos (> [!EJEMPLO], > [!PERLA], > [!ADVERTENCIA], > [!DEFINICIÓN], > [!NOTA], > [!WARNING], > [!NOTE], etc.)
-    const calloutMatch = line.match(
-      /^>\s*\[!([\p{L}_-]+)\](?:\s+(.*))?$/iu
-    )
-    if (calloutMatch) {
-      const typeRaw = calloutMatch[1].toLowerCase()
-      const customTitle = calloutMatch[2]?.trim()
-
+    // 4. Callouts médicos (> [!EJEMPLO], > [!PERLA], > [!PERLA: Nombre], > [!PERLA] [Nombre], > [!Nombre], > [!ADVERTENCIA], > [!DEFINICIÓN], > [!NOTA], > [!WARNING], > [!NOTE], etc.)
+    const normalizedCalloutStart = line.trim().replace(/\\+\[/g, '[').replace(/\\+\]/g, ']')
+    if (/^>\s*\[![^\]]+\]/.test(normalizedCalloutStart)) {
+      const firstLine = line.replace(/^>\s?/, '').trim()
       i++
       const textLines: string[] = []
       while (i < lines.length && lines[i].trim().startsWith('>')) {
-        if (/^>\s*\[!([\p{L}_-]+)\]/iu.test(lines[i].trim())) {
+        const peekTrimmed = lines[i].trim().replace(/\\+\[/g, '[').replace(/\\+\]/g, ']')
+        if (/^>\s*\[![^\]]+\]/.test(peekTrimmed)) {
           break
         }
         textLines.push(lines[i].replace(/^>\s?/, '').trim())
         i++
       }
 
-      if (['nota', 'nota-secundaria', 'nota_secundaria', 'secondary'].includes(typeRaw)) {
-        const noteText = [customTitle, ...textLines].filter(Boolean).join(' ').trim()
-        if (noteText) {
-          blocks.push({ kind: 'paragraph', text: noteText, variant: 'secondary' })
+      const resolved = resolveBracketCallout(firstLine, textLines, { joinBodyWith: ' ' })
+      if (resolved) {
+        if (resolved.isSecondaryNote) {
+          const noteText = [resolved.hasCustomTitle ? resolved.title : '', resolved.text]
+            .filter(Boolean)
+            .join(' ')
+            .trim()
+          if (noteText) {
+            blocks.push({ kind: 'paragraph', text: noteText, variant: 'secondary' })
+          }
+          continue
         }
+
+        const outTitle = resolved.hasCustomTitle
+          ? resolved.title
+          : resolved.gdocsDefaultTitle
+        blocks.push({
+          kind: 'callout',
+          calloutType: resolved.gdocsType,
+          title: outTitle,
+          text: resolved.text,
+        })
         continue
       }
-
-      let calloutType: ClinicalCalloutType = 'note'
-      let defaultTitle = 'NOTA CLÍNICA'
-
-      if (typeRaw === 'warning' || typeRaw === 'advertencia') {
-        calloutType = 'warning'
-        defaultTitle = typeRaw === 'advertencia' ? 'Advertencia:' : 'ADVERTENCIA'
-      } else if (typeRaw === 'dosage' || typeRaw === 'dosis') {
-        calloutType = 'dosage'
-        defaultTitle = 'DOSIFICACIÓN'
-      } else if (typeRaw === 'important') {
-        calloutType = 'important'
-        defaultTitle = 'IMPORTANTE'
-      } else if (typeRaw === 'tip') {
-        calloutType = 'note'
-        defaultTitle = 'CONSEJO CLÍNICO'
-      } else if (typeRaw === 'perla') {
-        calloutType = 'pearl'
-        defaultTitle = 'Perla clínica:'
-      } else if (typeRaw === 'ejemplo' || typeRaw === 'example') {
-        calloutType = 'example'
-        defaultTitle = 'Ejemplo clínico:'
-      } else if (typeRaw === 'definicion' || typeRaw === 'definición') {
-        calloutType = 'definition'
-        defaultTitle = 'Definición:'
-      }
-
-      const bodyJoined = textLines.join(' ').trim()
-      blocks.push({
-        kind: 'callout',
-        calloutType,
-        title: bodyJoined ? customTitle || defaultTitle : defaultTitle,
-        text: bodyJoined || customTitle || '',
-      })
-      continue
     }
 
     // 5. Tablas Markdown (| a | b |)
