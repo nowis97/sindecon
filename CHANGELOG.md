@@ -2,6 +2,15 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.2.5] - 2026-11-24
+
+### Added
+- **Exportación Masiva a PDF desde Selección Múltiple (`FolderExplorerView.tsx`, `BulkExportPdfModal.tsx`, `App.tsx`)**: Añadido el botón **`Exportar PDF`** en la barra flotante de selección por lote (junto a `Exportar (.md)`), visible en todos los tamaños de pantalla y conectado con el estado `bulkExportPdfSelectedIds` para abrir `BulkExportPdfModal` preseleccionado exactamente con los artículos marcados (`initialSelectedIds`).
+- **Pruebas de Contrato y Preselección (`BulkExportPdfModal.test.ts`, `FolderExplorerView.test.ts`)**: Nuevos tests para prioridad de `initialSelectedIds` en `getInitialSelectedArticleIds` y firma `onBulkExportPdf(folderId, selectedIds?)`.
+
+### Changed
+- **Preservación de Selección en Dock, Menú `+` y Modal de Compendio (`FolderExplorerView.tsx`, `BulkExportPdfModal.tsx`)**: Unificación con `handleOpenBulkPdf` para que **`Compendio PDF`** del dock (visible desde `md`) o del menú `+` también conserve los artículos seleccionados cuando el modo selección está activo; además `BulkExportPdfModal` usa `lastOpenScopeRef` para no sobrescribir ajustes manuales dentro del modal y restablece filtros previos al abrir.
+
 ## [1.2.4] - 2026-11-24
 
 ### Added

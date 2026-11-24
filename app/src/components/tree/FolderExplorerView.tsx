@@ -66,7 +66,7 @@ export interface FolderExplorerViewProps {
   onCreateSubfolder: (folderId: string) => void
   onSmartImport?: (folderId: string) => void
   onBulkImport?: (folderId: string) => void
-  onBulkExportPdf?: (folderId: string) => void
+  onBulkExportPdf?: (folderId: string, selectedIds?: string[]) => void
   onUploadPdf?: (folderId: string) => void
   onSortFolderAlphabetically?: (folderId: string) => void
   onToggleFavorite?: (nodeId: string) => void
@@ -436,6 +436,13 @@ export function FolderExplorerView({
       const row = articleMap.get(art.id)
       downloadMarkdownFile(art.title, row?.body_md ?? '', row?.tags ?? [])
     }
+  }
+
+  const handleOpenBulkPdf = (preferSelected = true) => {
+    if (!onBulkExportPdf) return
+    const selectedScope =
+      preferSelected && isSelectionMode && selectedIds.length > 0 ? selectedIds : undefined
+    onBulkExportPdf(folderNode.id, selectedScope)
   }
 
   const handleBatchMoveTo = (targetFolderId: string | null) => {
@@ -1800,6 +1807,19 @@ export function FolderExplorerView({
               <span>Verificado</span>
             </button>
 
+            {onBulkExportPdf && (
+              <button
+                type="button"
+                onClick={() => handleOpenBulkPdf(true)}
+                disabled={selectedIds.length === 0}
+                className="inline-flex items-center gap-1 rounded-lg border border-[var(--cl-accent-border)] bg-[var(--cl-accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--cl-diagnostic)] hover:border-[var(--cl-accent)] disabled:opacity-40 cursor-pointer"
+                title="Exportar artículos seleccionados a Compendio PDF"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span>Exportar PDF</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleBatchExportMarkdown}
@@ -1987,7 +2007,7 @@ export function FolderExplorerView({
                 type="button"
                 onClick={() => {
                   setIsOrbDrawerOpen(false)
-                  onBulkExportPdf(folderNode.id)
+                  handleOpenBulkPdf(true)
                 }}
                 className="flex min-h-[48px] items-center gap-2.5 rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface-muted)] px-3 py-2 text-left hover:border-[var(--cl-accent)] hover:bg-[var(--cl-surface-warm)] cursor-pointer"
               >
@@ -1995,7 +2015,9 @@ export function FolderExplorerView({
                 <div className="min-w-0">
                   <span className="block text-xs font-bold text-[var(--cl-fg)]">Compendio PDF</span>
                   <span className="block text-[11px] text-[var(--cl-muted)] truncate">
-                    Exportar carpeta completa
+                    {isSelectionMode && selectedIds.length > 0
+                      ? `Exportar ${selectedIds.length} seleccionados`
+                      : 'Exportar carpeta completa'}
                   </span>
                 </div>
               </button>
@@ -2201,9 +2223,13 @@ export function FolderExplorerView({
             {onBulkExportPdf && allArticles.length > 0 && (
               <button
                 type="button"
-                onClick={() => onBulkExportPdf(folderNode.id)}
-                className={`hidden lg:inline-flex lg:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
-                title="Exportar carpeta como Compendio PDF"
+                onClick={() => handleOpenBulkPdf(true)}
+                className={`hidden md:inline-flex md:px-3 ${DOCK_BTN_BASE} ${DOCK_BTN_IDLE}`}
+                title={
+                  isSelectionMode && selectedIds.length > 0
+                    ? `Exportar ${selectedIds.length} seleccionados como Compendio PDF`
+                    : 'Exportar carpeta como Compendio PDF'
+                }
                 aria-label="Compendio PDF"
               >
                 <Printer className="h-4 w-4 shrink-0 text-[var(--cl-diagnostic)]" />

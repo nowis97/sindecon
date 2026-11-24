@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Printer,
   Search,
@@ -33,6 +33,7 @@ export interface BulkExportPdfModalProps {
   onClose: () => void
   nodes: NodeRow[]
   initialFolderId?: string | null
+  initialSelectedIds?: string[] | null
   onConfirmExport: (selectedNodeIds: string[], options: BulkExportPdfOptions) => void
 }
 
@@ -75,7 +76,12 @@ export function getInitialSelectedArticleIds(
   liveNodes: NodeRow[],
   articleNodes: NodeRow[],
   initialFolderId?: string | null,
+  initialSelectedIds?: string[] | null,
 ): string[] {
+  if (initialSelectedIds && initialSelectedIds.length > 0) {
+    const validIds = new Set(articleNodes.map((a) => a.id))
+    return Array.from(new Set(initialSelectedIds.filter((id) => validIds.has(id))))
+  }
   if (initialFolderId) {
     const descendantIds = new Set(collectDescendantIds(liveNodes, initialFolderId))
     return articleNodes
@@ -90,6 +96,7 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
   onClose,
   nodes,
   initialFolderId = null,
+  initialSelectedIds = null,
   onConfirmExport,
 }) => {
   const [columns, setColumns] = useState<'1' | '2'>('2')
@@ -103,6 +110,7 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
   const [tagFilter, setTagFilter] = useState<string | 'all'>('all')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [tagsByNode, setTagsByNode] = useState<Map<string, string[]>>(new Map())
+  const lastOpenScopeRef = useRef<string | null>(null)
 
   const liveNodes = useMemo(() => nodes.filter((n) => n.deleted_at === null), [nodes])
   const articleNodes = useMemo(
@@ -120,7 +128,10 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
   )
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) {
+      lastOpenScopeRef.current = null
+      return
+    }
 
     let isMounted = true
     void db.articles.toArray().then((articles) => {
@@ -134,37 +145,54 @@ export const BulkExportPdfModal: React.FC<BulkExportPdfModalProps> = ({
       setTagsByNode(map)
     })
 
-    try {
-      const savedCol = localStorage.getItem(PDF_LAYOUT_KEY)
-      if (savedCol === '1' || savedCol === '2') {
-        setColumns(savedCol)
-      }
-      const savedBreak = localStorage.getItem(BULK_PAGE_BREAK_KEY)
-      if (savedBreak !== null) {
-        setPageBreakBetween(savedBreak === 'true')
-      }
-    } catch {}
+    const scopeKey = `${initialFolderId ?? 'all'}::${(initialSelectedIds ?? []).join(',')}`
+    if (lastOpenScopeRef.current !== scopeKey) {
+      lastOpenScopeRef.current = scopeKey
+      try {
+        const savedCol = localStorage.getItem(PDF_LAYOUT_KEY)
+        if (savedCol === '1' || savedCol === '2') {
+          setColumns(savedCol)
+        }
+        const savedBreak = localStorage.getItem(BULK_PAGE_BREAK_KEY)
+        if (savedBreak !== null) {
+          setPageBreakBetween(savedBreak === 'true')
+        }
+      } catch {}
 
-    if (initialFolderId) {
-      setFolderFilter(initialFolderId)
-      const folderNode = folderNodes.find((f) => f.id === initialFolderId)
-      if (folderNode) {
-        setCompilationTitle(`Compendio: ${folderNode.title}`)
+      const initialSelection = getInitialSelectedArticleIds(
+        liveNodes,
+        articleNodes,
+        initialFolderId,
+        initialSelectedIds,
+      )
+      setSelectedIds(new Set(initialSelection))
+
+      const selectionMatchesFolder =
+        Boolean(initialFolderId) &&
+        (initialSelection.length === 0 ||
+          initialSelection.every((id) =>
+            pathTo(liveNodes, id).some((ancestor) => ancestor.id === initialFolderId),
+          ))
+
+      if (initialFolderId && selectionMatchesFolder) {
+        setFolderFilter(initialFolderId)
+        const folderNode = folderNodes.find((f) => f.id === initialFolderId)
+        setCompilationTitle(
+          folderNode ? `Compendio: ${folderNode.title}` : 'Compendio Clínico - SINDECON',
+        )
+      } else {
+        setFolderFilter('all')
+        setCompilationTitle('Compendio Clínico - SINDECON')
       }
-    } else {
-      setFolderFilter('all')
-      setCompilationTitle('Compendio Clínico - SINDECON')
+
+      setSearchQuery('')
+      setTagFilter('all')
     }
-    const initialSelection = getInitialSelectedArticleIds(liveNodes, articleNodes, initialFolderId)
-    setSelectedIds(new Set(initialSelection))
-
-    setSearchQuery('')
-    setTagFilter('all')
 
     return () => {
       isMounted = false
     }
-  }, [isOpen, initialFolderId, liveNodes, folderNodes, articleNodes])
+  }, [isOpen, initialFolderId, initialSelectedIds, liveNodes, folderNodes, articleNodes])
 
   const allUniqueTags = useMemo(() => {
     const set = new Set<string>()
