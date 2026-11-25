@@ -135,34 +135,22 @@ async function createFakePasskeyCredentials(opts: {
 }
 
 describe('useAuth controller (migración, lockout, Google owner, FIDO, logout vs reset)', () => {
-  it('mantiene modo demo sin protección cuando sindecon_saved_pin es 1234 y valida credenciales/urgencias', async () => {
+  it('limpia sindecon_saved_pin 1234 sin proteger el terminal y rechaza ingresos demo (1234, credentials, offline)', async () => {
     const storage = makeMemoryStorage({ [SAVED_PIN_KEY]: '1234' })
     const auth = createAuthController({ storage })
 
     expect(auth.getState().protectionConfigured).toBe(false)
-    expect(auth.getState().pinEnabled).toBe(true)
 
-    const badPin = await auth.loginWithPin('0000')
-    expect(badPin.success).toBe(false)
+    const demoPin = await auth.loginWithPin('1234')
+    expect(demoPin.success).toBe(false)
+    expect(storage.getItem(SAVED_PIN_KEY)).toBeNull()
+    expect(storage.getItem(AUTH_USER_KEY)).toBeNull()
 
-    const okDemo = await auth.loginWithPin('1234')
-    expect(okDemo.success).toBe(true)
-    expect(okDemo.user?.method).toBe('pin')
-    expect(storage.getItem(AUTH_USER_KEY)).toBeTruthy()
-    auth.logout()
+    const credRes = auth.loginWithCredentials('valenzuela@hospital.cl', 'clave123')
+    expect(credRes.success).toBe(false)
 
-    const badCred = auth.loginWithCredentials('', '12')
-    expect(badCred.success).toBe(false)
-
-    const okCred = auth.loginWithCredentials('valenzuela@hospital.cl', 'clave123')
-    expect(okCred.success).toBe(true)
-    expect(okCred.user?.method).toBe('credentials')
-    expect(okCred.user?.name).toBe('Dr. Valenzuela')
-    auth.logout()
-
-    const okOffline = auth.loginOfflineEmergency()
-    expect(okOffline.success).toBe(true)
-    expect(okOffline.user?.method).toBe('offline')
+    const offlineRes = auth.loginOfflineEmergency()
+    expect(offlineRes.success).toBe(false)
   })
 
   it('migra PIN personalizado legado a PinRecord PBKDF2 y activa protectionConfigured', async () => {
@@ -189,9 +177,9 @@ describe('useAuth controller (migración, lockout, Google owner, FIDO, logout vs
     const mirror = makeMemoryMirror()
     const auth = createAuthController({ storage, mirror })
 
-    await auth.loginWithPin('1234')
-    const setupRes = await auth.setupOrChangePin('482910')
+    const setupRes = await auth.setupInitialPin('482910')
     expect(setupRes.success).toBe(true)
+    expect(setupRes.user?.method).toBe('pin')
     expect(auth.getState().pinLength).toBe(6)
     auth.logout()
 
@@ -273,7 +261,7 @@ describe('useAuth controller (migración, lockout, Google owner, FIDO, logout vs
 
     const removed = auth.removePin()
     expect(removed.success).toBe(true)
-    expect(auth.getState().protectionConfigured).toBe(false)
+    expect(auth.getState().protectionConfigured).toBe(true)
   })
 
   it('rechaza Google si hay protección local sin dueño Google y permite linkGoogleAccount autenticado', async () => {
@@ -283,9 +271,8 @@ describe('useAuth controller (migración, lockout, Google owner, FIDO, logout vs
     expect(auth.linkGoogleAccount({ sub: 's1', email: 'doc@cl.org', name: 'Doc' }).success).toBe(false)
     expect((await auth.setupOrChangePin('1234')).success).toBe(false)
 
-    await auth.loginWithPin('1234')
-    expect((await auth.setupOrChangePin('12a4')).success).toBe(false)
-    expect((await auth.setupOrChangePin('4829')).success).toBe(true)
+    expect((await auth.setupInitialPin('12a4')).success).toBe(false)
+    expect((await auth.setupInitialPin('4829')).success).toBe(true)
     auth.logout()
 
     const blockedGoogle = auth.completeGoogleLogin({ sub: 's1', email: 'doc@cl.org', name: 'Doc' })
@@ -306,8 +293,7 @@ describe('useAuth controller (migración, lockout, Google owner, FIDO, logout vs
     })
     const auth = createAuthController({ storage, mirror, fetchFn: fetchMock, credentialsApi })
 
-    await auth.loginWithPin('1234')
-    await auth.setupOrChangePin('4829')
+    await auth.setupInitialPin('4829')
     const enrolled = await auth.registerDevicePasskey('Huella Guardia')
     expect(enrolled.success).toBe(true)
     expect(enrolled.passkey?.signCount).toBe(0)
@@ -384,8 +370,7 @@ describe('useAuth controller (migración, lockout, Google owner, FIDO, logout vs
     const auth = createAuthController({ storage, fetchFn: fetchMock })
 
     await expect(auth.hydrateFromMirror()).resolves.toBeUndefined()
-    await auth.loginWithPin('1234')
-    await auth.setupOrChangePin('5678')
+    await auth.setupInitialPin('5678')
     await expect(auth.resetLocalTerminalSecurity()).resolves.toBeUndefined()
     expect(auth.getState().protectionConfigured).toBe(false)
   })
@@ -497,8 +482,7 @@ describe('useAuth controller (migración, lockout, Google owner, FIDO, logout vs
         legacySeenInsideNotify = storage1.getItem(SAVED_PIN_KEY)
       },
     })
-    await authNotify.loginWithPin('1234')
-    await authNotify.setupOrChangePin('4321')
+    await authNotify.setupInitialPin('4321')
     storage1.setItem(SAVED_PIN_KEY, '4321')
     legacySeenInsideNotify = 'unset'
     authNotify.removePin()
@@ -531,8 +515,7 @@ describe('useAuth controller (migración, lockout, Google owner, FIDO, logout vs
       fetchFn: vi.fn(async () => new Response('not found', { status: 404 })) as unknown as typeof fetch,
       credentialsApi,
     })
-    await authFidoOnly.loginWithPin('1234')
-    await authFidoOnly.registerDevicePasskey('Solo Huella')
+    await authFidoOnly.registerInitialPasskey('Solo Huella')
     authFidoOnly.logout()
     expect(authFidoOnly.getState().protectionConfigured).toBe(true)
     expect(authFidoOnly.getState().pinEnabled).toBe(false)
@@ -570,5 +553,140 @@ describe('useAuth controller (migración, lockout, Google owner, FIDO, logout vs
       authLegacyWithOwner.completeGoogleLogin({ sub: 's-owner', email: 'owner@cl.org', name: 'Owner' })
         .success,
     ).toBe(true)
+  })
+
+  it('permite setupInitialPin/registerInitialPasskey solo sin protección previa (incluyendo mirror, legacy PIN y TOCTOU) y bloquea sobrescritura', async () => {
+    // 1. setupInitialPin y registerInitialPasskey fallan si ya hay protección en localStorage o mirror IndexedDB
+    const storageMirror = makeMemoryStorage()
+    const protectedMirror = makeMemoryMirror({
+      version: 1,
+      ownerEmail: 'dueno@hospital.cl',
+      ownerName: 'Dueño',
+      ownerSub: 'sub-1',
+      ownerAvatarUrl: null,
+      pinRecord: null,
+      passkeys: [],
+      updatedAt: Date.now(),
+    })
+    const { credentialsApi: mirrorCreds } = await createFakePasskeyCredentials({
+      credentialId: 'mirror-blocked-fido',
+    })
+    const authMirror = createAuthController({
+      storage: storageMirror,
+      mirror: protectedMirror,
+      fetchFn: vi.fn(async () => new Response('not found', { status: 404 })) as unknown as typeof fetch,
+      credentialsApi: mirrorCreds,
+    })
+    const blockedByMirror = await authMirror.setupInitialPin('482910')
+    expect(blockedByMirror.success).toBe(false)
+    expect(authMirror.getState().isAuthenticated).toBe(false)
+
+    const blockedFidoByMirror = await authMirror.registerInitialPasskey('Atacante')
+    expect(blockedFidoByMirror.success).toBe(false)
+    expect(authMirror.getState().isAuthenticated).toBe(false)
+    expect(mirrorCreds.create).not.toHaveBeenCalled()
+
+    // 1b. También bloquean cuando existe un PIN legado personalizado pendiente de migración
+    const storageLegacy = makeMemoryStorage({ [SAVED_PIN_KEY]: '9876' })
+    const authLegacy = createAuthController({
+      storage: storageLegacy,
+      fetchFn: vi.fn(async () => new Response('not found', { status: 404 })) as unknown as typeof fetch,
+      credentialsApi: mirrorCreds,
+    })
+    expect((await authLegacy.setupInitialPin('5555')).success).toBe(false)
+    expect((await authLegacy.registerInitialPasskey('Atacante')).success).toBe(false)
+    expect(authLegacy.getState().isAuthenticated).toBe(false)
+    expect(mirrorCreds.create).not.toHaveBeenCalled()
+
+    // 2. Equipo vacío: setupInitialPin protege e inicia sesión, y bloquea segundo setupInitialPin tras logout
+    const storagePin = makeMemoryStorage()
+    const authPin = createAuthController({ storage: storagePin })
+    const initPin = await authPin.setupInitialPin('592014')
+    expect(initPin.success).toBe(true)
+    expect(initPin.user?.method).toBe('pin')
+    expect(authPin.getState().isAuthenticated).toBe(true)
+    expect(authPin.getState().protectionConfigured).toBe(true)
+    authPin.logout()
+
+    expect((await authPin.setupInitialPin('9999')).success).toBe(false)
+    expect((await authPin.registerInitialPasskey('Atacante')).success).toBe(false)
+
+    // 3. Equipo vacío con Passkey inicial
+    const storageFido = makeMemoryStorage()
+    const { credentialsApi } = await createFakePasskeyCredentials({ credentialId: 'init-fido-1' })
+    const authFido = createAuthController({
+      storage: storageFido,
+      fetchFn: vi.fn(async () => new Response('not found', { status: 404 })) as unknown as typeof fetch,
+      credentialsApi,
+    })
+    const initFido = await authFido.registerInitialPasskey('Huella Turno')
+    expect(initFido.success).toBe(true)
+    expect(initFido.user?.method).toBe('fido')
+    expect(authFido.getState().protectionConfigured).toBe(true)
+    authFido.logout()
+
+    expect((await authFido.setupInitialPin('1122')).success).toBe(false)
+    expect((await authFido.registerInitialPasskey('Otra')).success).toBe(false)
+
+    // 4. Guardia TOCTOU: si otra operación protege el terminal mientras hashPin / registerPasskey esperan, aborta sin sobrescribir
+    const storageRaceFido = makeMemoryStorage()
+    const { credentialsApi: baseRaceCreds } = await createFakePasskeyCredentials({
+      credentialId: 'race-fido-1',
+    })
+    let releaseCreate!: () => void
+    const createGate = new Promise<void>((resolve) => {
+      releaseCreate = resolve
+    })
+    let notifyCreateStarted!: () => void
+    const createStarted = new Promise<void>((resolve) => {
+      notifyCreateStarted = resolve
+    })
+    const slowRaceCreds = {
+      ...baseRaceCreds,
+      create: vi.fn(async (opts?: CredentialCreationOptions) => {
+        notifyCreateStarted()
+        await createGate
+        return await baseRaceCreds.create(opts)
+      }),
+    } as unknown as CredentialsContainer
+    const authRaceFido = createAuthController({
+      storage: storageRaceFido,
+      fetchFn: vi.fn(async () => new Response('not found', { status: 404 })) as unknown as typeof fetch,
+      credentialsApi: slowRaceCreds,
+    })
+    const racingFido = authRaceFido.registerInitialPasskey('Passkey Tardia')
+    await createStarted
+    expect(
+      authRaceFido.completeGoogleLogin({ sub: 's-race', email: 'duena@hospital.cl', name: 'Dueña' })
+        .success,
+    ).toBe(true)
+    releaseCreate()
+    const racingFidoRes = await racingFido
+    expect(racingFidoRes.success).toBe(false)
+    expect(authRaceFido.getState().securityProfile.ownerEmail).toBe('duena@hospital.cl')
+    expect(authRaceFido.getState().securityProfile.passkeys).toEqual([])
+    expect(authRaceFido.getState().user?.method).toBe('google')
+
+    const storageRacePin = makeMemoryStorage()
+    const authRacePin = createAuthController({ storage: storageRacePin })
+    const origDeriveBits = crypto.subtle.deriveBits.bind(crypto.subtle)
+    const deriveSpy = vi.spyOn(crypto.subtle, 'deriveBits').mockImplementation(async (...args) => {
+      const result = await origDeriveBits(...args)
+      authRacePin.completeGoogleLogin({
+        sub: 's-race-pin',
+        email: 'duena.pin@hospital.cl',
+        name: 'Dueña PIN',
+      })
+      return result
+    })
+    try {
+      const racingPinRes = await authRacePin.setupInitialPin('482910')
+      expect(racingPinRes.success).toBe(false)
+      expect(authRacePin.getState().securityProfile.ownerEmail).toBe('duena.pin@hospital.cl')
+      expect(authRacePin.getState().securityProfile.pinRecord).toBeNull()
+      expect(authRacePin.getState().user?.method).toBe('google')
+    } finally {
+      deriveSpy.mockRestore()
+    }
   })
 })

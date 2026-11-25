@@ -89,12 +89,15 @@ describe('DeviceSecurityProfile y reglas de propiedad Google', () => {
     })
   })
 
-  it('considera protectionConfigured=false en perfil vacío/nulo y true con PIN o FIDO', async () => {
+  it('considera protectionConfigured=false en perfil vacío/nulo o ownerEmail en blanco, y true con PIN, FIDO o Google ownerEmail', async () => {
     expect(isProtectionConfigured(null)).toBe(false)
     expect(isProtectionConfigured(undefined)).toBe(false)
 
     const empty = createEmptySecurityProfile()
     expect(isProtectionConfigured(empty)).toBe(false)
+    expect(isProtectionConfigured({ ...empty, ownerEmail: '   ' })).toBe(false)
+
+    expect(isProtectionConfigured({ ...empty, ownerEmail: 'doc@hospital.cl' })).toBe(true)
 
     const withPin = { ...empty, pinRecord: await hashPin('5920') }
     expect(isProtectionConfigured(withPin)).toBe(true)
@@ -119,6 +122,16 @@ describe('DeviceSecurityProfile y reglas de propiedad Google', () => {
   it('restringe desbloqueo Google al correo dueño cuando el terminal está protegido', async () => {
     const empty = createEmptySecurityProfile()
     expect(canGoogleUnlockDevice('alguien@gmail.com', empty)).toEqual({ allowed: true })
+
+    const protectedGoogleOnly = {
+      ...empty,
+      ownerEmail: 'Dra.Martinez@gmail.com',
+    }
+    expect(canGoogleUnlockDevice('dra.martinez@gmail.com', protectedGoogleOnly)).toEqual({ allowed: true })
+    expect(canGoogleUnlockDevice('intruso@gmail.com', protectedGoogleOnly)).toEqual({
+      allowed: false,
+      reason: 'owner_mismatch',
+    })
 
     const protectedWithOwner = {
       ...empty,

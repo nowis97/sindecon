@@ -54,10 +54,14 @@ export function createEmptySecurityProfile(): DeviceSecurityProfile {
   }
 }
 
-/** True cuando el equipo tiene PIN personalizado o al menos una llave FIDO2 activa. */
+/** True cuando el equipo tiene PIN personalizado, passkey FIDO2 o cuenta Google vinculada. */
 export function isProtectionConfigured(profile: DeviceSecurityProfile | null | undefined): boolean {
   if (!profile) return false
-  return profile.pinRecord !== null || profile.passkeys.length > 0
+  return (
+    profile.pinRecord !== null ||
+    profile.passkeys.length > 0 ||
+    Boolean(profile.ownerEmail?.trim())
+  )
 }
 
 /** Controla qué cuenta Google puede desbloquear o recuperar este equipo. */
@@ -68,10 +72,11 @@ export function canGoogleUnlockDevice(
   if (!isProtectionConfigured(profile)) {
     return { allowed: true }
   }
-  if (!profile?.ownerEmail) {
+  const owner = profile?.ownerEmail?.trim()
+  if (!owner) {
     return { allowed: false, reason: 'local_protection_no_google' }
   }
-  if (incomingEmail.trim().toLowerCase() === profile.ownerEmail.trim().toLowerCase()) {
+  if (incomingEmail.trim().toLowerCase() === owner.toLowerCase()) {
     return { allowed: true }
   }
   return { allowed: false, reason: 'owner_mismatch' }
