@@ -2,6 +2,17 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.3.0] - 2026-11-25
+
+### Added
+- **Autenticación con Google (`openid email profile`) Separada de Drive (`googleAuth.ts`, `/api/auth/google|session|logout`)**: Acceso directo con cuenta Google mediante cookie `HttpOnly` cifrada en `AES-256-GCM` (`sindecon_auth_session`), fallback transparente a GIS `initTokenClient` en desarrollo local sin Worker y activación opcional de respaldo en Google Drive desde dentro de la app (`SecuritySettingsModal` / `GoogleDriveModal`).
+- **Llaves Biométricas / Passkeys FIDO2 WebAuthn (`webauthnCrypto.ts`, `fidoAuth.ts`, `/api/auth/fido/*`)**: Registro y desbloqueo biométrico híbrido online/offline con verificación criptográfica `ES256` (`P-256`) y `RS256` (`RSASSA-PKCS1-v1_5`), challenge de un uso vinculado en `/enroll` y `/verify`, y detección anti-clonación de `signCount` conforme a W3C WebAuthn.
+- **PIN de Guardia con `PBKDF2-SHA256` y Bloqueo Exponencial (`pinAuth.ts`, `useAuth.ts`, `LoginView.tsx`, `SecuritySettingsModal.tsx`)**: Soporte de PIN de 4 o 6 dígitos (`150_000` iteraciones, salt aleatorio de 16 bytes, comparación constante), pausa exponencial persistente desde el 5.º intento fallido (`30s`→`2m`→`5m`→`15m`) espejada entre `localStorage` e IndexedDB (`db.meta`), migración de PIN legado y botón global **"Seguridad"** en `ClinicalStationHeader`.
+- **Cobertura de Pruebas y E2E WebAuthn Virtual (`auth-fido-pin.spec.ts`)**: Nuevas suites unitarias y de Worker (`webauthnCrypto.test.ts`, `auth.test.ts`, `fido.test.ts`, `pinAuth.test.ts`, `fidoAuth.test.ts`, `googleAuth.test.ts`, `useAuth.test.ts`, `LoginView.test.ts`) más prueba E2E con autenticador virtual CDP `ctap2` en Chromium.
+
+### Changed
+- **Bloqueo Estricto al Configurar Protección (`auth.ts`, `LoginView.tsx`, `App.tsx`)**: Al definir un PIN personalizado o registrar una passkey FIDO2 (`protectionConfigured = true`), la pantalla de acceso oculta los accesos de demostración (`1234`, `Credenciales` y `Ingreso directo — Urgencias`), habilita recuperación vía Google exclusivamente para el `ownerEmail` vinculado o restablecimiento local explícito sin borrar notas clínicas, y evita el desbloqueo automático desde sesión pasiva cuando el terminal fue bloqueado.
+
 ## [1.2.5] - 2026-11-24
 
 ### Added
