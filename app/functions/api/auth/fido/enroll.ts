@@ -1,12 +1,19 @@
-import { fromBase64Url } from '../../../../shared/webauthnCrypto'
+import { fromBase64Url, validateClientDataJSON } from '../../../../shared/webauthnCrypto'
 import {
+  decryptSealedPayload,
   encryptSealedPayload,
   jsonResponse,
+  readCookieByName,
   validateEnv,
   validateSameOriginPost,
   type CfPagesContext,
 } from '../../oauth/_shared'
-import { isPlainObject } from './challenge'
+import {
+  FIDO_CHALLENGE_COOKIE,
+  buildClearChallengeCookie,
+  isPlainObject,
+  isValidChallengePayload,
+} from './challenge'
 
 export interface SealedFidoCredential {
   credentialId: string
@@ -17,7 +24,7 @@ export interface SealedFidoCredential {
   enrolledAt: number
 }
 
-/** Valida una clave pública WebAuthn SPKI (P-256 o RSA) y devuelve un token sellado con AES-256-GCM. */
+/** Valida challenge + clientDataJSON + clave pública WebAuthn SPKI (P-256 o RSA) y devuelve token sellado. */
 export async function onRequest(context: CfPagesContext): Promise<Response> {
   const originError = validateSameOriginPost(context.request)
   if (originError) return originError
@@ -25,31 +32,75 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
   const envCheck = validateEnv(context.env)
   if (!envCheck.ok) return envCheck.response
 
-  let rawBody: unknown
-  try {
-    rawBody = await context.request.json()
-  } catch {
-    return jsonResponse({ error: 'invalid_json' }, 400)
-  }
-  if (!isPlainObject(rawBody)) {
-    return jsonResponse({ error: 'invalid_json' }, 400)
+  const clearChallengeCookie = buildClearChallengeCookie(context.request.url)
+
+  const reject = (error: string, status = 401) => {
+    const res = jsonResponse({ error }, status)
+    res.headers.append('Set-Cookie', clearChallengeCookie)
+    return res
   }
 
-  const expectedRpId = new URL(context.request.url).hostname
+  let rawBody: Record<string, unknown>
+  try {
+    const parsed: unknown = await context.request.json()
+    if (!isPlainObject(parsed)) {
+      return reject('invalid_json', 400)
+    }
+    rawBody = parsed
+  } catch {
+    return reject('invalid_json', 400)
+  }
+
+  const rawChallengeCookie = readCookieByName(context.request, FIDO_CHALLENGE_COOKIE)
+  if (!rawChallengeCookie) return reject('challenge_missing')
+
+  const requestUrl = new URL(context.request.url)
+  const expectedOrigin = requestUrl.origin
+  const expectedRpId = requestUrl.hostname
+
+  const challengeRaw = await decryptSealedPayload<unknown>(
+    rawChallengeCookie,
+    envCheck.cookieSecret,
+  )
+  if (!isValidChallengePayload(challengeRaw, expectedOrigin)) {
+    return reject('challenge_expired')
+  }
+
+  const clientDataJSONB64 =
+    typeof rawBody.clientDataJSONB64 === 'string' ? rawBody.clientDataJSONB64.trim() : ''
+  if (!clientDataJSONB64) {
+    return reject('missing_client_data')
+  }
+
+  const clientCheck = validateClientDataJSON({
+    clientDataJSONB64,
+    expectedType: 'webauthn.create',
+    expectedChallenge: challengeRaw.challenge,
+    expectedOrigin: challengeRaw.origin,
+  })
+  if (!clientCheck.valid) {
+    return reject(clientCheck.reason)
+  }
+
   const credentialId = typeof rawBody.credentialId === 'string' ? rawBody.credentialId.trim() : ''
   const publicKeySpkiB64 =
     typeof rawBody.publicKeySpkiB64 === 'string' ? rawBody.publicKeySpkiB64.trim() : ''
-  const alg = typeof rawBody.alg === 'number' ? rawBody.alg : -7
-  const rpId = typeof rawBody.rpId === 'string' ? rawBody.rpId.trim() : expectedRpId
+  const alg = rawBody.alg === undefined ? -7 : typeof rawBody.alg === 'number' ? rawBody.alg : NaN
+  const rpId =
+    rawBody.rpId === undefined
+      ? expectedRpId
+      : typeof rawBody.rpId === 'string'
+        ? rawBody.rpId.trim()
+        : ''
   const rawEmail = typeof rawBody.ownerEmail === 'string' ? rawBody.ownerEmail.trim() : ''
   const ownerEmail = rawEmail || undefined
 
   if (!credentialId || !publicKeySpkiB64 || rpId !== expectedRpId || (alg !== -7 && alg !== -257)) {
-    return jsonResponse({ error: 'invalid_fido_enrollment' }, 400)
+    return reject('invalid_fido_enrollment', 400)
   }
 
   const spkiBytes = fromBase64Url(publicKeySpkiB64)
-  if (!spkiBytes) return jsonResponse({ error: 'invalid_public_key' }, 400)
+  if (!spkiBytes) return reject('invalid_public_key', 400)
 
   try {
     await crypto.subtle.importKey(
@@ -62,7 +113,7 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
       ['verify'],
     )
   } catch {
-    return jsonResponse({ error: 'invalid_public_key' }, 400)
+    return reject('invalid_public_key', 400)
   }
 
   const sealedToken = await encryptSealedPayload<SealedFidoCredential>(
@@ -77,5 +128,7 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
     envCheck.cookieSecret,
   )
 
-  return jsonResponse({ sealedToken }, 200)
+  return jsonResponse({ sealedToken }, 200, {
+    'Set-Cookie': clearChallengeCookie,
+  })
 }

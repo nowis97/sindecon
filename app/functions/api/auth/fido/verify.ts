@@ -1,6 +1,5 @@
 import { verifyWebAuthnAssertion } from '../../../../shared/webauthnCrypto'
 import {
-  buildScopedCookieHeader,
   decryptSealedPayload,
   jsonResponse,
   readCookieByName,
@@ -11,25 +10,11 @@ import {
 import { createAuthCookieHeader, type AuthSessionUser } from '../_session'
 import {
   FIDO_CHALLENGE_COOKIE,
-  FIDO_CHALLENGE_PATH,
+  buildClearChallengeCookie,
   isPlainObject,
-  type FidoChallengePayload,
+  isValidChallengePayload,
 } from './challenge'
 import type { SealedFidoCredential } from './enroll'
-
-function isValidChallengePayload(
-  value: unknown,
-  expectedOrigin: string,
-): value is FidoChallengePayload {
-  if (!isPlainObject(value)) return false
-  return (
-    typeof value.challenge === 'string' &&
-    value.challenge.length > 0 &&
-    value.origin === expectedOrigin &&
-    typeof value.exp === 'number' &&
-    value.exp >= Date.now()
-  )
-}
 
 function isValidSealedCredential(
   value: unknown,
@@ -56,13 +41,7 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
   const envCheck = validateEnv(context.env)
   if (!envCheck.ok) return envCheck.response
 
-  const clearChallengeCookie = buildScopedCookieHeader({
-    name: FIDO_CHALLENGE_COOKIE,
-    value: '',
-    path: FIDO_CHALLENGE_PATH,
-    maxAgeSeconds: 0,
-    requestUrl: context.request.url,
-  })
+  const clearChallengeCookie = buildClearChallengeCookie(context.request.url)
 
   const reject = (error: string, status = 401) => {
     const res = jsonResponse({ verified: false, error }, status)
@@ -84,11 +63,14 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
   const rawChallengeCookie = readCookieByName(context.request, FIDO_CHALLENGE_COOKIE)
   if (!rawChallengeCookie) return reject('challenge_missing')
 
+  const requestUrl = new URL(context.request.url)
+  const expectedOrigin = requestUrl.origin
+  const expectedRpId = requestUrl.hostname
+
   const challengeRaw = await decryptSealedPayload<unknown>(
     rawChallengeCookie,
     envCheck.cookieSecret,
   )
-  const expectedOrigin = new URL(context.request.url).origin
   if (!isValidChallengePayload(challengeRaw, expectedOrigin)) {
     return reject('challenge_expired')
   }
@@ -96,8 +78,7 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
   if (typeof body.sealedToken !== 'string' || !body.sealedToken) {
     return reject('missing_sealed_token')
   }
-  const credentialId = typeof body.credentialId === 'string' ? body.credentialId : ''
-  const expectedRpId = new URL(context.request.url).hostname
+  const credentialId = typeof body.credentialId === 'string' ? body.credentialId.trim() : ''
   const credentialRaw = await decryptSealedPayload<unknown>(
     body.sealedToken,
     envCheck.cookieSecret,

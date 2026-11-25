@@ -109,7 +109,7 @@ export async function registerPasskey(opts: RegisterPasskeyOptions = {}): Promis
   const rpId = opts.rpId || getDefaultRpId()
   const fetchFn = opts.fetchFn ?? fetch
   const isOnline = opts.isOnline ?? (typeof navigator !== 'undefined' ? navigator.onLine : true)
-  const { challengeBytes } = await fetchChallengeOrLocal(isOnline, fetchFn)
+  const { challengeBytes, isServerChallenge } = await fetchChallengeOrLocal(isOnline, fetchFn)
 
   const userIdentifier = opts.ownerEmail || opts.ownerSub || 'sindecon-local-user'
   const userIdBytes = textEncoder.encode(userIdentifier)
@@ -148,6 +148,9 @@ export async function registerPasskey(opts: RegisterPasskeyOptions = {}): Promis
   const pkCred = credential as PublicKeyCredential
   const credentialId = pkCred.id || toBase64Url(new Uint8Array(pkCred.rawId))
   const attResp = pkCred.response as ExtendedAttestationResponse
+  const clientDataJSONB64 = attResp.clientDataJSON
+    ? toBase64Url(new Uint8Array(attResp.clientDataJSON))
+    : ''
 
   let publicKeySpkiB64 = ''
   let alg = -7
@@ -172,7 +175,7 @@ export async function registerPasskey(opts: RegisterPasskeyOptions = {}): Promis
   }
 
   let sealedToken: string | undefined
-  if (isOnline) {
+  if (isOnline && isServerChallenge) {
     try {
       const enrollRes = await fetchFn('/api/auth/fido/enroll', {
         method: 'POST',
@@ -184,6 +187,7 @@ export async function registerPasskey(opts: RegisterPasskeyOptions = {}): Promis
           alg,
           rpId,
           ownerEmail: opts.ownerEmail ?? undefined,
+          clientDataJSONB64,
         }),
       })
       if (enrollRes.ok) {
@@ -306,7 +310,10 @@ export async function authenticateWithPasskey(
       })
       if (verifyRes.ok) {
         const data: unknown = await verifyRes.json()
-        if (isRecord(data) && data.verified !== false) {
+        if (isRecord(data)) {
+          if (data.verified === false) {
+            return { ok: false, error: 'Verificación FIDO rechazada por el servidor.' }
+          }
           return {
             ok: true,
             user: createFidoUser({

@@ -112,7 +112,7 @@ describe('fidoAuth (WebAuthn online + offline)', () => {
     expect(isWebAuthnSupported()).toBe(true)
   })
 
-  it('registra passkey obteniendo publicKey SPKI y sealedToken cuando el servidor responde', async () => {
+  it('registra passkey obteniendo publicKey SPKI y sealedToken con clientDataJSONB64 cuando el servidor responde', async () => {
     const keyPair = await crypto.subtle.generateKey(
       { name: 'ECDSA', namedCurve: 'P-256' },
       true,
@@ -121,9 +121,17 @@ describe('fidoAuth (WebAuthn online + offline)', () => {
     const spkiBuf = await crypto.subtle.exportKey('spki', keyPair.publicKey)
     const rawId = new Uint8Array([10, 20, 30, 40]).buffer
     const credId = toBase64Url(new Uint8Array(rawId))
+    const serverChallenge = toBase64Url(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]))
+    const clientDataBuf = enc.encode(
+      JSON.stringify({
+        type: 'webauthn.create',
+        challenge: serverChallenge,
+        origin: 'https://sindecon.pages.dev',
+      }),
+    ).buffer
 
     fetchMock
-      .mockResolvedValueOnce(new Response(JSON.stringify({ challenge: 'srv-ch-1' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ challenge: serverChallenge }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ sealedToken: 'sealed.tok' }), { status: 200 }))
 
     const mockCredentials = {
@@ -132,6 +140,7 @@ describe('fidoAuth (WebAuthn online + offline)', () => {
         rawId,
         type: 'public-key',
         response: {
+          clientDataJSON: clientDataBuf,
           getPublicKey: () => spkiBuf,
           getPublicKeyAlgorithm: () => -7,
         },
@@ -154,6 +163,82 @@ describe('fidoAuth (WebAuthn online + offline)', () => {
     expect(res.passkey.sealedToken).toBe('sealed.tok')
     expect(res.passkey.alg).toBe(-7)
     expect(res.passkey.publicKeySpkiB64).toBe(toBase64Url(new Uint8Array(spkiBuf)))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/auth/fido/challenge')
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/auth/fido/enroll')
+    const enrollBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body)) as Record<string, unknown>
+    expect(enrollBody.clientDataJSONB64).toBe(toBase64Url(new Uint8Array(clientDataBuf)))
+    expect(enrollBody.credentialId).toBe(credId)
+    expect(enrollBody.rpId).toBe('sindecon.pages.dev')
+  })
+
+  it('degrada registerPasskey con sealedToken undefined ante 404, 405 o error de red', async () => {
+    const keyPair = await crypto.subtle.generateKey(
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      true,
+      ['sign', 'verify'],
+    )
+    const spkiBuf = await crypto.subtle.exportKey('spki', keyPair.publicKey)
+    const rawId = new Uint8Array([5, 6, 7, 8]).buffer
+    const credId = toBase64Url(new Uint8Array(rawId))
+    const clientDataBuf = enc.encode(
+      JSON.stringify({
+        type: 'webauthn.create',
+        challenge: 'srv-ch-fallback',
+        origin: 'https://sindecon.pages.dev',
+      }),
+    ).buffer
+    const mockCredentials = {
+      create: vi.fn(async () => ({
+        id: credId,
+        rawId,
+        type: 'public-key',
+        response: {
+          clientDataJSON: clientDataBuf,
+          getPublicKey: () => spkiBuf,
+          getPublicKeyAlgorithm: () => -7,
+        },
+      })),
+      get: vi.fn(),
+    } as unknown as CredentialsContainer
+
+    // Caso 404 en /challenge -> no llama a /enroll y conserva passkey local
+    fetchMock.mockResolvedValueOnce(new Response('Not found', { status: 404 }))
+    const res404 = await registerPasskey({
+      rpId: 'sindecon.pages.dev',
+      isOnline: true,
+      fetchFn: fetchMock,
+      credentialsApi: mockCredentials,
+    })
+    expect(res404.ok).toBe(true)
+    if (res404.ok) expect(res404.passkey.sealedToken).toBeUndefined()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // Caso 405 en /enroll tras challenge 200 -> conserva passkey local sin sealedToken
+    fetchMock.mockReset()
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ challenge: 'c2h' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response('Method Not Allowed', { status: 405 }))
+    const res405 = await registerPasskey({
+      rpId: 'sindecon.pages.dev',
+      isOnline: true,
+      fetchFn: fetchMock,
+      credentialsApi: mockCredentials,
+    })
+    expect(res405.ok).toBe(true)
+    if (res405.ok) expect(res405.passkey.sealedToken).toBeUndefined()
+
+    // Caso error de red -> conserva passkey local sin sealedToken
+    fetchMock.mockReset()
+    fetchMock.mockRejectedValueOnce(new Error('network down'))
+    const resNet = await registerPasskey({
+      rpId: 'sindecon.pages.dev',
+      isOnline: true,
+      fetchFn: fetchMock,
+      credentialsApi: mockCredentials,
+    })
+    expect(resNet.ok).toBe(true)
+    if (resNet.ok) expect(resNet.passkey.sealedToken).toBeUndefined()
   })
 
   it('registra passkey usando extractP256SpkiFromAuthData como fallback cuando getPublicKey() no está disponible', async () => {
@@ -328,6 +413,66 @@ describe('fidoAuth (WebAuthn online + offline)', () => {
     }
   })
 
+  it('rechaza explícitamente si /api/auth/fido/verify responde HTTP 200 con verified === false', async () => {
+    const keyPair = await crypto.subtle.generateKey(
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      true,
+      ['sign', 'verify'],
+    )
+    const spkiB64 = toBase64Url(
+      new Uint8Array(await crypto.subtle.exportKey('spki', keyPair.publicKey)),
+    )
+    const serverChallengeB64 = toBase64Url(crypto.getRandomValues(new Uint8Array(32)))
+    const credId = 'cred-200-false'
+    const passkey: StoredPasskey = {
+      credentialId: credId,
+      publicKeySpkiB64: spkiB64,
+      alg: -7,
+      rpId: 'sindecon.pages.dev',
+      label: 'YubiKey',
+      signCount: 1,
+      sealedToken: 'sealed.ok',
+      createdAt: Date.now(),
+    }
+
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ challenge: serverChallengeB64 }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ verified: false }), { status: 200 }),
+      )
+
+    const mockCredentials = {
+      create: vi.fn(),
+      get: vi.fn(async (opts?: CredentialRequestOptions) => {
+        const challenge = new Uint8Array(
+          (opts?.publicKey?.challenge as ArrayBuffer) || new ArrayBuffer(0),
+        )
+        const assertion = await buildFakeAuthenticatorAssertion(keyPair, {
+          challenge,
+          origin: 'https://sindecon.pages.dev',
+          rpId: 'sindecon.pages.dev',
+          signCount: 2,
+        })
+        return { id: credId, rawId: new Uint8Array([1]).buffer, type: 'public-key', response: assertion }
+      }),
+    } as unknown as CredentialsContainer
+
+    const res = await authenticateWithPasskey([passkey], {
+      rpId: 'sindecon.pages.dev',
+      origin: 'https://sindecon.pages.dev',
+      isOnline: true,
+      fetchFn: fetchMock,
+      credentialsApi: mockCredentials,
+    })
+
+    expect(res).toEqual({
+      ok: false,
+      error: 'Verificación FIDO rechazada por el servidor.',
+    })
+  })
+
   it('verifica aserción WebAuthn criptográficamente en modo offline y rechaza signCount regresivo', async () => {
     const keyPair = await crypto.subtle.generateKey(
       { name: 'ECDSA', namedCurve: 'P-256' },
@@ -433,6 +578,9 @@ describe('fidoAuth (WebAuthn online + offline)', () => {
 
     fetchMock
       .mockResolvedValueOnce(new Response('null', { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ challenge: 'srv-ch-null' }), { status: 200 }),
+      )
       .mockResolvedValueOnce(new Response('null', { status: 200 }))
 
     const mockCredentials = {
@@ -441,6 +589,7 @@ describe('fidoAuth (WebAuthn online + offline)', () => {
         rawId,
         type: 'public-key',
         response: {
+          clientDataJSON: enc.encode('{}').buffer,
           getPublicKey: () => spkiBuf,
           getPublicKeyAlgorithm: () => -7,
         },
@@ -458,5 +607,15 @@ describe('fidoAuth (WebAuthn online + offline)', () => {
     expect(res.ok).toBe(true)
     if (!res.ok) return
     expect(res.passkey.sealedToken).toBeUndefined()
+
+    const res2 = await registerPasskey({
+      rpId: 'sindecon.pages.dev',
+      isOnline: true,
+      fetchFn: fetchMock,
+      credentialsApi: mockCredentials,
+    })
+    expect(res2.ok).toBe(true)
+    if (!res2.ok) return
+    expect(res2.passkey.sealedToken).toBeUndefined()
   })
 })

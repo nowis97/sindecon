@@ -22,6 +22,30 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
+export function buildClearChallengeCookie(requestUrl: string): string {
+  return buildScopedCookieHeader({
+    name: FIDO_CHALLENGE_COOKIE,
+    value: '',
+    path: FIDO_CHALLENGE_PATH,
+    maxAgeSeconds: 0,
+    requestUrl,
+  })
+}
+
+export function isValidChallengePayload(
+  value: unknown,
+  expectedOrigin: string,
+): value is FidoChallengePayload {
+  if (!isPlainObject(value)) return false
+  return (
+    typeof value.challenge === 'string' &&
+    value.challenge.length > 0 &&
+    value.origin === expectedOrigin &&
+    typeof value.exp === 'number' &&
+    value.exp >= Date.now()
+  )
+}
+
 /** Emite un challenge aleatorio de 32 bytes y lo guarda en cookie HttpOnly cifrada de un solo uso. */
 export async function onRequest(context: CfPagesContext): Promise<Response> {
   const originError = validateSameOriginPost(context.request)

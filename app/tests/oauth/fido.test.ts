@@ -44,12 +44,14 @@ function getCookieVal(header: string | null, name: string): string {
 
 async function createSignedAssertion(opts: {
   keyPair: CryptoKeyPair
+  alg?: -7 | -257
   challenge: string
   origin?: string
   rpId?: string
   flags?: number
   signCount?: number
 }) {
+  const alg = opts.alg ?? -7
   const clientData = enc.encode(
     JSON.stringify({
       type: 'webauthn.get',
@@ -69,11 +71,20 @@ async function createSignedAssertion(opts: {
   const payload = new Uint8Array(authData.length + clientHash.length)
   payload.set(authData, 0)
   payload.set(clientHash, authData.length)
-  const sig = p1363ToDer(
-    new Uint8Array(
-      await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, opts.keyPair.privateKey, payload),
-    ),
-  )
+  const sig =
+    alg === -257
+      ? new Uint8Array(
+          await crypto.subtle.sign({ name: 'RSASSA-PKCS1-v1_5' }, opts.keyPair.privateKey, payload),
+        )
+      : p1363ToDer(
+          new Uint8Array(
+            await crypto.subtle.sign(
+              { name: 'ECDSA', hash: 'SHA-256' },
+              opts.keyPair.privateKey,
+              payload,
+            ),
+          ),
+        )
 
   return {
     clientDataJSONB64: toBase64Url(clientData),
@@ -83,30 +94,65 @@ async function createSignedAssertion(opts: {
   }
 }
 
-async function enrollTestKey(keyPair: CryptoKeyPair) {
-  const spkiB64 = toBase64Url(
-    new Uint8Array(await crypto.subtle.exportKey('spki', keyPair.publicKey)),
-  )
-  const enrollReq = new Request('https://sindecon.pages.dev/api/auth/fido/enroll', {
-    method: 'POST',
-    headers: { Origin: 'https://sindecon.pages.dev', 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      credentialId: 'cred-id-1',
-      publicKeySpkiB64: spkiB64,
-      alg: -7,
-      rpId: 'sindecon.pages.dev',
-      ownerEmail: 'dra.martinez@gmail.com',
-    }),
-  })
-  return await worker.fetch(enrollReq, TEST_ENV)
-}
-
 async function requestChallenge() {
   const chReq = new Request('https://sindecon.pages.dev/api/auth/fido/challenge', {
     method: 'POST',
     headers: { Origin: 'https://sindecon.pages.dev' },
   })
   return await worker.fetch(chReq, TEST_ENV)
+}
+
+async function enrollTestKey(
+  keyPair: CryptoKeyPair,
+  opts?: {
+    alg?: number
+    rpId?: string
+    origin?: string
+    type?: string
+    challengeOverride?: string
+    cookieOverride?: string | null
+    omitClientData?: boolean
+  },
+) {
+  const chRes = await requestChallenge()
+  const { challenge } = (await chRes.json()) as { challenge: string }
+  const chCookie = getCookieVal(chRes.headers.get('Set-Cookie'), 'sindecon_fido_challenge')
+
+  const spkiB64 = toBase64Url(
+    new Uint8Array(await crypto.subtle.exportKey('spki', keyPair.publicKey)),
+  )
+  const clientDataJSONB64 = opts?.omitClientData
+    ? undefined
+    : toBase64Url(
+        enc.encode(
+          JSON.stringify({
+            type: opts?.type ?? 'webauthn.create',
+            challenge: opts?.challengeOverride ?? challenge,
+            origin: opts?.origin ?? 'https://sindecon.pages.dev',
+          }),
+        ),
+      )
+  const cookieValue = opts?.cookieOverride === undefined ? chCookie : opts.cookieOverride
+  const headers: Record<string, string> = {
+    Origin: 'https://sindecon.pages.dev',
+    'Content-Type': 'application/json',
+  }
+  if (cookieValue !== null) {
+    headers.Cookie = `sindecon_fido_challenge=${encodeURIComponent(cookieValue)}`
+  }
+  const enrollReq = new Request('https://sindecon.pages.dev/api/auth/fido/enroll', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      credentialId: 'cred-id-1',
+      publicKeySpkiB64: spkiB64,
+      alg: opts?.alg ?? -7,
+      rpId: opts?.rpId ?? 'sindecon.pages.dev',
+      ownerEmail: 'dra.martinez@gmail.com',
+      ...(clientDataJSONB64 !== undefined ? { clientDataJSONB64 } : {}),
+    }),
+  })
+  return await worker.fetch(enrollReq, TEST_ENV)
 }
 
 describe('/api/auth/fido/*', () => {
@@ -121,6 +167,10 @@ describe('/api/auth/fido/*', () => {
     expect(enrollRes.status).toBe(200)
     expect(enrollRes.headers.get('Cache-Control')).toBe('no-store, private')
     expect(enrollRes.headers.get('Vary')).toBe('Cookie')
+    const enrollSetCookie = enrollRes.headers.get('Set-Cookie') || ''
+    expect(enrollSetCookie).toContain('sindecon_fido_challenge=;')
+    expect(enrollSetCookie).toContain('Path=/api/auth/fido')
+    expect(enrollSetCookie).toContain('Max-Age=0')
     const { sealedToken } = (await enrollRes.json()) as { sealedToken: string }
     expect(sealedToken).toContain('.')
 
@@ -460,5 +510,154 @@ describe('/api/auth/fido/*', () => {
       TEST_ENV,
     )
     expect(crossOriginRes.status).toBe(403)
+  })
+
+  it('rechaza /enroll con 401 y limpia cookie si falta challenge, expira o clientDataJSON no coincide', async () => {
+    const keyPair = await crypto.subtle.generateKey(
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      true,
+      ['sign', 'verify'],
+    )
+
+    const noCookie = await enrollTestKey(keyPair, { cookieOverride: null })
+    expect(noCookie.status).toBe(401)
+    expect(await noCookie.json()).toMatchObject({ error: 'challenge_missing' })
+    expect(noCookie.headers.get('Set-Cookie')).toContain('sindecon_fido_challenge=;')
+    expect(noCookie.headers.get('Set-Cookie')).toContain('Max-Age=0')
+
+    const expiredCookie = await encryptSealedPayload(
+      {
+        challenge: 'exp-enroll-ch',
+        origin: 'https://sindecon.pages.dev',
+        exp: Date.now() - 1000,
+      },
+      TEST_ENV.OAUTH_COOKIE_SECRET!,
+    )
+    const expiredRes = await enrollTestKey(keyPair, {
+      cookieOverride: expiredCookie,
+      challengeOverride: 'exp-enroll-ch',
+    })
+    expect(expiredRes.status).toBe(401)
+    expect(await expiredRes.json()).toMatchObject({ error: 'challenge_expired' })
+    expect(expiredRes.headers.get('Set-Cookie')).toContain('Max-Age=0')
+
+    const missingClientData = await enrollTestKey(keyPair, { omitClientData: true })
+    expect(missingClientData.status).toBe(401)
+    expect(missingClientData.headers.get('Set-Cookie')).toContain('Max-Age=0')
+
+    const wrongType = await enrollTestKey(keyPair, { type: 'webauthn.get' })
+    expect(wrongType.status).toBe(401)
+    expect(await wrongType.json()).toMatchObject({ error: 'invalid_ceremony_type' })
+    expect(wrongType.headers.get('Set-Cookie')).toContain('Max-Age=0')
+
+    const wrongChallenge = await enrollTestKey(keyPair, { challengeOverride: 'other-challenge' })
+    expect(wrongChallenge.status).toBe(401)
+    expect(await wrongChallenge.json()).toMatchObject({ error: 'challenge_mismatch' })
+    expect(wrongChallenge.headers.get('Set-Cookie')).toContain('Max-Age=0')
+
+    const wrongOrigin = await enrollTestKey(keyPair, { origin: 'https://evil.example' })
+    expect(wrongOrigin.status).toBe(401)
+    expect(await wrongOrigin.json()).toMatchObject({ error: 'origin_mismatch' })
+    expect(wrongOrigin.headers.get('Set-Cookie')).toContain('Max-Age=0')
+
+    const badRpId = await enrollTestKey(keyPair, { rpId: 'evil.example' })
+    expect(badRpId.status).toBe(400)
+    expect(badRpId.headers.get('Set-Cookie')).toContain('Max-Age=0')
+
+    const badAlg = await enrollTestKey(keyPair, { alg: -8 })
+    expect(badAlg.status).toBe(400)
+    expect(badAlg.headers.get('Set-Cookie')).toContain('Max-Age=0')
+  })
+
+  it('registra y verifica passkey RS256 (alg: -257) y rechaza clonación por previousSignCount en /verify', async () => {
+    const rsaPair = await crypto.subtle.generateKey(
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: 'SHA-256',
+      },
+      true,
+      ['sign', 'verify'],
+    )
+
+    const enrollRes = await enrollTestKey(rsaPair, { alg: -257 })
+    expect(enrollRes.status).toBe(200)
+    expect(enrollRes.headers.get('Set-Cookie')).toContain('sindecon_fido_challenge=;')
+    const { sealedToken } = (await enrollRes.json()) as { sealedToken: string }
+
+    const ch1Res = await requestChallenge()
+    const { challenge: ch1 } = (await ch1Res.json()) as { challenge: string }
+    const ch1Cookie = getCookieVal(ch1Res.headers.get('Set-Cookie'), 'sindecon_fido_challenge')
+    const okAssertion = await createSignedAssertion({
+      keyPair: rsaPair,
+      alg: -257,
+      challenge: ch1,
+      signCount: 5,
+    })
+
+    const verifyOk = await worker.fetch(
+      new Request('https://sindecon.pages.dev/api/auth/fido/verify', {
+        method: 'POST',
+        headers: {
+          Origin: 'https://sindecon.pages.dev',
+          'Content-Type': 'application/json',
+          Cookie: `sindecon_fido_challenge=${encodeURIComponent(ch1Cookie)}`,
+        },
+        body: JSON.stringify({
+          credentialId: 'cred-id-1',
+          clientDataJSONB64: okAssertion.clientDataJSONB64,
+          authenticatorDataB64: okAssertion.authenticatorDataB64,
+          signatureB64: okAssertion.signatureB64,
+          sealedToken,
+          previousSignCount: 2,
+        }),
+      }),
+      TEST_ENV,
+    )
+    expect(verifyOk.status).toBe(200)
+    expect(await verifyOk.json()).toMatchObject({
+      verified: true,
+      signCount: 5,
+      user: { sub: 'cred-id-1', method: 'fido' },
+    })
+
+    // Simular clonación con signCount menor o igual a previousSignCount
+    const ch2Res = await requestChallenge()
+    const { challenge: ch2 } = (await ch2Res.json()) as { challenge: string }
+    const ch2Cookie = getCookieVal(ch2Res.headers.get('Set-Cookie'), 'sindecon_fido_challenge')
+    const clonedAssertion = await createSignedAssertion({
+      keyPair: rsaPair,
+      alg: -257,
+      challenge: ch2,
+      signCount: 3,
+    })
+
+    const verifyCloned = await worker.fetch(
+      new Request('https://sindecon.pages.dev/api/auth/fido/verify', {
+        method: 'POST',
+        headers: {
+          Origin: 'https://sindecon.pages.dev',
+          'Content-Type': 'application/json',
+          Cookie: `sindecon_fido_challenge=${encodeURIComponent(ch2Cookie)}`,
+        },
+        body: JSON.stringify({
+          credentialId: 'cred-id-1',
+          clientDataJSONB64: clonedAssertion.clientDataJSONB64,
+          authenticatorDataB64: clonedAssertion.authenticatorDataB64,
+          signatureB64: clonedAssertion.signatureB64,
+          sealedToken,
+          previousSignCount: 5,
+        }),
+      }),
+      TEST_ENV,
+    )
+    expect(verifyCloned.status).toBe(401)
+    expect(await verifyCloned.json()).toMatchObject({
+      verified: false,
+      error: 'cloned_authenticator_detected',
+    })
+    expect(verifyCloned.headers.get('Set-Cookie')).toContain('sindecon_fido_challenge=;')
+    expect(verifyCloned.headers.get('Set-Cookie')).not.toContain('sindecon_auth_session=')
   })
 })
