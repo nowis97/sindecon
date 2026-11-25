@@ -10,6 +10,8 @@ import { useTheme } from './hooks/useTheme'
 import { useFavorites } from './hooks/useFavorites'
 import { useAuth } from './hooks/useAuth'
 import { LoginView } from './components/auth/LoginView'
+import { SecuritySettingsModal } from './components/auth/SecuritySettingsModal'
+import { checkServerAuthSession, initiateGoogleLoginFlow } from './pwa/googleAuth'
 import { useGoogleSync } from './hooks/useGoogleSync'
 import { usePWAUpdate } from './hooks/usePWAUpdate'
 import { usePwaInstall } from './hooks/usePwaInstall'
@@ -118,7 +120,29 @@ function App() {
     triggerSync: triggerGoogleSync,
     initiateOAuthLogin: initiateGoogleOAuth,
   } = useGoogleSync()
-  const { user, isAuthenticated, logout } = useAuth()
+  const {
+    user,
+    isAuthenticated,
+    securityProfile,
+    protectionConfigured,
+    pinEnabled,
+    pinLength,
+    lockedUntil,
+    hasPasskeys,
+    loginWithPin,
+    loginWithCredentials,
+    loginOfflineEmergency,
+    loginWithFido,
+    completeGoogleLogin,
+    linkGoogleAccount,
+    setupOrChangePin,
+    removePin,
+    registerDevicePasskey,
+    removeDevicePasskey,
+    resetLocalTerminalSecurity,
+    logout,
+  } = useAuth()
+  const { ownerEmail, ownerName, ownerAvatarUrl } = securityProfile
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [moveMode, setMoveMode] = useState(false)
@@ -127,6 +151,8 @@ function App() {
   const [isQuickCaptureOpen, setIsQuickCaptureOpen] = useState(false)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false)
+  const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false)
+  const [googleLoginError, setGoogleLoginError] = useState<string | null>(null)
   const [isSmartImportOpen, setIsSmartImportOpen] = useState(false)
   const [smartImportFolderId, setSmartImportFolderId] = useState<string | null>(null)
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
@@ -675,18 +701,102 @@ function App() {
     setSelectedId(node.id)
   }
 
+  useEffect(() => {
+    if (!isAuthenticated || user?.method !== 'google') return
+    let cancelled = false
+    void checkServerAuthSession().then((profile) => {
+      if (cancelled || !profile) return
+      if (
+        profile.email !== ownerEmail ||
+        profile.name !== ownerName ||
+        (profile.avatarUrl ?? null) !== ownerAvatarUrl
+      ) {
+        linkGoogleAccount(profile)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [isAuthenticated, user?.method, ownerEmail, ownerName, ownerAvatarUrl, linkGoogleAccount])
+
+  const handleGoogleSignIn = useCallback(
+    (recoverMode = false) => {
+      setGoogleLoginError(null)
+      initiateGoogleLoginFlow({
+        loginHint: ownerEmail ?? undefined,
+        onSuccess: (profile) => {
+          if (isAuthenticated) {
+            const res = linkGoogleAccount(profile)
+            if (!res.success) {
+              setErrorMessage(res.error ?? 'Error al vincular Google')
+              return
+            }
+            setToastMessage(`Cuenta Google vinculada: ${profile.email}`)
+            return
+          }
+          const res = completeGoogleLogin(profile, { allowRecovery: recoverMode })
+          if (!res.success) {
+            setGoogleLoginError(res.error ?? 'Acceso denegado para esta cuenta Google.')
+            return
+          }
+          setToastMessage(`Sesión iniciada: ${profile.name}`)
+          if (res.needsPinResetOption) {
+            setIsSecurityModalOpen(true)
+          }
+        },
+        onError: (msg) => {
+          if (isAuthenticated) {
+            setErrorMessage(msg)
+          } else {
+            setGoogleLoginError(msg)
+          }
+        },
+      })
+    },
+    [isAuthenticated, ownerEmail, linkGoogleAccount, completeGoogleLogin],
+  )
+
+  const handleLockTerminal = useCallback(() => {
+    setGoogleLoginError(null)
+    setIsSecurityModalOpen(false)
+    logout()
+  }, [logout])
+
   if (!isAuthenticated) {
     return (
       <LoginView
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        onGoogleSignIn={initiateGoogleOAuth}
+        onGoogleSignIn={() => handleGoogleSignIn(false)}
+        onRecoverWithGoogle={() => handleGoogleSignIn(true)}
+        onResetTerminal={resetLocalTerminalSecurity}
+        onPinSubmit={async (candidate) => {
+          setGoogleLoginError(null)
+          return await loginWithPin(candidate)
+        }}
+        onFidoLogin={async () => {
+          setGoogleLoginError(null)
+          return await loginWithFido()
+        }}
+        onCredentialsSubmit={loginWithCredentials}
+        onOfflineAccess={() => {
+          setGoogleLoginError(null)
+          const res = loginOfflineEmergency()
+          if (res.success) {
+            setToastMessage('Acceso en Modo Urgencias Offline activado')
+          }
+          return res
+        }}
         onLoginSuccess={(loggedUser) =>
           setToastMessage(`Sesión iniciada: ${loggedUser.name}`)
         }
-        onOfflineAccess={() =>
-          setToastMessage('Acceso en Modo Urgencias Offline activado')
-        }
+        protectionConfigured={protectionConfigured}
+        pinEnabled={pinEnabled}
+        pinLength={pinLength}
+        hasPasskeys={hasPasskeys}
+        lockedUntil={lockedUntil}
+        ownerEmail={ownerEmail}
+        externalError={googleLoginError}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     )
   }
@@ -738,7 +848,8 @@ function App() {
                   userName={user?.name}
                   theme={theme}
                   onToggleTheme={toggleTheme}
-                  onLockTerminal={logout}
+                  onOpenSecuritySettings={() => setIsSecurityModalOpen(true)}
+                  onLockTerminal={handleLockTerminal}
                   isGoogleConnected={isGoogleConnected}
                   isGoogleSessionExpired={isGoogleSessionExpired}
                   googleHasPendingChanges={googleHasPendingChanges}
@@ -819,7 +930,8 @@ function App() {
               userName={user?.name}
               theme={theme}
               onToggleTheme={toggleTheme}
-              onLockTerminal={logout}
+              onOpenSecuritySettings={() => setIsSecurityModalOpen(true)}
+              onLockTerminal={handleLockTerminal}
               onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
               favoriteIds={favoriteIds}
               onToggleFavorite={toggleFavorite}
@@ -940,6 +1052,26 @@ function App() {
         onDisconnect={disconnectGoogle}
         onConnectToken={connectGoogleToken}
         onInitiateOAuth={initiateGoogleOAuth}
+      />
+
+      {/* Modal de Seguridad de Estación Clínica (Google Identity, PIN PBKDF2, Passkeys FIDO2) */}
+      <SecuritySettingsModal
+        isOpen={isSecurityModalOpen}
+        onClose={() => setIsSecurityModalOpen(false)}
+        user={user}
+        securityProfile={securityProfile}
+        protectionConfigured={protectionConfigured}
+        isGoogleDriveConnected={isGoogleConnected}
+        onLinkGoogleAccount={() => handleGoogleSignIn(false)}
+        onOpenGoogleDriveSync={() => {
+          setIsSecurityModalOpen(false)
+          setIsGoogleModalOpen(true)
+        }}
+        onSavePin={setupOrChangePin}
+        onRemovePin={removePin}
+        onRegisterPasskey={registerDevicePasskey}
+        onRemovePasskey={removeDevicePasskey}
+        onResetTerminalSecurity={resetLocalTerminalSecurity}
       />
 
       {/* Modal de Captura Rápida Global */}

@@ -73,6 +73,7 @@ export interface DashboardProps {
   userName?: string
   theme?: Theme
   onToggleTheme?: () => void
+  onOpenSecuritySettings?: () => void
   onLockTerminal?: () => void
   onOpenCommandPalette?: () => void
   favoriteIds?: string[]
@@ -132,6 +133,7 @@ export function Dashboard({
   userName = 'Médico de Guardia',
   theme = 'light',
   onToggleTheme,
+  onOpenSecuritySettings,
   onLockTerminal,
   onOpenCommandPalette,
   favoriteIds = [],
@@ -407,6 +409,7 @@ export function Dashboard({
           canInstallPwa={canInstallPwa}
           onInstallPwa={onInstallPwa}
           onToggleTheme={onToggleTheme}
+          onOpenSecuritySettings={onOpenSecuritySettings}
           onLockTerminal={onLockTerminal}
           isGoogleConnected={isGoogleConnected}
           isGoogleSessionExpired={isGoogleSessionExpired}
