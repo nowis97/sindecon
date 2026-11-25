@@ -9,11 +9,10 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sun,
-  WifiOff,
 } from 'lucide-react'
 import type { AuthUser } from '../../domain/auth'
 import { isWebAuthnSupported } from '../../domain/fidoAuth'
-import { DEFAULT_PIN, useAuth } from '../../hooks/useAuth'
+import { useAuth } from '../../hooks/useAuth'
 import { initiateGoogleLoginFlow } from '../../pwa/googleAuth'
 
 export interface LoginViewProps {
@@ -26,6 +25,12 @@ export interface LoginViewProps {
     pin: string,
   ) => Promise<{ success: boolean; error?: string; lockedUntil?: number | null; user?: AuthUser }>
   onFidoLogin?: () => Promise<{ success: boolean; error?: string; user?: AuthUser }>
+  onSetupInitialPin?: (
+    newPin: string,
+  ) => Promise<{ success: boolean; error?: string; user?: AuthUser }>
+  onRegisterInitialPasskey?: (
+    label?: string,
+  ) => Promise<{ success: boolean; error?: string; user?: AuthUser }>
   onCredentialsSubmit?: (
     username: string,
     password: string,
@@ -46,12 +51,12 @@ const KEYPAD_DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
 export function LoginView({
   onLoginSuccess,
   onGoogleSignIn,
-  onOfflineAccess,
   onRecoverWithGoogle,
   onResetTerminal,
   onPinSubmit,
   onFidoLogin,
-  onCredentialsSubmit,
+  onSetupInitialPin,
+  onRegisterInitialPasskey,
   protectionConfigured: protectionConfiguredProp,
   pinEnabled: pinEnabledProp,
   pinLength: pinLengthProp,
@@ -70,16 +75,15 @@ export function LoginView({
   const lockedUntil = lockedUntilProp !== undefined ? lockedUntilProp : auth.lockedUntil
   const ownerEmail = ownerEmailProp !== undefined ? ownerEmailProp : auth.securityProfile.ownerEmail
 
-  const [tab, setTab] = useState<'pin' | 'credentials'>('pin')
   const [pin, setPin] = useState('')
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+  const [setupPinLength, setSetupPinLength] = useState<4 | 6>(4)
+  const [setupPin, setSetupPin] = useState('')
+  const [setupConfirmPin, setSetupConfirmPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
 
-  const activeTab = protectionConfigured ? 'pin' : tab
   const visiblePin = pin.slice(0, pinLength)
 
   const remainingLockSeconds =
@@ -154,7 +158,7 @@ export function LoginView({
   }, [busy, isLocked])
 
   useEffect(() => {
-    if (activeTab !== 'pin' || !pinEnabled || confirmReset) return
+    if (!protectionConfigured || !pinEnabled || confirmReset) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -169,14 +173,10 @@ export function LoginView({
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeTab, pinEnabled, confirmReset, handleDigitClick, handleBackspace])
+  }, [protectionConfigured, pinEnabled, confirmReset, handleDigitClick, handleBackspace])
 
   const handleFidoAccess = async () => {
-    if (busy) return
-    if (!hasPasskeys && !protectionConfigured) {
-      await submitPin(DEFAULT_PIN)
-      return
-    }
+    if (busy || !protectionConfigured) return
     setBusy(true)
     setError(null)
     try {
@@ -194,42 +194,48 @@ export function LoginView({
     }
   }
 
-  const handleCredentialsForm = (e: FormEvent) => {
+  const handleSetupPinSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (protectionConfigured) return
-    const handler = onCredentialsSubmit ?? auth.loginWithCredentials
-    const res = handler(username, password)
-    if (res.success) {
-      if (res.user) {
-        onLoginSuccess?.(res.user)
+    if (busy || protectionConfigured) return
+    if (!new RegExp(`^\\d{${setupPinLength}}$`).test(setupPin)) {
+      setError(`Ingresa un PIN de exactamente ${setupPinLength} dígitos numéricos.`)
+      return
+    }
+    if (setupPin !== setupConfirmPin) {
+      setError('Los dos PIN ingresados no coinciden.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const handler = onSetupInitialPin ?? auth.setupInitialPin
+      const res = await handler(setupPin)
+      if (!res.success) {
+        setError(res.error || 'No se pudo configurar el PIN inicial.')
+        return
       }
-    } else {
-      setError(res.error || 'Credenciales incorrectas.')
+      setSetupPin('')
+      setSetupConfirmPin('')
+      if (res.user) onLoginSuccess?.(res.user)
+    } finally {
+      setBusy(false)
     }
   }
 
-  const handleEmergencyOffline = () => {
-    if (protectionConfigured) return
-    if (onOfflineAccess) {
-      const res = onOfflineAccess()
-      if (res && typeof res === 'object' && 'success' in res) {
-        if (res.success) {
-          if (res.user) {
-            onLoginSuccess?.(res.user)
-          }
-        } else {
-          setError(res.error || 'Acceso de urgencias no disponible.')
-        }
+  const handleSetupFido = async () => {
+    if (busy || protectionConfigured) return
+    setBusy(true)
+    setError(null)
+    try {
+      const handler = onRegisterInitialPasskey ?? auth.registerInitialPasskey
+      const res = await handler('Huella / Face ID de este equipo')
+      if (!res.success) {
+        setError(res.error || 'No se pudo registrar la passkey biométrica.')
+        return
       }
-      return
-    }
-    const res = auth.loginOfflineEmergency()
-    if (res.success) {
-      if (res.user) {
-        onLoginSuccess?.(res.user)
-      }
-    } else {
-      setError(res.error || 'Acceso de urgencias no disponible.')
+      if (res.user) onLoginSuccess?.(res.user)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -294,7 +300,7 @@ export function LoginView({
               <p className="text-xs font-medium" style={{ color: 'var(--cl-muted)' }}>
                 {protectionConfigured
                   ? 'Terminal clínico protegido'
-                  : 'Estación clínica offline-first'}
+                  : 'Configura tu acceso inicial'}
               </p>
             </div>
           </div>
@@ -311,52 +317,6 @@ export function LoginView({
           )}
         </div>
 
-        {!protectionConfigured && (
-          <div
-            className="mb-5 grid grid-cols-2 gap-1 rounded-full p-1"
-            style={{ backgroundColor: 'var(--cl-bg-subtle)' }}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setTab('pin')
-                setError(null)
-              }}
-              className="rounded-full py-2 text-xs font-semibold transition cursor-pointer"
-              style={
-                activeTab === 'pin'
-                  ? {
-                      backgroundColor: 'var(--cl-surface)',
-                      color: 'var(--cl-fg)',
-                      boxShadow: 'var(--cl-shadow-tab)',
-                    }
-                  : { color: 'var(--cl-muted)' }
-              }
-            >
-              PIN de Guardia
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTab('credentials')
-                setError(null)
-              }}
-              className="rounded-full py-2 text-xs font-semibold transition cursor-pointer"
-              style={
-                activeTab === 'credentials'
-                  ? {
-                      backgroundColor: 'var(--cl-surface)',
-                      color: 'var(--cl-fg)',
-                      boxShadow: 'var(--cl-shadow-tab)',
-                    }
-                  : { color: 'var(--cl-muted)' }
-              }
-            >
-              Credenciales
-            </button>
-          </div>
-        )}
-
         {displayError && (
           <div
             role="alert"
@@ -369,14 +329,14 @@ export function LoginView({
           >
             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
-              {isLocked
+              {protectionConfigured && isLocked
                 ? `Terminal bloqueado temporalmente (${remainingLockSeconds} s). Usa tu llave FIDO o Google.`
                 : displayError}
             </span>
           </div>
         )}
 
-        {isLocked && !displayError && (
+        {protectionConfigured && isLocked && !displayError && (
           <div
             role="status"
             className="mb-4 flex items-center gap-2 rounded-2xl border px-3.5 py-2.5 text-xs font-semibold"
@@ -391,259 +351,353 @@ export function LoginView({
           </div>
         )}
 
-        {activeTab === 'pin' && pinEnabled && (
-          <div>
+        {!protectionConfigured ? (
+          <div className="space-y-4">
             <div
-              data-testid="pin-dots"
-              data-pin-length={pinLength}
-              aria-label={`PIN con ${visiblePin.length} de ${pinLength} dígitos`}
-              className="mb-3 flex items-center justify-center gap-3 py-2"
+              className="rounded-2xl border p-3.5 text-xs"
+              style={{
+                backgroundColor: 'var(--cl-surface-muted)',
+                borderColor: 'var(--cl-border)',
+                color: 'var(--cl-fg-2)',
+              }}
             >
-              {Array.from({ length: pinLength }).map((_, idx) => {
-                const filled = idx < visiblePin.length
-                return (
-                  <span
-                    key={idx}
-                    data-testid="pin-dot"
-                    className="h-3.5 w-3.5 rounded-full border-2 transition-transform"
-                    style={{
-                      borderColor: filled ? 'var(--cl-diagnostic)' : 'var(--cl-border)',
-                      backgroundColor: filled ? 'var(--cl-diagnostic)' : 'transparent',
-                      transform: filled ? 'scale(1.1)' : 'scale(1)',
-                    }}
-                  />
-                )
-              })}
+              <p className="font-semibold mb-1" style={{ color: 'var(--cl-fg)' }}>
+                Protege tu estación clínica
+              </p>
+              <p className="text-[11px]" style={{ color: 'var(--cl-muted)' }}>
+                Elige Google, un PIN de guardia o Passkey biométrica antes del primer ingreso.
+              </p>
             </div>
 
-            {!protectionConfigured && (
-              <p className="mb-3 text-center text-[11px] font-medium" style={{ color: 'var(--cl-muted)' }}>
-                PIN de guardia inicial: <strong style={{ color: 'var(--cl-fg)' }}>1234</strong>
-              </p>
-            )}
+            <button
+              type="button"
+              data-testid="google-login-btn"
+              disabled={busy}
+              onClick={() => handleGoogleAccess(false)}
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-full border text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+              style={{
+                backgroundColor: 'var(--cl-surface-elevated)',
+                borderColor: 'var(--cl-border)',
+                color: 'var(--cl-fg)',
+              }}
+            >
+              Continuar con Google
+            </button>
 
-            <div className="mx-auto grid max-w-[260px] grid-cols-3 gap-2.5">
-              {KEYPAD_DIGITS.map((digit) => (
-                <button
-                  key={digit}
-                  type="button"
-                  aria-label={`Dígito ${digit}`}
-                  disabled={busy || isLocked}
-                  onClick={() => handleDigitClick(digit)}
-                  className="h-12 rounded-2xl border text-base font-bold transition active:scale-95 disabled:opacity-45 cursor-pointer disabled:cursor-not-allowed"
+            <div className="relative flex items-center py-1">
+              <div className="flex-grow border-t" style={{ borderColor: 'var(--cl-border-soft)' }} />
+              <span
+                className="mx-3 text-[10px] font-medium uppercase tracking-wider"
+                style={{ color: 'var(--cl-muted)' }}
+              >
+                o acceso offline local
+              </span>
+              <div className="flex-grow border-t" style={{ borderColor: 'var(--cl-border-soft)' }} />
+            </div>
+
+            <form onSubmit={(e) => void handleSetupPinSubmit(e)} className="space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--cl-fg)' }}>
+                  <KeyRound className="h-3.5 w-3.5" style={{ color: 'var(--cl-diagnostic)' }} />
+                  Crear PIN de guardia
+                </span>
+                <div className="flex gap-1">
+                  {([4, 6] as const).map((len) => (
+                    <button
+                      key={len}
+                      type="button"
+                      onClick={() => {
+                        setSetupPinLength(len)
+                        setSetupPin('')
+                        setSetupConfirmPin('')
+                        setError(null)
+                      }}
+                      className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold cursor-pointer border"
+                      style={
+                        setupPinLength === len
+                          ? { backgroundColor: 'var(--cl-accent)', borderColor: 'var(--cl-accent)', color: '#ffffff' }
+                          : { borderColor: 'var(--cl-border)', color: 'var(--cl-muted)' }
+                      }
+                    >
+                      {len} dígitos
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  data-testid="setup-pin-input"
+                  type="password"
+                  inputMode="numeric"
+                  aria-label={`Nuevo PIN de ${setupPinLength} dígitos`}
+                  maxLength={setupPinLength}
+                  placeholder={`Nuevo PIN (${setupPinLength})`}
+                  value={setupPin}
+                  onChange={(e) => setSetupPin(e.target.value.replace(/\D/g, '').slice(0, setupPinLength))}
+                  className="h-10 w-full rounded-xl border px-3 text-xs outline-none"
                   style={{
                     backgroundColor: 'var(--cl-surface-muted)',
                     borderColor: 'var(--cl-border)',
                     color: 'var(--cl-fg)',
                   }}
-                >
-                  {digit}
-                </button>
-              ))}
+                />
+                <input
+                  data-testid="setup-pin-confirm-input"
+                  type="password"
+                  inputMode="numeric"
+                  aria-label="Confirmar PIN inicial"
+                  maxLength={setupPinLength}
+                  placeholder="Confirmar PIN"
+                  value={setupConfirmPin}
+                  onChange={(e) => setSetupConfirmPin(e.target.value.replace(/\D/g, '').slice(0, setupPinLength))}
+                  className="h-10 w-full rounded-xl border px-3 text-xs outline-none"
+                  style={{
+                    backgroundColor: 'var(--cl-surface-muted)',
+                    borderColor: 'var(--cl-border)',
+                    color: 'var(--cl-fg)',
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                data-testid="setup-pin-submit-btn"
+                disabled={busy}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-full text-xs font-semibold text-white transition cursor-pointer disabled:opacity-50"
+                style={{ backgroundColor: 'var(--cl-accent)' }}
+              >
+                Guardar PIN e ingresar
+              </button>
+            </form>
+
+            <div className="space-y-1">
               <button
                 type="button"
-                data-testid="fido-unlock-btn"
-                title={
-                  hasPasskeys
-                    ? 'Desbloquear con Huella / Passkey FIDO2'
-                    : protectionConfigured
-                      ? 'Registra una passkey en Seguridad para activar biometría'
-                      : 'Acceso biométrico de demostración'
-                }
-                aria-label="Ingresar con Huella o Passkey"
-                disabled={busy || (protectionConfigured && !hasPasskeys)}
-                onClick={() => void handleFidoAccess()}
-                className="flex h-12 items-center justify-center rounded-2xl border transition active:scale-95 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                data-testid="setup-fido-btn"
+                disabled={busy || !webAuthnCapable}
+                onClick={() => void handleSetupFido()}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-full border text-xs font-semibold transition cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
                 style={{
-                  backgroundColor: hasPasskeys ? 'var(--cl-accent-soft)' : 'var(--cl-surface-muted)',
-                  borderColor: hasPasskeys ? 'var(--cl-accent-border)' : 'var(--cl-border)',
-                  color: hasPasskeys ? 'var(--cl-diagnostic)' : 'var(--cl-muted)',
+                  backgroundColor: 'var(--cl-accent-soft)',
+                  borderColor: 'var(--cl-accent-border)',
+                  color: 'var(--cl-diagnostic)',
                 }}
               >
-                <Fingerprint className="h-5 w-5" />
+                <Fingerprint className="h-4 w-4" />
+                Registrar Huella / Passkey FIDO2
               </button>
+              {!webAuthnCapable && (
+                <p className="text-center text-[10px]" style={{ color: 'var(--cl-muted)' }}>
+                  Navegador sin soporte FIDO2 o sin contexto HTTPS.
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            {pinEnabled && (
+              <div>
+                <div
+                  data-testid="pin-dots"
+                  data-pin-length={pinLength}
+                  aria-label={`PIN con ${visiblePin.length} de ${pinLength} dígitos`}
+                  className="mb-3 flex items-center justify-center gap-3 py-2"
+                >
+                  {Array.from({ length: pinLength }).map((_, idx) => {
+                    const filled = idx < visiblePin.length
+                    return (
+                      <span
+                        key={idx}
+                        data-testid="pin-dot"
+                        className="h-3.5 w-3.5 rounded-full border-2 transition-transform"
+                        style={{
+                          borderColor: filled ? 'var(--cl-diagnostic)' : 'var(--cl-border)',
+                          backgroundColor: filled ? 'var(--cl-diagnostic)' : 'transparent',
+                          transform: filled ? 'scale(1.1)' : 'scale(1)',
+                        }}
+                      />
+                    )
+                  })}
+                </div>
+
+                <div className="mx-auto grid max-w-[260px] grid-cols-3 gap-2.5">
+                  {KEYPAD_DIGITS.map((digit) => (
+                    <button
+                      key={digit}
+                      type="button"
+                      aria-label={`Dígito ${digit}`}
+                      disabled={busy || isLocked}
+                      onClick={() => handleDigitClick(digit)}
+                      className="h-12 rounded-2xl border text-base font-bold transition active:scale-95 disabled:opacity-45 cursor-pointer disabled:cursor-not-allowed"
+                      style={{
+                        backgroundColor: 'var(--cl-surface-muted)',
+                        borderColor: 'var(--cl-border)',
+                        color: 'var(--cl-fg)',
+                      }}
+                    >
+                      {digit}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    data-testid="fido-unlock-btn"
+                    title={
+                      hasPasskeys
+                        ? 'Desbloquear con Huella / Passkey FIDO2'
+                        : 'Registra una passkey en Seguridad para activar biometría'
+                    }
+                    aria-label="Ingresar con Huella o Passkey"
+                    disabled={busy || !hasPasskeys}
+                    onClick={() => void handleFidoAccess()}
+                    className="flex h-12 items-center justify-center rounded-2xl border transition active:scale-95 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: hasPasskeys ? 'var(--cl-accent-soft)' : 'var(--cl-surface-muted)',
+                      borderColor: hasPasskeys ? 'var(--cl-accent-border)' : 'var(--cl-border)',
+                      color: hasPasskeys ? 'var(--cl-diagnostic)' : 'var(--cl-muted)',
+                    }}
+                  >
+                    <Fingerprint className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Dígito 0"
+                    disabled={busy || isLocked}
+                    onClick={() => handleDigitClick('0')}
+                    className="h-12 rounded-2xl border text-base font-bold transition active:scale-95 disabled:opacity-45 cursor-pointer disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: 'var(--cl-surface-muted)',
+                      borderColor: 'var(--cl-border)',
+                      color: 'var(--cl-fg)',
+                    }}
+                  >
+                    0
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Borrar último dígito"
+                    disabled={busy || isLocked || visiblePin.length === 0}
+                    onClick={handleBackspace}
+                    className="flex h-12 items-center justify-center rounded-2xl border transition active:scale-95 disabled:opacity-45 cursor-pointer disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: 'var(--cl-surface-muted)',
+                      borderColor: 'var(--cl-border)',
+                      color: 'var(--cl-fg-2)',
+                    }}
+                  >
+                    <Delete className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!pinEnabled && hasPasskeys && (
+              <div className="mb-4 rounded-2xl border p-4 text-center" style={{ borderColor: 'var(--cl-border)' }}>
+                <ShieldCheck className="mx-auto mb-2 h-8 w-8" style={{ color: 'var(--cl-diagnostic)' }} />
+                <p className="text-xs font-medium" style={{ color: 'var(--cl-fg-2)' }}>
+                  Este equipo usa Passkey FIDO2 o cuenta Google (PIN desactivado).
+                </p>
+              </div>
+            )}
+
+            {!pinEnabled && !hasPasskeys && ownerEmail && (
+              <div className="mb-4 rounded-2xl border p-4 text-center" style={{ borderColor: 'var(--cl-border)' }}>
+                <ShieldCheck className="mx-auto mb-2 h-8 w-8" style={{ color: 'var(--cl-diagnostic)' }} />
+                <p className="text-xs font-medium" style={{ color: 'var(--cl-fg-2)' }}>
+                  Este equipo está protegido con la cuenta Google {ownerEmail}. Inicia sesión con Google para ingresar.
+                </p>
+              </div>
+            )}
+
+            <div className="mt-5 space-y-2.5 border-t pt-4" style={{ borderColor: 'var(--cl-border-soft)' }}>
+              {hasPasskeys && webAuthnCapable && (
+                <button
+                  type="button"
+                  data-testid={!pinEnabled ? 'fido-unlock-btn' : undefined}
+                  disabled={busy}
+                  onClick={() => void handleFidoAccess()}
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-full text-xs font-semibold text-white transition disabled:opacity-50 cursor-pointer"
+                  style={{ backgroundColor: 'var(--cl-accent)' }}
+                >
+                  <Fingerprint className="h-4 w-4" />
+                  Ingresar con Huella / Passkey FIDO2
+                </button>
+              )}
+
               <button
                 type="button"
-                aria-label="Dígito 0"
-                disabled={busy || isLocked}
-                onClick={() => handleDigitClick('0')}
-                className="h-12 rounded-2xl border text-base font-bold transition active:scale-95 disabled:opacity-45 cursor-pointer disabled:cursor-not-allowed"
+                data-testid="google-login-btn"
+                onClick={() => handleGoogleAccess(false)}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-full border text-xs font-semibold transition cursor-pointer"
                 style={{
-                  backgroundColor: 'var(--cl-surface-muted)',
+                  backgroundColor: 'var(--cl-surface-elevated)',
                   borderColor: 'var(--cl-border)',
                   color: 'var(--cl-fg)',
                 }}
               >
-                0
+                Continuar con Google
               </button>
-              <button
-                type="button"
-                aria-label="Borrar último dígito"
-                disabled={busy || isLocked || visiblePin.length === 0}
-                onClick={handleBackspace}
-                className="flex h-12 items-center justify-center rounded-2xl border transition active:scale-95 disabled:opacity-45 cursor-pointer disabled:cursor-not-allowed"
-                style={{
-                  backgroundColor: 'var(--cl-surface-muted)',
-                  borderColor: 'var(--cl-border)',
-                  color: 'var(--cl-fg-2)',
-                }}
-              >
-                <Delete className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        )}
 
-        {activeTab === 'pin' && !pinEnabled && hasPasskeys && (
-          <div className="mb-4 rounded-2xl border p-4 text-center" style={{ borderColor: 'var(--cl-border)' }}>
-            <ShieldCheck className="mx-auto mb-2 h-8 w-8" style={{ color: 'var(--cl-diagnostic)' }} />
-            <p className="text-xs font-medium" style={{ color: 'var(--cl-fg-2)' }}>
-              Este equipo usa Passkey FIDO2 o cuenta Google (PIN desactivado).
-            </p>
-          </div>
-        )}
-
-        {activeTab === 'credentials' && !protectionConfigured && (
-          <form onSubmit={handleCredentialsForm} className="space-y-3">
-            <input
-              type="text"
-              aria-label="Usuario clínico"
-              placeholder="Usuario clínico (ej. medico)"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="h-11 w-full rounded-xl border px-3.5 text-sm outline-none"
-              style={{
-                backgroundColor: 'var(--cl-surface-muted)',
-                borderColor: 'var(--cl-border)',
-                color: 'var(--cl-fg)',
-              }}
-            />
-            <input
-              type="password"
-              aria-label="Contraseña inicial"
-              placeholder="Contraseña inicial"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="h-11 w-full rounded-xl border px-3.5 text-sm outline-none"
-              style={{
-                backgroundColor: 'var(--cl-surface-muted)',
-                borderColor: 'var(--cl-border)',
-                color: 'var(--cl-fg)',
-              }}
-            />
-            <button
-              type="submit"
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-full text-xs font-semibold text-white transition cursor-pointer"
-              style={{ backgroundColor: 'var(--cl-accent)' }}
-            >
-              <KeyRound className="h-4 w-4" />
-              Ingresar
-            </button>
-          </form>
-        )}
-
-        <div className="mt-5 space-y-2.5 border-t pt-4" style={{ borderColor: 'var(--cl-border-soft)' }}>
-          {hasPasskeys && webAuthnCapable && (
-            <button
-              type="button"
-              data-testid={!pinEnabled ? 'fido-unlock-btn' : undefined}
-              disabled={busy}
-              onClick={() => void handleFidoAccess()}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-full text-xs font-semibold text-white transition disabled:opacity-50 cursor-pointer"
-              style={{ backgroundColor: 'var(--cl-accent)' }}
-            >
-              <Fingerprint className="h-4 w-4" />
-              Ingresar con Huella / Passkey FIDO2
-            </button>
-          )}
-
-          <button
-            type="button"
-            data-testid="google-login-btn"
-            onClick={() => handleGoogleAccess(false)}
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-full border text-xs font-semibold transition cursor-pointer"
-            style={{
-              backgroundColor: 'var(--cl-surface-elevated)',
-              borderColor: 'var(--cl-border)',
-              color: 'var(--cl-fg)',
-            }}
-          >
-            Continuar con Google
-          </button>
-
-          {!protectionConfigured && (
-            <button
-              type="button"
-              data-testid="emergency-offline-btn"
-              onClick={handleEmergencyOffline}
-              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-full text-[11px] font-semibold transition cursor-pointer"
-              style={{ color: 'var(--cl-muted)' }}
-            >
-              <WifiOff className="h-3.5 w-3.5" />
-              Ingreso directo — Urgencias (Sin red)
-            </button>
-          )}
-
-          {protectionConfigured && (
-            <div className="pt-1 text-center">
-              {ownerEmail ? (
-                <button
-                  type="button"
-                  data-testid="recover-google-btn"
-                  onClick={() => handleGoogleAccess(true)}
-                  className="text-[11px] font-semibold underline-offset-2 hover:underline cursor-pointer"
-                  style={{ color: 'var(--cl-diagnostic)' }}
-                >
-                  ¿Olvidaste tu PIN? Recuperar con Google ({ownerEmail})
-                </button>
-              ) : !confirmReset ? (
-                <button
-                  type="button"
-                  data-testid="reset-local-terminal-btn"
-                  onClick={() => setConfirmReset(true)}
-                  className="text-[11px] font-semibold underline-offset-2 hover:underline cursor-pointer"
-                  style={{ color: 'var(--cl-muted)' }}
-                >
-                  ¿Olvidaste tu PIN? Restablecer terminal local
-                </button>
-              ) : (
-                <div
-                  className="mt-2 rounded-2xl border p-3 text-left text-[11px]"
-                  style={{
-                    backgroundColor: 'var(--cl-warn-soft)',
-                    borderColor: 'var(--cl-warn-border)',
-                    color: 'var(--cl-fg)',
-                  }}
-                >
-                  <p className="mb-2 font-medium">
-                    Esto quitará el bloqueo local (PIN/FIDO) sin borrar tus notas clínicas ni PDFs.
-                  </p>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setConfirmReset(false)}
-                      className="rounded-full px-3 py-1 font-semibold cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setConfirmReset(false)
-                        setPin('')
-                        setError(null)
-                        void (onResetTerminal ? onResetTerminal() : auth.resetLocalTerminalSecurity())
-                      }}
-                      className="rounded-full bg-red-600 px-3 py-1 font-semibold text-white cursor-pointer"
-                    >
-                      Confirmar restablecimiento
-                    </button>
+              <div className="pt-1 text-center">
+                {ownerEmail ? (
+                  <button
+                    type="button"
+                    data-testid="recover-google-btn"
+                    onClick={() => handleGoogleAccess(true)}
+                    className="text-[11px] font-semibold underline-offset-2 hover:underline cursor-pointer"
+                    style={{ color: 'var(--cl-diagnostic)' }}
+                  >
+                    ¿Olvidaste tu PIN? Recuperar con Google ({ownerEmail})
+                  </button>
+                ) : !confirmReset ? (
+                  <button
+                    type="button"
+                    data-testid="reset-local-terminal-btn"
+                    onClick={() => setConfirmReset(true)}
+                    className="text-[11px] font-semibold underline-offset-2 hover:underline cursor-pointer"
+                    style={{ color: 'var(--cl-muted)' }}
+                  >
+                    ¿Olvidaste tu PIN? Restablecer terminal local
+                  </button>
+                ) : (
+                  <div
+                    className="mt-2 rounded-2xl border p-3 text-left text-[11px]"
+                    style={{
+                      backgroundColor: 'var(--cl-warn-soft)',
+                      borderColor: 'var(--cl-warn-border)',
+                      color: 'var(--cl-fg)',
+                    }}
+                  >
+                    <p className="mb-2 font-medium">
+                      Esto quitará el bloqueo local (PIN/FIDO) sin borrar tus notas clínicas ni PDFs.
+                    </p>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmReset(false)}
+                        className="rounded-full px-3 py-1 font-semibold cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmReset(false)
+                          setPin('')
+                          setError(null)
+                          void (onResetTerminal ? onResetTerminal() : auth.resetLocalTerminalSecurity())
+                        }}
+                        className="rounded-full bg-red-600 px-3 py-1 font-semibold text-white cursor-pointer"
+                      >
+                        Confirmar restablecimiento
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   )
