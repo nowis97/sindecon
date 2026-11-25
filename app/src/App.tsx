@@ -723,7 +723,7 @@ function App() {
     (recoverMode = false) => {
       setGoogleLoginError(null)
       initiateGoogleLoginFlow({
-        loginHint: ownerEmail ?? undefined,
+        loginHint: isAuthenticated ? undefined : (ownerEmail ?? undefined),
         onSuccess: (profile) => {
           if (isAuthenticated) {
             const res = linkGoogleAccount(profile)
@@ -779,14 +779,14 @@ function App() {
         onCredentialsSubmit={loginWithCredentials}
         onOfflineAccess={() => {
           setGoogleLoginError(null)
-          const res = loginOfflineEmergency()
-          if (res.success) {
-            setToastMessage('Acceso en Modo Urgencias Offline activado')
-          }
-          return res
+          return loginOfflineEmergency()
         }}
         onLoginSuccess={(loggedUser) =>
-          setToastMessage(`Sesión iniciada: ${loggedUser.name}`)
+          setToastMessage(
+            loggedUser.method === 'offline'
+              ? 'Acceso en Modo Urgencias Offline activado'
+              : `Sesión iniciada: ${loggedUser.name}`,
+          )
         }
         protectionConfigured={protectionConfigured}
         pinEnabled={pinEnabled}
