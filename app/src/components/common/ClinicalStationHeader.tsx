@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
-import { Lock, Moon, Smartphone, Sun } from 'lucide-react'
+import { Lock, Moon, ShieldCheck, Smartphone, Sun } from 'lucide-react'
 import type { Theme } from '../../hooks/useTheme'
 import { getSyncStatusDetails, type SyncProgress, type SyncState } from '../../pwa/syncEngine'
 
@@ -11,6 +11,7 @@ export interface ClinicalStationHeaderProps {
   canInstallPwa?: boolean
   onInstallPwa?: () => void
   onToggleTheme?: () => void
+  onOpenSecuritySettings?: () => void
   onLockTerminal?: () => void
   isGoogleConnected?: boolean
   isGoogleSessionExpired?: boolean
@@ -20,6 +21,9 @@ export interface ClinicalStationHeaderProps {
   googleLastSyncedAt?: Date | null
   onOpenGoogleDriveSync?: () => void
 }
+
+const HEADER_ACTION_BTN_CLASS =
+  'inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-full border border-[var(--cl-border)] bg-[var(--cl-surface)] hover:bg-[var(--cl-surface-warm)] text-[var(--cl-fg-2)] hover:text-[var(--cl-fg)] text-xs font-semibold cursor-pointer transition-colors'
 
 const SYNC_STYLE_MAP: Record<string, { dotClass: string; pillClass: string }> = {
   disconnected: {
@@ -68,6 +72,7 @@ export function ClinicalStationHeader({
   canInstallPwa = false,
   onInstallPwa,
   onToggleTheme,
+  onOpenSecuritySettings,
   onLockTerminal,
   isGoogleConnected = false,
   isGoogleSessionExpired = false,
@@ -128,7 +133,7 @@ export function ClinicalStationHeader({
           <button
             type="button"
             onClick={onInstallPwa}
-            className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-full border border-[var(--cl-border)] bg-[var(--cl-surface)] hover:bg-[var(--cl-surface-warm)] text-[var(--cl-fg-2)] hover:text-[var(--cl-fg)] text-xs font-semibold cursor-pointer transition-colors"
+            className={HEADER_ACTION_BTN_CLASS}
             title="Instalar SINDECON como aplicación offline"
           >
             <Smartphone className="w-3.5 h-3.5" />
@@ -141,20 +146,35 @@ export function ClinicalStationHeader({
             type="button"
             onClick={onToggleTheme}
             aria-label="Cambiar entre modo diurno y guardia UCI"
-            className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-full border border-[var(--cl-border)] bg-[var(--cl-surface)] hover:bg-[var(--cl-surface-warm)] text-[var(--cl-fg-2)] hover:text-[var(--cl-fg)] text-xs font-semibold cursor-pointer transition-colors"
+            className={HEADER_ACTION_BTN_CLASS}
           >
             {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
             <span>{isDark ? 'Turno Día' : 'Guardia UCI'}</span>
           </button>
         )}
 
+        {onOpenSecuritySettings && (
+          <button
+            type="button"
+            data-testid="header-security-btn"
+            onClick={onOpenSecuritySettings}
+            aria-label="Seguridad"
+            title="Configurar PIN, FIDO y cuenta Google"
+            className={HEADER_ACTION_BTN_CLASS}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Seguridad</span>
+          </button>
+        )}
+
         {onLockTerminal && (
           <button
             type="button"
+            data-testid="header-lock-btn"
             onClick={onLockTerminal}
             aria-label="Bloquear terminal clínico"
             title={`Sesión activa: ${userName}. Clic para bloquear terminal.`}
-            className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-full border border-[var(--cl-border)] bg-[var(--cl-surface)] hover:bg-[var(--cl-surface-warm)] text-[var(--cl-fg-2)] hover:text-[var(--cl-fg)] text-xs font-semibold cursor-pointer transition-colors"
+            className={HEADER_ACTION_BTN_CLASS}
           >
             <Lock className="w-3.5 h-3.5" />
             <span>Bloquear</span>

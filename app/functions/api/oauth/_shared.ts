@@ -1,3 +1,5 @@
+import { fromBase64Url, toBase64Url } from '../../../shared/webauthnCrypto'
+
 export interface OAuthEnv {
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
@@ -21,29 +23,6 @@ export const COOKIE_MAX_AGE_SECONDS = 15_552_000 // 180 días
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
-
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]!)
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-}
-
-function fromBase64Url(value: string): Uint8Array<ArrayBuffer> | null {
-  if (!value) return null
-  try {
-    const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((value.length + 3) % 4)
-    const binary = atob(padded)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i)
-    }
-    return bytes
-  } catch {
-    return null
-  }
-}
 
 async function deriveAesKey(secret: string): Promise<CryptoKey> {
   const hash = await crypto.subtle.digest('SHA-256', encoder.encode(secret))
@@ -109,11 +88,8 @@ export function validateEnv(
   return { ok: true, clientId, clientSecret, cookieSecret }
 }
 
-/** Cifra el payload de sesión con AES-256-GCM usando un IV aleatorio de 96 bits. */
-export async function encryptCookiePayload(
-  payload: EncryptedSessionPayload,
-  secret: string,
-): Promise<string> {
+/** Cifra un objeto JSON arbitrario con AES-256-GCM y un IV aleatorio de 96 bits. */
+export async function encryptSealedPayload<T>(payload: T, secret: string): Promise<string> {
   const key = await deriveAesKey(secret)
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const plaintext = encoder.encode(JSON.stringify(payload))
@@ -123,13 +99,13 @@ export async function encryptCookiePayload(
   return `${toBase64Url(iv)}.${toBase64Url(ciphertext)}`
 }
 
-/** Descifra y valida la estructura del payload de sesión; retorna null si falla o fue manipulado. */
-export async function decryptCookiePayload(
-  cookieValue: string,
+/** Descifra un payload AES-256-GCM; retorna null si está manipulado o malformado. */
+export async function decryptSealedPayload<T>(
+  token: string,
   secret: string,
-): Promise<EncryptedSessionPayload | null> {
-  if (!cookieValue || !secret) return null
-  const parts = cookieValue.split('.')
+): Promise<T | null> {
+  if (!token || !secret) return null
+  const parts = token.split('.')
   if (parts.length !== 2) return null
 
   const iv = fromBase64Url(parts[0]!)
@@ -143,35 +119,48 @@ export async function decryptCookiePayload(
       key,
       ciphertext,
     )
-    const parsed = JSON.parse(decoder.decode(decrypted)) as Partial<EncryptedSessionPayload>
-    if (
-      parsed &&
-      typeof parsed.rt === 'string' &&
-      parsed.rt.length > 0 &&
-      typeof parsed.iat === 'number'
-    ) {
-      return {
-        rt: parsed.rt,
-        email: typeof parsed.email === 'string' ? parsed.email : undefined,
-        iat: parsed.iat,
-      }
-    }
-    return null
+    return JSON.parse(decoder.decode(decrypted)) as T
   } catch {
     return null
   }
 }
 
-/** Extrae y decodifica la cookie de sesión OAuth desde la cabecera Cookie de la petición. */
-export function readSessionCookie(request: Request): string | null {
+/** Cifra el payload de sesión con AES-256-GCM usando un IV aleatorio de 96 bits. */
+export async function encryptCookiePayload(
+  payload: EncryptedSessionPayload,
+  secret: string,
+): Promise<string> {
+  return encryptSealedPayload(payload, secret)
+}
+
+/** Descifra y valida la estructura del payload de sesión; retorna null si falla o fue manipulado. */
+export async function decryptCookiePayload(
+  cookieValue: string,
+  secret: string,
+): Promise<EncryptedSessionPayload | null> {
+  const parsed = await decryptSealedPayload<unknown>(cookieValue, secret)
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return null
+  }
+  const obj = parsed as Partial<EncryptedSessionPayload>
+  if (typeof obj.rt === 'string' && obj.rt.length > 0 && typeof obj.iat === 'number') {
+    return {
+      rt: obj.rt,
+      email: typeof obj.email === 'string' ? obj.email : undefined,
+      iat: obj.iat,
+    }
+  }
+  return null
+}
+
+/** Extrae el valor crudo de una cookie por nombre desde el header Cookie. */
+export function readCookieByName(request: Request, cookieName: string): string | null {
   const header = request.headers.get('Cookie')
   if (!header) return null
-  const cookies = header.split(';')
-  for (const part of cookies) {
+  for (const part of header.split(';')) {
     const eqIndex = part.indexOf('=')
     if (eqIndex <= 0) continue
-    const name = part.slice(0, eqIndex).trim()
-    if (name === COOKIE_NAME) {
+    if (part.slice(0, eqIndex).trim() === cookieName) {
       const raw = part.slice(eqIndex + 1).trim()
       try {
         return decodeURIComponent(raw)
@@ -183,25 +172,34 @@ export function readSessionCookie(request: Request): string | null {
   return null
 }
 
+/** Extrae y decodifica la cookie de sesión OAuth desde la cabecera Cookie de la petición. */
+export function readSessionCookie(request: Request): string | null {
+  return readCookieByName(request, COOKIE_NAME)
+}
+
 function shouldSetSecureFlag(requestUrl: string): boolean {
   const url = new URL(requestUrl)
   if (url.protocol === 'https:') return true
   return url.hostname !== 'localhost' && url.hostname !== '127.0.0.1'
 }
 
-function formatSessionCookie(
-  value: string,
-  maxAgeSeconds: number,
-  requestUrl: string,
-): string {
+/** Construye una cabecera Set-Cookie parametrizada HttpOnly + SameSite=Lax. */
+export function buildScopedCookieHeader(opts: {
+  name: string
+  value: string
+  path: string
+  maxAgeSeconds: number
+  requestUrl: string
+}): string {
+  const encoded = opts.value ? encodeURIComponent(opts.value) : ''
   const attrs = [
-    `${COOKIE_NAME}=${value}`,
+    `${opts.name}=${encoded}`,
     'HttpOnly',
     'SameSite=Lax',
-    `Path=${COOKIE_PATH}`,
-    `Max-Age=${maxAgeSeconds}`,
+    `Path=${opts.path}`,
+    `Max-Age=${opts.maxAgeSeconds}`,
   ]
-  if (shouldSetSecureFlag(requestUrl)) {
+  if (shouldSetSecureFlag(opts.requestUrl)) {
     attrs.push('Secure')
   }
   return attrs.join('; ')
@@ -212,10 +210,22 @@ export function buildSessionSetCookieHeader(
   encryptedValue: string,
   requestUrl: string,
 ): string {
-  return formatSessionCookie(encodeURIComponent(encryptedValue), COOKIE_MAX_AGE_SECONDS, requestUrl)
+  return buildScopedCookieHeader({
+    name: COOKIE_NAME,
+    value: encryptedValue,
+    path: COOKIE_PATH,
+    maxAgeSeconds: COOKIE_MAX_AGE_SECONDS,
+    requestUrl,
+  })
 }
 
 /** Construye la cabecera Set-Cookie con Max-Age=0 para revocar la cookie de sesión en el navegador. */
 export function buildClearCookieHeader(requestUrl: string): string {
-  return formatSessionCookie('', 0, requestUrl)
+  return buildScopedCookieHeader({
+    name: COOKIE_NAME,
+    value: '',
+    path: COOKIE_PATH,
+    maxAgeSeconds: 0,
+    requestUrl,
+  })
 }

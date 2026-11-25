@@ -16,5 +16,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["functions", "tests", "worker.ts"]
+  "include": ["functions", "tests", "worker.ts", "shared"]
 }

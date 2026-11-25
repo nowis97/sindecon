@@ -87,6 +87,7 @@ export interface FolderExplorerViewProps {
   userName?: string
   theme?: Theme
   onToggleTheme?: () => void
+  onOpenSecuritySettings?: () => void
   onLockTerminal?: () => void
   isGoogleConnected?: boolean
   isGoogleSessionExpired?: boolean
@@ -142,6 +143,7 @@ export function FolderExplorerView({
   userName = 'Médico de Guardia',
   theme = 'light',
   onToggleTheme,
+  onOpenSecuritySettings,
   onLockTerminal,
   isGoogleConnected = false,
   isGoogleSessionExpired = false,
@@ -550,6 +552,7 @@ export function FolderExplorerView({
             canInstallPwa={canInstallPwa}
             onInstallPwa={onInstallPwa}
             onToggleTheme={onToggleTheme}
+            onOpenSecuritySettings={onOpenSecuritySettings}
             onLockTerminal={onLockTerminal}
             isGoogleConnected={isGoogleConnected}
             isGoogleSessionExpired={isGoogleSessionExpired}
