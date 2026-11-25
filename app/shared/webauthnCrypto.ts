@@ -37,7 +37,7 @@ export async function sha256(data: Uint8Array): Promise<Uint8Array<ArrayBuffer>>
   return new Uint8Array(await crypto.subtle.digest('SHA-256', safeCopy))
 }
 
-function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false
   let diff = 0
   for (let i = 0; i < a.length; i++) {
@@ -219,16 +219,19 @@ export type VerifyAssertionResult =
   | { valid: true; signCount: number }
   | { valid: false; reason: string }
 
-/** Verifica criptográficamente una aserción WebAuthn (`ES256` o `RS256`). */
-export async function verifyWebAuthnAssertion(
-  input: VerifyAssertionInput,
-): Promise<VerifyAssertionResult> {
-  const clientDataBytes = fromBase64Url(input.clientDataJSONB64)
-  const authDataBytes = fromBase64Url(input.authenticatorDataB64)
-  const signatureBytes = fromBase64Url(input.signatureB64)
-  const spkiBytes = fromBase64Url(input.publicKeySpkiB64)
+export type ValidateClientDataResult =
+  | { valid: true; clientDataBytes: Uint8Array<ArrayBuffer> }
+  | { valid: false; reason: string }
 
-  if (!clientDataBytes || !authDataBytes || !signatureBytes || !spkiBytes) {
+/** Decodifica y valida `clientDataJSON` (`type`, `challenge` y `origin`) según ceremonia WebAuthn. */
+export function validateClientDataJSON(input: {
+  clientDataJSONB64: string
+  expectedType: 'webauthn.create' | 'webauthn.get'
+  expectedChallenge: string
+  expectedOrigin: string
+}): ValidateClientDataResult {
+  const clientDataBytes = fromBase64Url(input.clientDataJSONB64)
+  if (!clientDataBytes) {
     return { valid: false, reason: 'malformed_payload' }
   }
 
@@ -249,7 +252,7 @@ export async function verifyWebAuthnAssertion(
     origin?: unknown
   }
 
-  if (clientData.type !== 'webauthn.get') {
+  if (clientData.type !== input.expectedType) {
     return { valid: false, reason: 'invalid_ceremony_type' }
   }
   if (clientData.challenge !== input.expectedChallenge) {
@@ -258,6 +261,32 @@ export async function verifyWebAuthnAssertion(
   if (clientData.origin !== input.expectedOrigin) {
     return { valid: false, reason: 'origin_mismatch' }
   }
+
+  return { valid: true, clientDataBytes }
+}
+
+/** Verifica criptográficamente una aserción WebAuthn (`ES256` o `RS256`). */
+export async function verifyWebAuthnAssertion(
+  input: VerifyAssertionInput,
+): Promise<VerifyAssertionResult> {
+  const authDataBytes = fromBase64Url(input.authenticatorDataB64)
+  const signatureBytes = fromBase64Url(input.signatureB64)
+  const spkiBytes = fromBase64Url(input.publicKeySpkiB64)
+
+  if (!authDataBytes || !signatureBytes || !spkiBytes) {
+    return { valid: false, reason: 'malformed_payload' }
+  }
+
+  const clientCheck = validateClientDataJSON({
+    clientDataJSONB64: input.clientDataJSONB64,
+    expectedType: 'webauthn.get',
+    expectedChallenge: input.expectedChallenge,
+    expectedOrigin: input.expectedOrigin,
+  })
+  if (!clientCheck.valid) {
+    return clientCheck
+  }
+  const { clientDataBytes } = clientCheck
 
   const parsedAuth = parseAuthenticatorData(authDataBytes)
   if (!parsedAuth) {
@@ -275,7 +304,6 @@ export async function verifyWebAuthnAssertion(
   if (
     typeof input.previousSignCount === 'number' &&
     input.previousSignCount > 0 &&
-    parsedAuth.signCount > 0 &&
     parsedAuth.signCount <= input.previousSignCount
   ) {
     return { valid: false, reason: 'cloned_authenticator_detected' }

@@ -163,4 +163,46 @@ describe('googleAuth (openid email profile + fallback dev)', () => {
     await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(1))
     expect(onSuccess).not.toHaveBeenCalled()
   })
+
+  it('rechaza email_verified === false en el fallback de token (userinfo)', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response('Not found', { status: 404 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            sub: 'sub-unverified',
+            email: 'unverified@hospital.cl',
+            email_verified: false,
+            name: 'Unverified',
+          }),
+          { status: 200 },
+        ),
+      )
+
+    vi.stubGlobal('google', {
+      accounts: {
+        oauth2: {
+          initCodeClient: (cfg: { callback: (r: { code?: string }) => void }) => ({
+            requestCode: () => void cfg.callback({ code: 'dev-code' }),
+          }),
+          initTokenClient: (cfg: { callback: (r: { access_token?: string }) => void }) => ({
+            requestAccessToken: () => void cfg.callback({ access_token: 'tok-dev' }),
+          }),
+        },
+      },
+    })
+
+    const onSuccess = vi.fn()
+    const onError = vi.fn()
+    initiateGoogleLoginFlow({
+      clientId: 'client-123.apps.googleusercontent.com',
+      fetchFn: fetchMock,
+      onSuccess,
+      onError,
+    })
+
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(1))
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(onError).toHaveBeenCalledWith('La cuenta Google no entregó un correo verificado.')
+  })
 })

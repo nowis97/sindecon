@@ -1,4 +1,4 @@
-import { fromBase64Url, toBase64Url } from '../../shared/webauthnCrypto'
+import { constantTimeEqual, fromBase64Url, toBase64Url } from '../../shared/webauthnCrypto'
 
 export const PIN_ITERATIONS = 150_000
 const textEncoder = new TextEncoder()
@@ -38,15 +38,6 @@ async function derivePinBits(
   return new Uint8Array(bits)
 }
 
-function constantTimeBytesEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false
-  let diff = 0
-  for (let i = 0; i < a.length; i++) {
-    diff |= a[i]! ^ b[i]!
-  }
-  return diff === 0
-}
-
 /** Genera hash PBKDF2-SHA256 con salt aleatorio de 16 bytes para PIN de 4 o 6 dígitos. */
 export async function hashPin(pin: string): Promise<PinRecord> {
   if (!isValidPinFormat(pin)) {
@@ -71,11 +62,13 @@ export async function verifyPinHash(pin: string, record: PinRecord): Promise<boo
   const expected = fromBase64Url(record.hashB64)
   if (!salt || !expected || salt.length === 0 || expected.length === 0) return false
   const iterations =
-    typeof record.iterations === 'number' && record.iterations > 0
+    typeof record.iterations === 'number' &&
+    Number.isFinite(record.iterations) &&
+    record.iterations > 0
       ? record.iterations
       : PIN_ITERATIONS
   const candidate = await derivePinBits(pin, salt, iterations)
-  return constantTimeBytesEqual(candidate, expected)
+  return constantTimeEqual(candidate, expected)
 }
 
 export function computeLockoutAfterFailure(

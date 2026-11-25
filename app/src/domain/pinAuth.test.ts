@@ -35,6 +35,8 @@ describe('pinAuth (PBKDF2-SHA256 & Lockout)', () => {
     expect(await verifyPinHash('1234', { ...rec, saltB64: '' })).toBe(false)
     expect(await verifyPinHash('1234', { ...rec, hashB64: '' })).toBe(false)
     expect(await verifyPinHash('1234', { ...rec, saltB64: '!!!' })).toBe(false)
+    expect(await verifyPinHash('1234', { ...rec, iterations: Number.NaN })).toBe(true)
+    expect(await verifyPinHash('1234', { ...rec, iterations: Number.POSITIVE_INFINITY })).toBe(true)
     await expect(hashPin('123')).rejects.toThrow()
   })
 

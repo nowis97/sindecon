@@ -127,7 +127,7 @@ export function initiateGoogleLoginFlow(callbacks: GoogleLoginCallbacks): void {
           }
           const sub = typeof ui.sub === 'string' ? ui.sub : ''
           const email = typeof ui.email === 'string' ? ui.email : ''
-          if (!email || !sub) {
+          if (!email || !sub || ui.email_verified === false) {
             callbacks.onError('La cuenta Google no entregó un correo verificado.')
             return
           }
