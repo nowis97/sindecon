@@ -98,6 +98,7 @@ export function LoginView({
       const current = Date.now()
       setNowMs(current)
       if (current >= lockedUntil) {
+        setError(null)
         window.clearInterval(timer)
       }
     }, 1000)
@@ -445,7 +446,9 @@ export function LoginView({
                 title={
                   hasPasskeys
                     ? 'Desbloquear con Huella / Passkey FIDO2'
-                    : 'Acceso biométrico de demostración'
+                    : protectionConfigured
+                      ? 'Registra una passkey en Seguridad para activar biometría'
+                      : 'Acceso biométrico de demostración'
                 }
                 aria-label="Ingresar con Huella o Passkey"
                 disabled={busy || (protectionConfigured && !hasPasskeys)}
@@ -543,6 +546,7 @@ export function LoginView({
           {hasPasskeys && webAuthnCapable && (
             <button
               type="button"
+              data-testid={!pinEnabled ? 'fido-unlock-btn' : undefined}
               disabled={busy}
               onClick={() => void handleFidoAccess()}
               className="flex h-10 w-full items-center justify-center gap-2 rounded-full text-xs font-semibold text-white transition disabled:opacity-50 cursor-pointer"

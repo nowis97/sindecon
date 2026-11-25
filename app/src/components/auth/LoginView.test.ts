@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { LoginView, type LoginViewProps } from './LoginView'
@@ -97,5 +97,48 @@ describe('LoginView Component & Lock Screen Rules', () => {
     )
     expect(html).toContain('Bloqueo temporal activo')
     expect(html).toContain('data-testid="reset-local-terminal-btn"')
+  })
+
+  describe('FIDO button testids y tooltip en LoginView', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('muestra title descriptivo en icono FIDO deshabilitado cuando protectionConfigured=true y hasPasskeys=false', () => {
+      const html = renderToStaticMarkup(
+        createElement(LoginView, {
+          protectionConfigured: true,
+          pinEnabled: true,
+          pinLength: 4,
+          hasPasskeys: false,
+        }),
+      )
+      expect(html).toContain('title="Registra una passkey en Seguridad para activar biometría"')
+    })
+
+    it('asigna data-testid="fido-unlock-btn" único al botón standalone cuando pinEnabled=false y evita duplicados cuando pinEnabled=true', () => {
+      vi.stubGlobal('navigator', { credentials: { create: vi.fn(), get: vi.fn() } })
+      vi.stubGlobal('PublicKeyCredential', function PublicKeyCredential() {})
+
+      const fidoOnlyHtml = renderToStaticMarkup(
+        createElement(LoginView, {
+          protectionConfigured: true,
+          pinEnabled: false,
+          pinLength: 4,
+          hasPasskeys: true,
+        }),
+      )
+      expect(fidoOnlyHtml.match(/data-testid="fido-unlock-btn"/g)?.length).toBe(1)
+
+      const bothHtml = renderToStaticMarkup(
+        createElement(LoginView, {
+          protectionConfigured: true,
+          pinEnabled: true,
+          pinLength: 4,
+          hasPasskeys: true,
+        }),
+      )
+      expect(bothHtml.match(/data-testid="fido-unlock-btn"/g)?.length).toBe(1)
+    })
   })
 })

@@ -767,7 +767,10 @@ function App() {
       <LoginView
         onGoogleSignIn={() => handleGoogleSignIn(false)}
         onRecoverWithGoogle={() => handleGoogleSignIn(true)}
-        onResetTerminal={resetLocalTerminalSecurity}
+        onResetTerminal={async () => {
+          setGoogleLoginError(null)
+          await resetLocalTerminalSecurity()
+        }}
         onPinSubmit={async (candidate) => {
           setGoogleLoginError(null)
           return await loginWithPin(candidate)
@@ -776,7 +779,10 @@ function App() {
           setGoogleLoginError(null)
           return await loginWithFido()
         }}
-        onCredentialsSubmit={loginWithCredentials}
+        onCredentialsSubmit={(username, password) => {
+          setGoogleLoginError(null)
+          return loginWithCredentials(username, password)
+        }}
         onOfflineAccess={() => {
           setGoogleLoginError(null)
           return loginOfflineEmergency()
