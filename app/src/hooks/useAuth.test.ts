@@ -389,4 +389,186 @@ describe('useAuth controller (migración, lockout, Google owner, FIDO, logout vs
     await expect(auth.resetLocalTerminalSecurity()).resolves.toBeUndefined()
     expect(auth.getState().protectionConfigured).toBe(false)
   })
+
+  it('serializa ensureLegacyPinMigrated e hydrateFromMirror concurrentes sobre el mismo storage sin duplicar PBKDF2', async () => {
+    const storage = makeMemoryStorage({ [SAVED_PIN_KEY]: '9876' })
+    const mirror = makeMemoryMirror()
+    const loadSpy = vi.spyOn(mirror, 'load')
+    const deriveSpy = vi.spyOn(crypto.subtle, 'deriveBits')
+
+    const auth1 = createAuthController({ storage, mirror })
+    const auth2 = createAuthController({ storage, mirror })
+
+    try {
+      const [p1, p2] = await Promise.all([
+        auth1.ensureLegacyPinMigrated(),
+        auth2.ensureLegacyPinMigrated(),
+      ])
+      expect(deriveSpy).toHaveBeenCalledTimes(1)
+      expect(p1.pinRecord).not.toBeNull()
+      expect(p2.pinRecord).toEqual(p1.pinRecord)
+      expect(storage.getItem(SAVED_PIN_KEY)).toBeNull()
+
+      // Concurrent hydrateFromMirror también se deduplica por instancia de storage
+      await Promise.all([auth1.hydrateFromMirror(), auth2.hydrateFromMirror()])
+      expect(loadSpy).toHaveBeenCalledTimes(1)
+      expect(auth1.getState().securityProfile.pinRecord).toEqual(auth2.getState().securityProfile.pinRecord)
+      expect((await auth2.loginWithPin('9876')).success).toBe(true)
+    } finally {
+      deriveSpy.mockRestore()
+    }
+  })
+
+  it('re-lee storage tras mirror.load() para no sobrescribir mutaciones concurrentes y no resucita lockout expirado', async () => {
+    const storage = makeMemoryStorage()
+    let resolveLoad!: (val: DeviceSecurityProfile | null) => void
+    const loadPromise = new Promise<DeviceSecurityProfile | null>((resolve) => {
+      resolveLoad = resolve
+    })
+    const slowMirror: SecurityMirrorStore = {
+      load: () => loadPromise,
+      save: async () => {},
+      clear: async () => {},
+    }
+
+    const auth1 = createAuthController({ storage, mirror: slowMirror })
+    const auth2 = createAuthController({ storage, mirror: slowMirror })
+
+    const hydrating = auth1.hydrateFromMirror()
+    // Mutación concurrente mientras IndexedDB/mirror está cargando
+    auth2.completeGoogleLogin({ sub: 's-concurrent', email: 'dra.concurrent@gmail.com', name: 'Dra. C' })
+    resolveLoad({
+      version: 1,
+      ownerEmail: null,
+      ownerName: null,
+      ownerSub: null,
+      ownerAvatarUrl: null,
+      pinRecord: null,
+      passkeys: [],
+      updatedAt: 100,
+    })
+    await hydrating
+    expect(auth1.getState().securityProfile.ownerEmail).toBe('dra.concurrent@gmail.com')
+
+    // Lockout local expirado (lockedUntil <= now) NO impide que mirror más reciente sin PIN limpie pinRecord
+    const expiredStorage = makeMemoryStorage({
+      [SECURITY_STATE_KEY]: JSON.stringify({
+        version: 1,
+        ownerEmail: 'dra@cl.org',
+        ownerName: 'Dra',
+        ownerSub: 's1',
+        ownerAvatarUrl: null,
+        pinRecord: {
+          version: 2,
+          pinLength: 4,
+          saltB64: 'c2FsdA',
+          hashB64: 'aGFzaA',
+          iterations: 150_000,
+          failedAttempts: 5,
+          lockedUntil: Date.now() - 10_000,
+          updatedAt: 1000,
+        },
+        passkeys: [],
+        updatedAt: 1000,
+      }),
+    })
+    const newerMirror = makeMemoryMirror({
+      version: 1,
+      ownerEmail: 'dra@cl.org',
+      ownerName: 'Dra',
+      ownerSub: 's1',
+      ownerAvatarUrl: null,
+      pinRecord: null,
+      passkeys: [],
+      updatedAt: Date.now() + 5000,
+    })
+    const authExpired = createAuthController({ storage: expiredStorage, mirror: newerMirror })
+    await authExpired.hydrateFromMirror()
+    expect(authExpired.getState().securityProfile.pinRecord).toBeNull()
+  })
+
+  it('removePin borra SAVED_PIN_KEY antes de notificar, completeGoogleLogin limpia lockout activo, FIDO-only rechaza PIN y legacy PIN bloquea Google', async () => {
+    // 1. removePin orden de limpieza
+    let legacySeenInsideNotify: string | null = 'unset'
+    const storage1 = makeMemoryStorage({ [SAVED_PIN_KEY]: '1234' })
+    const authNotify = createAuthController({
+      storage: storage1,
+      notify: () => {
+        legacySeenInsideNotify = storage1.getItem(SAVED_PIN_KEY)
+      },
+    })
+    await authNotify.loginWithPin('1234')
+    await authNotify.setupOrChangePin('4321')
+    storage1.setItem(SAVED_PIN_KEY, '4321')
+    legacySeenInsideNotify = 'unset'
+    authNotify.removePin()
+    expect(legacySeenInsideNotify).toBeNull()
+
+    // 2. completeGoogleLogin limpia lockedUntil activo del PIN
+    const storage2 = makeMemoryStorage()
+    const authGoogle = createAuthController({ storage: storage2 })
+    authGoogle.completeGoogleLogin({ sub: 's1', email: 'dra@cl.org', name: 'Dra' })
+    await authGoogle.setupOrChangePin('4829')
+    authGoogle.logout()
+    for (let i = 0; i < 5; i++) {
+      await authGoogle.loginWithPin('0000')
+    }
+    expect(authGoogle.getState().lockedUntil).toBeGreaterThan(Date.now())
+    const googleUnlock = authGoogle.completeGoogleLogin({
+      sub: 's1',
+      email: 'dra@cl.org',
+      name: 'Dra',
+    })
+    expect(googleUnlock.success).toBe(true)
+    expect(authGoogle.getState().lockedUntil).toBeNull()
+    expect(authGoogle.getState().securityProfile.pinRecord?.failedAttempts).toBe(0)
+
+    // 3. loginWithPin rechaza en dispositivos solo FIDO (sin pinRecord)
+    const storage3 = makeMemoryStorage()
+    const { credentialsApi } = await createFakePasskeyCredentials({ credentialId: 'fido-only-1' })
+    const authFidoOnly = createAuthController({
+      storage: storage3,
+      fetchFn: vi.fn(async () => new Response('not found', { status: 404 })) as unknown as typeof fetch,
+      credentialsApi,
+    })
+    await authFidoOnly.loginWithPin('1234')
+    await authFidoOnly.registerDevicePasskey('Solo Huella')
+    authFidoOnly.logout()
+    expect(authFidoOnly.getState().protectionConfigured).toBe(true)
+    expect(authFidoOnly.getState().pinEnabled).toBe(false)
+    const pinAttemptFidoOnly = await authFidoOnly.loginWithPin('1234')
+    expect(pinAttemptFidoOnly.success).toBe(false)
+    expect(pinAttemptFidoOnly.error).toContain('deshabilitado')
+
+    // 4. hasPendingCustomLegacyPin bloquea completeGoogleLogin sin ownerEmail y con ownerEmail distinto
+    const storageLegacyNoOwner = makeMemoryStorage({ [SAVED_PIN_KEY]: '9876' })
+    const authLegacyNoOwner = createAuthController({ storage: storageLegacyNoOwner })
+    expect(
+      authLegacyNoOwner.completeGoogleLogin({ sub: 's1', email: 'intruder@cl.org', name: 'X' })
+        .success,
+    ).toBe(false)
+
+    const storageLegacyWithOwner = makeMemoryStorage({
+      [SAVED_PIN_KEY]: '9876',
+      [SECURITY_STATE_KEY]: JSON.stringify({
+        version: 1,
+        ownerEmail: 'owner@cl.org',
+        ownerName: 'Owner',
+        ownerSub: 's-owner',
+        ownerAvatarUrl: null,
+        pinRecord: null,
+        passkeys: [],
+        updatedAt: 1000,
+      }),
+    })
+    const authLegacyWithOwner = createAuthController({ storage: storageLegacyWithOwner })
+    expect(
+      authLegacyWithOwner.completeGoogleLogin({ sub: 's2', email: 'intruder@cl.org', name: 'X' })
+        .success,
+    ).toBe(false)
+    expect(
+      authLegacyWithOwner.completeGoogleLogin({ sub: 's-owner', email: 'owner@cl.org', name: 'Owner' })
+        .success,
+    ).toBe(true)
+  })
 })

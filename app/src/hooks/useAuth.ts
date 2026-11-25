@@ -69,16 +69,8 @@ export interface PinLoginResult {
   user?: AuthUser
 }
 
-/**
- * Promesa retornada por `loginWithPin` en `useAuth`.
- * Los campos opcionales deprecados mantienen compatibilidad de tipos con `LoginView` previo a Task 7.
- */
-export type LegacyCompatPinPromise = Promise<PinLoginResult> & {
-  /** @deprecated Usa `await loginWithPin(pin)` en su lugar. */
-  readonly success?: boolean
-  /** @deprecated Usa `await loginWithPin(pin)` en su lugar. */
-  readonly error?: string
-}
+const pendingMigrations = new WeakMap<StorageLike, Promise<DeviceSecurityProfile>>()
+const pendingHydrations = new WeakMap<StorageLike, Promise<void>>()
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -223,13 +215,13 @@ function normalizeSecurityProfile(raw: unknown): DeviceSecurityProfile | null {
   }
 }
 
-function hasStoredProfile(storage: StorageLike | null): boolean {
+function readNormalizedSecurityProfile(storage: StorageLike | null): DeviceSecurityProfile | null {
   const raw = safeGetItem(storage, SECURITY_STATE_KEY)
-  if (!raw) return false
+  if (!raw) return null
   try {
-    return normalizeSecurityProfile(JSON.parse(raw)) !== null
+    return normalizeSecurityProfile(JSON.parse(raw))
   } catch {
-    return false
+    return null
   }
 }
 
@@ -289,14 +281,7 @@ export function readStoredUser(storage: StorageLike | null): AuthUser | null {
 }
 
 export function readSecurityProfile(storage: StorageLike | null): DeviceSecurityProfile {
-  const raw = safeGetItem(storage, SECURITY_STATE_KEY)
-  if (!raw) return createEmptySecurityProfile()
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    return normalizeSecurityProfile(parsed) ?? createEmptySecurityProfile()
-  } catch {
-    return createEmptySecurityProfile()
-  }
+  return readNormalizedSecurityProfile(storage) ?? createEmptySecurityProfile()
 }
 
 function hasPendingCustomLegacyPin(
@@ -335,7 +320,7 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
     return stamped
   }
 
-  const ensureLegacyPinMigrated = async (): Promise<DeviceSecurityProfile> => {
+  const runEnsureLegacyPinMigrated = async (): Promise<DeviceSecurityProfile> => {
     const profile = readSecurityProfile(storage)
     const legacyRaw = safeGetItem(storage, SAVED_PIN_KEY)?.trim()
     if (!legacyRaw || !storage) return profile
@@ -346,15 +331,29 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
     }
     if (profile.pinRecord === null && isValidPinFormat(legacyRaw)) {
       const record = await hashPin(legacyRaw)
+      const latest = readSecurityProfile(storage)
       safeRemoveItem(storage, SAVED_PIN_KEY)
-      return persistProfile({ ...profile, pinRecord: record })
+      return persistProfile({ ...latest, pinRecord: latest.pinRecord ?? record })
     }
     safeRemoveItem(storage, SAVED_PIN_KEY)
     return profile
   }
 
-  const hydrateFromMirror = async (): Promise<void> => {
-    const local = await ensureLegacyPinMigrated()
+  const ensureLegacyPinMigrated = (): Promise<DeviceSecurityProfile> => {
+    if (!storage) return runEnsureLegacyPinMigrated()
+    const existing = pendingMigrations.get(storage)
+    if (existing) return existing
+    const promise = runEnsureLegacyPinMigrated().finally(() => {
+      if (pendingMigrations.get(storage) === promise) {
+        pendingMigrations.delete(storage)
+      }
+    })
+    pendingMigrations.set(storage, promise)
+    return promise
+  }
+
+  const runHydrateFromMirror = async (): Promise<void> => {
+    await ensureLegacyPinMigrated()
     let mirrored: DeviceSecurityProfile | null = null
     try {
       mirrored = normalizeSecurityProfile(await mirror.load())
@@ -363,10 +362,15 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
     }
     if (!mirrored) return
 
-    const hasLocalPersisted = hasStoredProfile(storage)
+    const storedLocal = readNormalizedSecurityProfile(storage)
+    const hasLocalPersisted = storedLocal !== null
+    const local = storedLocal ?? createEmptySecurityProfile()
+    const now = Date.now()
     const localLockedUntil = local.pinRecord?.lockedUntil ?? 0
     const mirrorLockedUntil = mirrored.pinRecord?.lockedUntil ?? 0
-    const maxLockedUntil = Math.max(localLockedUntil, mirrorLockedUntil) || null
+    const activeLocalLock = localLockedUntil > now ? localLockedUntil : 0
+    const activeMirrorLock = mirrorLockedUntil > now ? mirrorLockedUntil : 0
+    const maxLockedUntil = Math.max(activeLocalLock, activeMirrorLock) || null
 
     if (
       !hasLocalPersisted ||
@@ -377,12 +381,12 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
         ? {
             ...mirrored.pinRecord,
             failedAttempts:
-              localLockedUntil > mirrorLockedUntil
+              activeLocalLock > activeMirrorLock
                 ? Math.max(local.pinRecord?.failedAttempts ?? 0, mirrored.pinRecord.failedAttempts)
                 : mirrored.pinRecord.failedAttempts,
             lockedUntil: maxLockedUntil,
           }
-        : local.pinRecord && localLockedUntil > 0
+        : local.pinRecord && localLockedUntil > now
           ? local.pinRecord
           : null
 
@@ -391,11 +395,11 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
         pinRecord: mergedPinRecord,
       }
       safeSetItem(storage, SECURITY_STATE_KEY, JSON.stringify(merged))
-      if (localLockedUntil > mirrorLockedUntil) {
+      if (activeLocalLock > activeMirrorLock) {
         void Promise.resolve(mirror.save(merged)).catch(() => {})
       }
       notifyAll()
-    } else if (mirrorLockedUntil > localLockedUntil && local.pinRecord) {
+    } else if (activeMirrorLock > activeLocalLock && local.pinRecord) {
       persistProfile({
         ...local,
         pinRecord: {
@@ -408,6 +412,19 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
         },
       })
     }
+  }
+
+  const hydrateFromMirror = (): Promise<void> => {
+    if (!storage) return runHydrateFromMirror()
+    const existing = pendingHydrations.get(storage)
+    if (existing) return existing
+    const promise = runHydrateFromMirror().finally(() => {
+      if (pendingHydrations.get(storage) === promise) {
+        pendingHydrations.delete(storage)
+      }
+    })
+    pendingHydrations.set(storage, promise)
+    return promise
   }
 
   const getState = () => {
@@ -534,10 +551,18 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
     opts?: { allowRecovery?: boolean },
   ): { success: boolean; error?: string; needsPinResetOption?: boolean; user?: AuthUser } => {
     const profile = readSecurityProfile(storage)
-    if (hasPendingCustomLegacyPin(storage, profile) && !profile.ownerEmail) {
-      return {
-        success: false,
-        error: 'Este equipo está protegido solo con PIN/FIDO local y no tiene cuenta Google vinculada.',
+    if (hasPendingCustomLegacyPin(storage, profile)) {
+      if (!profile.ownerEmail) {
+        return {
+          success: false,
+          error: 'Este equipo está protegido solo con PIN/FIDO local y no tiene cuenta Google vinculada.',
+        }
+      }
+      if (googleProfile.email.trim().toLowerCase() !== profile.ownerEmail.trim().toLowerCase()) {
+        return {
+          success: false,
+          error: `Este terminal está vinculado a ${profile.ownerEmail}. Usa esa cuenta o restablece el terminal local.`,
+        }
       }
     }
 
@@ -616,8 +641,8 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
   const removePin = (): { success: boolean; error?: string } => {
     if (!readStoredUser(storage)) return { success: false, error: 'Sesión requerida.' }
     const profile = readSecurityProfile(storage)
-    persistProfile({ ...profile, pinRecord: null })
     safeRemoveItem(storage, SAVED_PIN_KEY)
+    persistProfile({ ...profile, pinRecord: null })
     return { success: true }
   }
 
@@ -707,24 +732,13 @@ export function useAuth() {
     }
   }, [controller, bump])
 
-  const loginWithPinCompat = useCallback(
-    (inputPin: string): LegacyCompatPinPromise =>
-      Object.assign(controller.loginWithPin(inputPin), {
-        success: undefined,
-        error: undefined,
-      }),
-    [controller],
-  )
-
   const state = controller.getState()
 
   return {
     ...state,
-    loginWithPin: loginWithPinCompat,
+    loginWithPin: controller.loginWithPin,
     loginWithCredentials: controller.loginWithCredentials,
     loginOfflineEmergency: controller.loginOfflineEmergency,
-    /** @deprecated Alias temporal para LoginView previo a Task 7. */
-    loginOffline: controller.loginOfflineEmergency,
     loginWithFido: controller.loginWithFido,
     completeGoogleLogin: controller.completeGoogleLogin,
     linkGoogleAccount: controller.linkGoogleAccount,
