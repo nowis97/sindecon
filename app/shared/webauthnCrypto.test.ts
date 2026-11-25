@@ -194,4 +194,19 @@ describe('webauthnCrypto', () => {
     expect(extracted!.publicKeySpki.length).toBe(91)
     expect(extracted!.publicKeySpki[26]).toBe(0x04)
   })
+
+  it('rechaza clientDataJSON cuando JSON.parse devuelve null, array o primitivo sin lanzar excepción', async () => {
+    const signed = await buildSignedAssertion()
+    for (const rawJson of ['null', '123', '"texto"', '[]']) {
+      const res = await verifyWebAuthnAssertion({
+        ...signed,
+        clientDataJSONB64: toBase64Url(enc.encode(rawJson)),
+        alg: -7,
+        expectedChallenge: 'test-challenge-b64url',
+        expectedOrigin: 'https://sindecon.pages.dev',
+        expectedRpId: 'sindecon.pages.dev',
+      })
+      expect(res).toEqual({ valid: false, reason: 'invalid_client_data_json' })
+    }
+  })
 })

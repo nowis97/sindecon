@@ -232,15 +232,21 @@ export async function verifyWebAuthnAssertion(
     return { valid: false, reason: 'malformed_payload' }
   }
 
-  let clientData: { type?: string; challenge?: string; origin?: string }
+  let parsedClientData: unknown
   try {
-    clientData = JSON.parse(textDecoder.decode(clientDataBytes)) as {
-      type?: string
-      challenge?: string
-      origin?: string
-    }
+    parsedClientData = JSON.parse(textDecoder.decode(clientDataBytes))
   } catch {
     return { valid: false, reason: 'invalid_client_data_json' }
+  }
+
+  if (!parsedClientData || typeof parsedClientData !== 'object' || Array.isArray(parsedClientData)) {
+    return { valid: false, reason: 'invalid_client_data_json' }
+  }
+
+  const clientData = parsedClientData as {
+    type?: unknown
+    challenge?: unknown
+    origin?: unknown
   }
 
   if (clientData.type !== 'webauthn.get') {
