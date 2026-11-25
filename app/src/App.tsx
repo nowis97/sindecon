@@ -130,13 +130,13 @@ function App() {
     lockedUntil,
     hasPasskeys,
     loginWithPin,
-    loginWithCredentials,
-    loginOfflineEmergency,
     loginWithFido,
     completeGoogleLogin,
     linkGoogleAccount,
+    setupInitialPin,
     setupOrChangePin,
     removePin,
+    registerInitialPasskey,
     registerDevicePasskey,
     removeDevicePasskey,
     resetLocalTerminalSecurity,
@@ -779,13 +779,13 @@ function App() {
           setGoogleLoginError(null)
           return await loginWithFido()
         }}
-        onCredentialsSubmit={(username, password) => {
+        onSetupInitialPin={async (newPin) => {
           setGoogleLoginError(null)
-          return loginWithCredentials(username, password)
+          return await setupInitialPin(newPin)
         }}
-        onOfflineAccess={() => {
+        onRegisterInitialPasskey={async (label) => {
           setGoogleLoginError(null)
-          return loginOfflineEmergency()
+          return await registerInitialPasskey(label)
         }}
         onLoginSuccess={(loggedUser) =>
           setToastMessage(

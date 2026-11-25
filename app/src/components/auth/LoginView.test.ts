@@ -50,7 +50,7 @@ describe('LoginView Component Contract', () => {
 })
 
 describe('LoginView Component & Lock Screen Rules', () => {
-  it('muestra pista 1234, Credenciales y Urgencias cuando protectionConfigured=false', () => {
+  it('muestra configuración inicial obligatoria sin 1234, Credenciales ni Urgencias cuando protectionConfigured=false', () => {
     const html = renderToStaticMarkup(
       createElement(LoginView, {
         protectionConfigured: false,
@@ -59,14 +59,20 @@ describe('LoginView Component & Lock Screen Rules', () => {
         hasPasskeys: false,
       }),
     )
-    expect(html).toContain('1234')
-    expect(html).toContain('Credenciales')
-    expect(html).toContain('Urgencias')
-    expect(html).toContain('Continuar con Google')
-    expect(html.match(/data-testid="pin-dot"/g)?.length).toBe(4)
+    expect(html).toContain('Configura tu acceso inicial')
+    expect(html).toContain('Protege tu estación clínica')
+    expect(html).toContain('data-testid="setup-pin-input"')
+    expect(html).toContain('data-testid="setup-pin-confirm-input"')
+    expect(html).toContain('data-testid="setup-pin-submit-btn"')
+    expect(html).toContain('data-testid="setup-fido-btn"')
+    expect(html).toContain('data-testid="google-login-btn"')
+    expect(html).not.toContain('1234')
+    expect(html).not.toContain('Credenciales')
+    expect(html).not.toContain('Urgencias')
+    expect(html).not.toContain('data-testid="pin-dot"')
   })
 
-  it('oculta 1234, Credenciales y Urgencias y muestra 6 puntos + recuperación Google cuando protectionConfigured=true', () => {
+  it('muestra pantalla de bloqueo con 6 puntos, FIDO y recuperación Google cuando protectionConfigured=true', () => {
     const html = renderToStaticMarkup(
       createElement(LoginView, {
         protectionConfigured: true,
@@ -79,10 +85,26 @@ describe('LoginView Component & Lock Screen Rules', () => {
     expect(html).not.toContain('1234')
     expect(html).not.toContain('Urgencias')
     expect(html).not.toContain('Credenciales')
+    expect(html).not.toContain('setup-pin-input')
     expect(html).toContain('Continuar con Google')
     expect(html).toContain('Huella')
     expect(html).toContain('Recuperar con Google')
     expect(html.match(/data-testid="pin-dot"/g)?.length).toBe(6)
+  })
+
+  it('muestra tarjeta informativa Google-only cuando protectionConfigured=true sin PIN ni Passkey', () => {
+    const html = renderToStaticMarkup(
+      createElement(LoginView, {
+        protectionConfigured: true,
+        pinEnabled: false,
+        pinLength: 4,
+        hasPasskeys: false,
+        ownerEmail: 'dra.martinez@gmail.com',
+      }),
+    )
+    expect(html).toContain('dra.martinez@gmail.com')
+    expect(html).toContain('data-testid="google-login-btn"')
+    expect(html).not.toContain('data-testid="pin-dot"')
   })
 
   it('muestra aviso de bloqueo temporal y deshabilita dígitos cuando lockedUntil está en el futuro', () => {

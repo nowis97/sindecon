@@ -9,10 +9,8 @@ import {
   createEmptySecurityProfile,
   createFidoUser,
   createGoogleUser,
-  createOfflineEmergencyUser,
   createPinUser,
   isProtectionConfigured,
-  validateCredentials,
   type AuthMethod,
   type AuthUser,
   type DeviceSecurityProfile,
@@ -427,11 +425,19 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
     return promise
   }
 
+  const isTerminalProtected = (profile: DeviceSecurityProfile): boolean =>
+    isProtectionConfigured(profile) || hasPendingCustomLegacyPin(storage, profile)
+
+  const awaitInitialSetupCheck = async (): Promise<boolean> => {
+    await hydrateFromMirror()
+    const profile = await ensureLegacyPinMigrated()
+    return !isTerminalProtected(profile)
+  }
+
   const getState = () => {
     const user = readStoredUser(storage)
     const securityProfile = readSecurityProfile(storage)
-    const protectionConfigured =
-      isProtectionConfigured(securityProfile) || hasPendingCustomLegacyPin(storage, securityProfile)
+    const protectionConfigured = isTerminalProtected(securityProfile)
     const pinEnabled =
       !protectionConfigured ||
       securityProfile.pinRecord !== null ||
@@ -471,47 +477,24 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
       }
     }
 
-    if (inputPin.trim() === DEFAULT_PIN) {
-      const user = createPinUser()
-      persistUser(user)
-      return { success: true, user }
-    }
-
     return {
       success: false,
-      error: 'PIN incorrecto. El PIN inicial de demostración es 1234.',
+      error: 'Configura primero un PIN, Passkey FIDO o cuenta Google para ingresar.',
     }
   }
 
   const loginWithCredentials = (
-    username: string,
-    password: string,
-  ): { success: boolean; error?: string; user?: AuthUser } => {
-    if (getState().protectionConfigured) {
-      return {
-        success: false,
-        error: 'El modo credenciales demo está deshabilitado en equipos protegidos.',
-      }
-    }
-    const check = validateCredentials(username, password)
-    if (!check.isValid || !check.user) {
-      return { success: false, error: check.error || 'Usuario o contraseña incorrectos.' }
-    }
-    persistUser(check.user)
-    return { success: true, user: check.user }
-  }
+    _username: string,
+    _password: string,
+  ): { success: boolean; error?: string; user?: AuthUser } => ({
+    success: false,
+    error: 'El acceso de demostración fue deshabilitado. Configura Google, PIN o Passkey.',
+  })
 
-  const loginOfflineEmergency = (): { success: boolean; error?: string; user?: AuthUser } => {
-    if (getState().protectionConfigured) {
-      return {
-        success: false,
-        error: 'El ingreso rápido de urgencias está bloqueado al tener PIN o FIDO.',
-      }
-    }
-    const user = createOfflineEmergencyUser()
-    persistUser(user)
-    return { success: true, user }
-  }
+  const loginOfflineEmergency = (): { success: boolean; error?: string; user?: AuthUser } => ({
+    success: false,
+    error: 'El acceso de demostración fue deshabilitado. Configura Google, PIN o Passkey.',
+  })
 
   const loginWithFido = async (): Promise<{
     success: boolean
@@ -618,6 +601,27 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
     return { success: true }
   }
 
+  const setupInitialPin = async (newPin: string): Promise<PinLoginResult> => {
+    if (!isValidPinFormat(newPin)) {
+      return { success: false, error: 'El PIN debe tener exactamente 4 o 6 dígitos numéricos.' }
+    }
+    if (!(await awaitInitialSetupCheck())) {
+      return { success: false, error: 'El terminal ya está protegido. Ingresa para cambiar el PIN.' }
+    }
+
+    const nextRecord = await hashPin(newPin)
+    const latest = readSecurityProfile(storage)
+    if (isTerminalProtected(latest)) {
+      return { success: false, error: 'El terminal ya está protegido. Ingresa para cambiar el PIN.' }
+    }
+
+    safeRemoveItem(storage, SAVED_PIN_KEY)
+    persistProfile({ ...latest, pinRecord: nextRecord })
+    const user = createPinUser()
+    persistUser(user)
+    return { success: true, user }
+  }
+
   const setupOrChangePin = async (
     newPin: string,
     opts?: { currentPin?: string },
@@ -644,6 +648,40 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
     safeRemoveItem(storage, SAVED_PIN_KEY)
     persistProfile({ ...profile, pinRecord: null })
     return { success: true }
+  }
+
+  const registerInitialPasskey = async (
+    label?: string,
+  ): Promise<{ success: boolean; error?: string; passkey?: StoredPasskey; user?: AuthUser }> => {
+    if (!(await awaitInitialSetupCheck())) {
+      return {
+        success: false,
+        error: 'El terminal ya está protegido. Ingresa para registrar otra passkey.',
+      }
+    }
+
+    const res = await registerPasskey({
+      label: label?.trim() || 'Huella / Face ID de este equipo',
+      ownerEmail: null,
+      ownerSub: null,
+      displayName: 'Médico SINDECON',
+      fetchFn,
+      credentialsApi: deps.credentialsApi,
+    })
+    if (!res.ok) return { success: false, error: res.error }
+
+    const latest = readSecurityProfile(storage)
+    if (isTerminalProtected(latest)) {
+      return {
+        success: false,
+        error: 'El terminal ya está protegido. Ingresa para registrar otra passkey.',
+      }
+    }
+
+    persistProfile({ ...latest, passkeys: [res.passkey] })
+    const user = createFidoUser({ id: res.passkey.credentialId, name: res.passkey.label })
+    persistUser(user)
+    return { success: true, passkey: res.passkey, user }
   }
 
   const registerDevicePasskey = async (
@@ -704,8 +742,10 @@ export function createAuthController(deps: AuthControllerDeps = {}) {
     loginWithFido,
     completeGoogleLogin,
     linkGoogleAccount,
+    setupInitialPin,
     setupOrChangePin,
     removePin,
+    registerInitialPasskey,
     registerDevicePasskey,
     removeDevicePasskey,
     logout,
@@ -742,8 +782,10 @@ export function useAuth() {
     loginWithFido: controller.loginWithFido,
     completeGoogleLogin: controller.completeGoogleLogin,
     linkGoogleAccount: controller.linkGoogleAccount,
+    setupInitialPin: controller.setupInitialPin,
     setupOrChangePin: controller.setupOrChangePin,
     removePin: controller.removePin,
+    registerInitialPasskey: controller.registerInitialPasskey,
     registerDevicePasskey: controller.registerDevicePasskey,
     removeDevicePasskey: controller.removeDevicePasskey,
     resetLocalTerminalSecurity: controller.resetLocalTerminalSecurity,

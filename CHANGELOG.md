@@ -2,6 +2,16 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.4.0] - 2026-11-25
+
+### Added
+- **Asistente Inicial Obligatorio en 1 Paso (`LoginView.tsx`, `useAuth.ts`, `App.tsx`)**: En equipos nuevos o restablecidos (`!protectionConfigured`), la pantalla de acceso muestra **"Protege tu estación clínica"** permitiendo elegir al instante **Continuar con Google**, **Crear PIN de guardia** (`4` o `6` dígitos con confirmación) o **Registrar Huella / Passkey FIDO2**, entrando al Dashboard inmediatamente tras completar el registro inicial.
+- **Guardas Anti-Sobrescritura Post-Hidratación / TOCTOU (`useAuth.ts`, `useAuth.test.ts`)**: Nuevas acciones `setupInitialPin` y `registerInitialPasskey` que esperan `hydrateFromMirror()` y `ensureLegacyPinMigrated()`, validan ausencia de protección previa y vuelven a comprobar antes de persistir tras cualquier `await` criptográfico o WebAuthn.
+- **Tarjeta de Bloqueo Solo-Google y Cobertura E2E Ampliada (`LoginView.tsx`, `LoginView.test.ts`, `auth-fido-pin.spec.ts`)**: Soporte explícito en pantalla bloqueada cuando solo existe `ownerEmail` vinculado (`!pinEnabled && !hasPasskeys`), más dos flujos E2E con autenticador virtual CDP `ctap2` (alta inicial de PIN 6 dígitos + FIDO + lockout, y alta directa con `setup-fido-btn`).
+
+### Changed
+- **Eliminación Total de Accesos Demo (`1234`, `Credenciales`, `Urgencias`) y Protección vía `ownerEmail` (`auth.ts`, `useAuth.ts`, `LoginView.tsx`)**: Se eliminan permanentemente el PIN por defecto `1234`, la pestaña `Credenciales` y el botón `Ingreso directo — Urgencias (Sin red)` en UI y controlador; `isProtectionConfigured` considera protegido cualquier equipo con `ownerEmail` vinculado además de PIN o FIDO2, y `sindecon_saved_pin = '1234'` heredado se depura automáticamente exigiendo configurar un método real.
+
 ## [1.3.0] - 2026-11-25
 
 ### Added

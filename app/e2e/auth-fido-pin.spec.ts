@@ -1,47 +1,55 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
-test.describe('Autenticación Clínica: PIN PBKDF2, Lockout y FIDO2 Passkey', () => {
-  test('configura PIN de 6 dígitos y Passkey FIDO2 virtual, bloquea tras 5 fallos, persiste al recargar y desbloquea con biometría offline', async ({
+async function setupVirtualAuthenticator(page: Page) {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('WebAuthn.enable')
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: {
+      protocol: 'ctap2',
+      transport: 'internal',
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true,
+    },
+  })
+}
+
+async function openCleanOnboarding(page: Page) {
+  await page.goto('/')
+  await page.evaluate(() => {
+    localStorage.clear()
+  })
+  await page.reload()
+
+  await expect(page.getByTestId('login-screen')).toBeVisible()
+  await expect(page.getByTestId('emergency-offline-btn')).toHaveCount(0)
+  await expect(page.getByText('Credenciales')).toHaveCount(0)
+  await expect(page.getByTestId('google-login-btn')).toBeVisible()
+  await expect(page.getByTestId('setup-pin-input')).toBeVisible()
+}
+
+test.describe('Autenticación Clínica: Onboarding Obligatorio, PIN PBKDF2, Lockout y FIDO2 Passkey', () => {
+  test('configura PIN inicial de 6 dígitos en onboarding y Passkey FIDO2 virtual, bloquea tras 5 fallos, persiste al recargar y desbloquea con biometría offline', async ({
     page,
   }) => {
-    const cdp = await page.context().newCDPSession(page)
-    await cdp.send('WebAuthn.enable')
-    await cdp.send('WebAuthn.addVirtualAuthenticator', {
-      options: {
-        protocol: 'ctap2',
-        transport: 'internal',
-        hasResidentKey: true,
-        hasUserVerification: true,
-        isUserVerified: true,
-        automaticPresenceSimulation: true,
-      },
-    })
+    await setupVirtualAuthenticator(page)
+    await openCleanOnboarding(page)
 
-    await page.goto('/')
-    await page.evaluate(() => {
-      localStorage.clear()
-    })
-    await page.reload()
+    // 1. Primer arranque sin bypass: alternar 4 -> 6 dígitos y crear PIN inicial de 6 dígitos
+    await expect(page.getByTestId('setup-pin-input')).toHaveAttribute('maxlength', '4')
+    await page.getByRole('button', { name: '6 dígitos' }).click()
+    await expect(page.getByTestId('setup-pin-input')).toHaveAttribute('maxlength', '6')
 
-    // 1. Ingreso inicial demo con PIN 1234
-    await expect(page.getByTestId('login-screen')).toBeVisible()
-    await expect(page.getByTestId('emergency-offline-btn')).toBeVisible()
-    for (const d of ['1', '2', '3', '4']) {
-      await page.getByRole('button', { name: `Dígito ${d}` }).click()
-    }
+    await page.getByTestId('setup-pin-input').fill('482910')
+    await expect(page.getByTestId('setup-pin-input')).toHaveValue('482910')
+    await page.getByTestId('setup-pin-confirm-input').fill('482910')
+    await page.getByTestId('setup-pin-submit-btn').click()
 
-    // 2. Abrir Seguridad desde cabecera y fijar PIN de 6 dígitos + Passkey FIDO2
+    // 2. Ya autenticado en el Dashboard: abrir Seguridad y registrar Passkey FIDO2 virtual
     await expect(page.getByTestId('header-security-btn')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('header-security-btn').click()
     await expect(page.getByTestId('security-settings-modal')).toBeVisible()
-
-    await page.getByRole('button', { name: '6 dígitos' }).click()
-    await page.getByTestId('pin-new-input').fill('482910')
-    await page.getByTestId('pin-confirm-input').fill('482910')
-    await page.getByTestId('save-pin-btn').click()
-    await expect(page.getByTestId('security-settings-modal')).toContainText(
-      'PIN de guardia cifrado (PBKDF2) guardado correctamente.',
-    )
 
     await page.getByTestId('register-passkey-btn').click()
     await expect(page.getByTestId('security-settings-modal')).toContainText('1 registradas')
@@ -52,11 +60,13 @@ test.describe('Autenticación Clínica: PIN PBKDF2, Lockout y FIDO2 Passkey', ()
     await page.getByTestId('header-lock-btn').click()
     await expect(page.getByTestId('login-screen')).toBeVisible()
     await expect(page.getByTestId('emergency-offline-btn')).toHaveCount(0)
+    await expect(page.getByTestId('setup-pin-input')).toHaveCount(0)
     await expect(page.getByTestId('pin-dot')).toHaveCount(6)
 
     await page.reload()
     await expect(page.getByTestId('login-screen')).toBeVisible()
     await expect(page.getByTestId('emergency-offline-btn')).toHaveCount(0)
+    await expect(page.getByTestId('setup-pin-input')).toHaveCount(0)
     await expect(page.getByTestId('pin-dot')).toHaveCount(6)
 
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -76,6 +86,7 @@ test.describe('Autenticación Clínica: PIN PBKDF2, Lockout y FIDO2 Passkey', ()
     await expect(page.getByRole('status')).toContainText(/Bloqueo temporal activo/i)
     await expect(page.getByRole('button', { name: 'Dígito 0' })).toBeDisabled()
     await expect(page.getByTestId('emergency-offline-btn')).toHaveCount(0)
+    await expect(page.getByTestId('setup-pin-input')).toHaveCount(0)
     await expect(page.getByTestId('pin-dot')).toHaveCount(6)
 
     // 4. Desbloquear con llave biométrica FIDO2 virtual (resetea lockout y autentica offline)
@@ -90,6 +101,35 @@ test.describe('Autenticación Clínica: PIN PBKDF2, Lockout y FIDO2 Passkey', ()
       await expect(digitBtn).toBeEnabled()
       await digitBtn.click()
     }
+    await expect(page.getByTestId('header-security-btn')).toBeVisible({ timeout: 10000 })
+  })
+
+  test('onboarding directo con Passkey FIDO2 virtual (setup-fido-btn), bloqueo sin PIN y desbloqueo biométrico tras recargar', async ({
+    page,
+  }) => {
+    await setupVirtualAuthenticator(page)
+    await openCleanOnboarding(page)
+
+    const setupFidoBtn = page.getByTestId('setup-fido-btn')
+    await expect(setupFidoBtn).toBeVisible()
+    await expect(setupFidoBtn).toBeEnabled()
+    await setupFidoBtn.click()
+
+    await expect(page.getByTestId('header-security-btn')).toBeVisible({ timeout: 10000 })
+
+    await page.getByTestId('header-lock-btn').click()
+    await expect(page.getByTestId('login-screen')).toBeVisible()
+    await expect(page.getByTestId('emergency-offline-btn')).toHaveCount(0)
+    await expect(page.getByTestId('setup-pin-input')).toHaveCount(0)
+    await expect(page.getByTestId('pin-dot')).toHaveCount(0)
+    await expect(page.getByTestId('fido-unlock-btn')).toBeVisible()
+
+    await page.reload()
+    await expect(page.getByTestId('login-screen')).toBeVisible()
+    await expect(page.getByTestId('setup-pin-input')).toHaveCount(0)
+    await expect(page.getByTestId('pin-dot')).toHaveCount(0)
+
+    await page.getByTestId('fido-unlock-btn').click()
     await expect(page.getByTestId('header-security-btn')).toBeVisible({ timeout: 10000 })
   })
 })
