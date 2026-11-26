@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   computeIsSessionExpired,
   computeHasPendingChanges,
+  disconnectDriveStorage,
   shouldAttemptBackgroundSync,
   shouldScheduleAutoSync,
   shouldWarnBeforeUnload,
@@ -506,6 +507,50 @@ describe('useGoogleSync orchestration helpers', () => {
           syncState: 'syncing',
         }),
       ).toBe(true)
+    })
+  })
+
+  describe('disconnectDriveStorage', () => {
+    it('desactiva solo Drive sin revocar token ni cookie BFF cuando Calendar sigue activo', () => {
+      const setGoogleSyncEnabled = vi.fn()
+      const clearStoredToken = vi.fn()
+      const setLastCheckTime = vi.fn()
+      const revokeServerOAuthSession = vi.fn().mockResolvedValue(undefined)
+
+      const result = disconnectDriveStorage({
+        isCalendarSyncEnabled: () => true,
+        setGoogleSyncEnabled,
+        clearStoredToken,
+        setLastCheckTime,
+        revokeServerOAuthSession,
+      })
+
+      expect(result).toEqual({ clearedSharedAuth: false })
+      expect(setLastCheckTime).toHaveBeenCalledWith(0)
+      expect(setGoogleSyncEnabled).toHaveBeenCalledWith(false)
+      expect(clearStoredToken).not.toHaveBeenCalled()
+      expect(revokeServerOAuthSession).not.toHaveBeenCalled()
+    })
+
+    it('limpia token compartido y revoca sesión BFF cuando Calendar no está habilitado', () => {
+      const setGoogleSyncEnabled = vi.fn()
+      const clearStoredToken = vi.fn()
+      const setLastCheckTime = vi.fn()
+      const revokeServerOAuthSession = vi.fn().mockResolvedValue(undefined)
+
+      const result = disconnectDriveStorage({
+        isCalendarSyncEnabled: () => false,
+        setGoogleSyncEnabled,
+        clearStoredToken,
+        setLastCheckTime,
+        revokeServerOAuthSession,
+      })
+
+      expect(result).toEqual({ clearedSharedAuth: true })
+      expect(setLastCheckTime).toHaveBeenCalledWith(0)
+      expect(clearStoredToken).toHaveBeenCalledWith(true)
+      expect(revokeServerOAuthSession).toHaveBeenCalledTimes(1)
+      expect(setGoogleSyncEnabled).not.toHaveBeenCalled()
     })
   })
 })

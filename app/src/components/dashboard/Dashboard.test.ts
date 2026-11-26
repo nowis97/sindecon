@@ -1,4 +1,8 @@
+import 'fake-indexeddb/auto'
 import { describe, it, expect } from 'vitest'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import type { CalendarEventRow, CalendarListRow } from '../../db/db'
 import { Dashboard, type DashboardProps } from './Dashboard'
 
 describe('Dashboard Component Contract', () => {
@@ -41,5 +45,105 @@ describe('Dashboard Component Contract', () => {
     expect(captureOpened).toBe(true)
     expect(driveOpened).toBe(true)
     expect(studyOpened).toBe(true)
+  })
+
+  it('acepta props opcionales de Google Calendar y renderiza CalendarGuardCard y botón Agenda en cabecera', () => {
+    let calendarOpened = false
+    let quickCreated = false
+    const now = Date.now()
+
+    const calendars: CalendarListRow[] = [
+      {
+        id: 'primary',
+        summary: 'Guardias UCI',
+        primary: true,
+        backgroundColor: '#0f766e',
+        accessRole: 'owner',
+        selected: true,
+      },
+    ]
+    const events: CalendarEventRow[] = [
+      {
+        id: 'ev-guardia',
+        calendarId: 'primary',
+        summary: 'Guardia UCI Noche',
+        description: 'Turno nocturno',
+        location: 'UCI Piso 3',
+        startIso: new Date(now + 30 * 60_000).toISOString(),
+        endIso: new Date(now + 150 * 60_000).toISOString(),
+        startMs: now + 30 * 60_000,
+        endMs: now + 150 * 60_000,
+        allDay: false,
+        status: 'confirmed',
+        updatedAt: now,
+        syncStatus: 'pending',
+      },
+    ]
+
+    const disconnectedHtml = renderToStaticMarkup(
+      createElement(Dashboard, {
+        nodes: [],
+        templates: [],
+        onSelectArticle: () => {},
+        onOpenQuickCapture: () => {},
+        onCreateNode: () => {},
+        onCreateFromTemplate: () => {},
+        calendarEnabled: false,
+        calendarOnline: true,
+        calendarSyncState: 'idle',
+        calendarCalendars: [],
+        calendarEvents: [],
+        onConnectCalendar: () => {},
+        onOpenCalendar: () => {
+          calendarOpened = true
+        },
+      }),
+    )
+
+    expect(disconnectedHtml).toContain('data-testid="calendar-guard-card"')
+    expect(disconnectedHtml).toContain('data-testid="calendar-connect-btn"')
+    expect(disconnectedHtml).toContain('Conectar Google Calendar')
+    expect(disconnectedHtml).toContain('data-testid="header-calendar-btn"')
+    expect(disconnectedHtml).toContain('Agenda')
+
+    const connectedProps: DashboardProps = {
+      nodes: [],
+      templates: [],
+      onSelectArticle: () => {},
+      onOpenQuickCapture: () => {},
+      onCreateNode: () => {},
+      onCreateFromTemplate: () => {},
+      calendarEnabled: true,
+      calendarOnline: true,
+      calendarSessionExpired: false,
+      calendarNeedsConsent: false,
+      calendarSyncState: 'idle',
+      calendarPendingCount: 1,
+      calendarCalendars: calendars,
+      calendarEvents: events,
+      calendarLastSyncedAt: new Date(now),
+      calendarErrorMessage: null,
+      onConnectCalendar: () => {},
+      onSyncCalendar: () => {},
+      onOpenCalendar: () => {
+        calendarOpened = true
+      },
+      onQuickCreateCalendarEvent: () => {
+        quickCreated = true
+      },
+      onSelectCalendarEvent: () => {},
+    }
+
+    connectedProps.onOpenCalendar?.()
+    connectedProps.onQuickCreateCalendarEvent?.()
+    expect(calendarOpened).toBe(true)
+    expect(quickCreated).toBe(true)
+
+    const connectedHtml = renderToStaticMarkup(createElement(Dashboard, connectedProps))
+    expect(connectedHtml).toContain('data-testid="calendar-guard-card"')
+    expect(connectedHtml).toContain('data-testid="calendar-open-modal-btn"')
+    expect(connectedHtml).toContain('data-testid="calendar-quick-add-btn"')
+    expect(connectedHtml).toContain('Guardia UCI Noche')
+    expect(connectedHtml).toContain('Pendiente (1)')
   })
 })

@@ -96,6 +96,10 @@ export interface FolderExplorerViewProps {
   googleSyncProgress?: SyncProgress | null
   googleLastSyncedAt?: Date | null
   onOpenGoogleDriveSync?: () => void
+  onOpenCalendar?: () => void
+  calendarEnabled?: boolean
+  calendarPendingCount?: number
+  calendarSessionExpired?: boolean
   onInstallPwa?: () => void
   canInstallPwa?: boolean
 }
@@ -152,6 +156,10 @@ export function FolderExplorerView({
   googleSyncProgress = null,
   googleLastSyncedAt = null,
   onOpenGoogleDriveSync,
+  onOpenCalendar,
+  calendarEnabled = false,
+  calendarPendingCount = 0,
+  calendarSessionExpired = false,
   onInstallPwa,
   canInstallPwa = false,
 }: FolderExplorerViewProps) {
@@ -561,6 +569,10 @@ export function FolderExplorerView({
             googleSyncProgress={googleSyncProgress}
             googleLastSyncedAt={googleLastSyncedAt}
             onOpenGoogleDriveSync={onOpenGoogleDriveSync}
+            onOpenCalendar={onOpenCalendar}
+            calendarEnabled={calendarEnabled}
+            calendarPendingCount={calendarPendingCount}
+            calendarSessionExpired={calendarSessionExpired}
             left={
               <div className="flex items-center gap-3.5 min-w-0">
                 <button

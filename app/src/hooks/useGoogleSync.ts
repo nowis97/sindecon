@@ -6,7 +6,9 @@ import {
   setStoredToken,
   clearStoredToken,
   fetchGoogleUserEmail,
+  isCalendarSyncEnabled,
   isGoogleSyncEnabled,
+  setGoogleSyncEnabled,
   isTokenExpired,
   ensureValidAccessToken,
   initiateGoogleOAuthFlow,
@@ -128,6 +130,38 @@ export function shouldWarnBeforeUnload(input: {
   return input.isConnected && (input.hasPendingChanges || input.syncState === 'syncing')
 }
 
+export interface DriveDisconnectRuntime {
+  isCalendarSyncEnabled?: typeof isCalendarSyncEnabled
+  setGoogleSyncEnabled?: typeof setGoogleSyncEnabled
+  clearStoredToken?: typeof clearStoredToken
+  setLastCheckTime?: typeof setLastCheckTime
+  revokeServerOAuthSession?: typeof revokeServerOAuthSession
+}
+
+/**
+ * Desconecta Google Drive preservando el token y la cookie BFF compartidos si Google Calendar
+ * continúa habilitado; de lo contrario revoca la sesión OAuth completa.
+ */
+export function disconnectDriveStorage(runtime?: DriveDisconnectRuntime): {
+  clearedSharedAuth: boolean
+} {
+  const checkCalendarEnabled = runtime?.isCalendarSyncEnabled ?? isCalendarSyncEnabled
+  const setDriveEnabled = runtime?.setGoogleSyncEnabled ?? setGoogleSyncEnabled
+  const clearToken = runtime?.clearStoredToken ?? clearStoredToken
+  const resetCheckTime = runtime?.setLastCheckTime ?? setLastCheckTime
+  const revokeSession = runtime?.revokeServerOAuthSession ?? revokeServerOAuthSession
+
+  resetCheckTime(0)
+  if (checkCalendarEnabled()) {
+    setDriveEnabled(false)
+    return { clearedSharedAuth: false }
+  }
+
+  clearToken(true)
+  void revokeSession()
+  return { clearedSharedAuth: true }
+}
+
 /**
  * Ejecuta una sincronización renovando el token antes si falta y reintentando una vez ante 401.
  */
@@ -196,8 +230,8 @@ export function useGoogleSync() {
 
   useEffect(() => clearIdleTimer, [clearIdleTimer])
 
-  const syncEnabled = isGoogleSyncEnabled()
-  const isConnected = Boolean(token) || syncEnabled
+  const [syncEnabled, setSyncEnabled] = useState<boolean>(() => isGoogleSyncEnabled())
+  const isConnected = syncEnabled
   const localMaxTimestamp = useLiveQuery(() => getLocalMaxTimestamp(), [], 0) ?? 0
   const hasPendingChanges = computeHasPendingChanges({
     isConnected,
@@ -217,6 +251,7 @@ export function useGoogleSync() {
   useEffect(() => {
     const syncLocalState = () => {
       const nextToken = getStoredToken()
+      setSyncEnabled(isGoogleSyncEnabled())
       setToken(nextToken)
       setUserEmail(getStoredEmail())
       if (nextToken && !isTokenExpired(0)) {
@@ -286,6 +321,7 @@ export function useGoogleSync() {
         finalEmail = (await fetchGoogleUserEmail(newToken)) || undefined
       }
       setStoredToken(newToken, expiresInSeconds, finalEmail)
+      setSyncEnabled(isGoogleSyncEnabled())
       setToken(newToken)
       if (finalEmail) {
         setUserEmail(finalEmail)
@@ -445,11 +481,12 @@ export function useGoogleSync() {
   const disconnect = useCallback(() => {
     clearIdleTimer()
     lastSyncAttemptAtRef.current = 0
-    clearStoredToken(true)
-    setLastCheckTime(0)
-    void revokeServerOAuthSession()
-    setToken(null)
-    setUserEmail(null)
+    const { clearedSharedAuth } = disconnectDriveStorage()
+    setSyncEnabled(false)
+    if (clearedSharedAuth) {
+      setToken(null)
+      setUserEmail(null)
+    }
     setLastCheckedTime(0)
     setServerSessionExpired(false)
     setIsRefreshing(false)
