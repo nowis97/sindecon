@@ -965,8 +965,10 @@ function App() {
                   onOpenGoogleDriveSync={() => setIsGoogleModalOpen(true)}
                   onOpenCalendar={handleOpenCalendar}
                   calendarEnabled={isCalendarEnabled}
+                  calendarOnline={isCalendarOnline}
                   calendarPendingCount={calendarPendingCount}
                   calendarSessionExpired={isCalendarSessionExpired}
+                  calendarNeedsConsent={needsCalendarConsent}
                   onInstallPwa={triggerInstallPwa}
                   canInstallPwa={canInstallPwa}
                 />

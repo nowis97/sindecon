@@ -98,8 +98,10 @@ export interface FolderExplorerViewProps {
   onOpenGoogleDriveSync?: () => void
   onOpenCalendar?: () => void
   calendarEnabled?: boolean
+  calendarOnline?: boolean
   calendarPendingCount?: number
   calendarSessionExpired?: boolean
+  calendarNeedsConsent?: boolean
   onInstallPwa?: () => void
   canInstallPwa?: boolean
 }
@@ -158,8 +160,10 @@ export function FolderExplorerView({
   onOpenGoogleDriveSync,
   onOpenCalendar,
   calendarEnabled = false,
+  calendarOnline = true,
   calendarPendingCount = 0,
   calendarSessionExpired = false,
+  calendarNeedsConsent = false,
   onInstallPwa,
   canInstallPwa = false,
 }: FolderExplorerViewProps) {
@@ -571,8 +575,10 @@ export function FolderExplorerView({
             onOpenGoogleDriveSync={onOpenGoogleDriveSync}
             onOpenCalendar={onOpenCalendar}
             calendarEnabled={calendarEnabled}
+            calendarOnline={calendarOnline}
             calendarPendingCount={calendarPendingCount}
             calendarSessionExpired={calendarSessionExpired}
+            calendarNeedsConsent={calendarNeedsConsent}
             left={
               <div className="flex items-center gap-3.5 min-w-0">
                 <button

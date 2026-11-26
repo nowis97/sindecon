@@ -423,6 +423,53 @@ describe('CalendarModal SSR contract', () => {
     )
     expect(closedHtml).toBe('')
   })
+
+  it('vista Mes no anida botones dentro de <div role="button"> y expone botones hermanos para día, eventos y overflow', () => {
+    const baseDay = new Date(2026, 10, 26, 8, 0)
+    const monthHtml = renderToStaticMarkup(
+      createElement(CalendarModal, {
+        isOpen: true,
+        initialView: 'month',
+        onClose: () => {},
+        isOnline: true,
+        syncState: 'idle',
+        calendars: [makeCalendar()],
+        events: [
+          makeEvent({
+            id: 'm-1',
+            summary: 'Pase Mañana',
+            startMs: new Date(2026, 10, 26, 8, 0).getTime(),
+            endMs: new Date(2026, 10, 26, 9, 0).getTime(),
+          }),
+          makeEvent({
+            id: 'm-2',
+            summary: 'Cirugía Tarde',
+            startMs: new Date(2026, 10, 26, 14, 0).getTime(),
+            endMs: new Date(2026, 10, 26, 16, 0).getTime(),
+          }),
+          makeEvent({
+            id: 'm-3',
+            summary: 'Guardia Noche',
+            startMs: new Date(2026, 10, 26, 20, 0).getTime(),
+            endMs: new Date(2026, 10, 27, 8, 0).getTime(),
+          }),
+        ],
+        nowMs: baseDay.getTime(),
+        onSync: () => {},
+        onDisconnect: () => {},
+        onToggleCalendar: () => {},
+        onCreateEvent: () => {},
+        onSelectEvent: () => {},
+      }),
+    )
+
+    expect(monthHtml).not.toContain('role="button"')
+    expect(monthHtml).toContain('aria-label="Seleccionar 2026-11-26"')
+    expect(monthHtml).toContain('aria-pressed="true"')
+    expect(monthHtml).toContain('Pase Mañana')
+    expect(monthHtml).toContain('Cirugía Tarde')
+    expect(monthHtml).toMatch(/<button[^>]*>\+1 más<\/button>/)
+  })
 })
 
 describe('CalendarEventFormModal SSR contract', () => {

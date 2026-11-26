@@ -33,6 +33,29 @@ interface CalendarMockState {
 const CALENDAR_SCOPES =
   'openid email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly'
 
+function applyMergePatchTime(
+  current: MockGoogleEvent['start'],
+  patch: unknown,
+): MockGoogleEvent['start'] {
+  const merged: Record<string, unknown> = { ...current }
+  if (patch && typeof patch === 'object') {
+    for (const [key, value] of Object.entries(patch as Record<string, unknown>)) {
+      if (value === null) {
+        delete merged[key]
+      } else if (value !== undefined) {
+        merged[key] = value
+      }
+    }
+  }
+  return merged as MockGoogleEvent['start']
+}
+
+function hasValidEventTime(time: MockGoogleEvent['start']): boolean {
+  const hasDate = typeof time.date === 'string' && time.date.length > 0
+  const hasDateTime = typeof time.dateTime === 'string' && time.dateTime.length > 0
+  return hasDate !== hasDateTime
+}
+
 async function installGoogleCalendarMocks(page: Page): Promise<CalendarMockState> {
   const now = Date.now()
   const seedStart = new Date(now - 5 * 60_000).toISOString()
@@ -238,11 +261,28 @@ async function installGoogleCalendarMocks(page: Page): Promise<CalendarMockState
           await route.fulfill({ status: 404, body: JSON.stringify({ error: { code: 404 } }) })
           return
         }
+        const nextStart = body.start
+          ? applyMergePatchTime(target.start, body.start)
+          : target.start
+        const nextEnd = body.end ? applyMergePatchTime(target.end, body.end) : target.end
+        if (!hasValidEventTime(nextStart) || !hasValidEventTime(nextEnd)) {
+          await route.fulfill({
+            status: 400,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              error: {
+                code: 400,
+                message: 'Invalid start/end: cannot combine date and dateTime',
+              },
+            }),
+          })
+          return
+        }
         if (typeof body.summary === 'string') target.summary = body.summary
         if (typeof body.description === 'string') target.description = body.description
         if (typeof body.location === 'string') target.location = body.location
-        if (body.start) target.start = body.start as MockGoogleEvent['start']
-        if (body.end) target.end = body.end as MockGoogleEvent['end']
+        target.start = nextStart
+        target.end = nextEnd
         target.updated = new Date().toISOString()
         const { calendarId: _calId, ...apiEvent } = target
         await route.fulfill({
@@ -331,6 +371,7 @@ test.describe('Google Calendar E2E: Conexión, Vistas, Temas, Outbox Offline y E
     await page.getByTestId('calendar-view-month').click()
     await expect(page.getByTestId('calendar-view-month')).toHaveAttribute('aria-selected', 'true')
     await expect(calendarModal).toContainText('Guardia UCI Noche')
+    await expect(calendarModal.locator('[role="button"]')).toHaveCount(0)
 
     await page.getByTestId('calendar-view-agenda').click()
     await calendarModal.getByRole('button', { name: 'Cerrar' }).click()
@@ -467,6 +508,48 @@ test.describe('Google Calendar E2E: Conexión, Vistas, Temas, Outbox Offline y E
     expect((mockState.postPayloads[0]?.start as { date?: string })?.date).toBe(todayYmd)
     await expect(calendarModal).toContainText('Congreso Medicina Crítica')
     await expect(calendarModal).toContainText('Todo el día')
+    await expect(calendarModal.getByText(/^Pendiente$/)).toHaveCount(0, { timeout: 10000 })
+
+    // Editar evento sincronizado: allDay -> timed (PATCH debe enviar date: null)
+    await calendarModal.getByRole('button', { name: /Congreso Medicina Crítica/ }).click()
+    await expect(eventForm).toBeVisible()
+    await page.getByTestId('calendar-event-allday-toggle').uncheck()
+    await expect(page.getByTestId('calendar-event-start-input')).toHaveAttribute(
+      'type',
+      'datetime-local',
+    )
+    await page.getByTestId('calendar-event-submit-btn').click()
+    await expect(eventForm).not.toBeVisible()
+
+    await expect.poll(() => mockState.patchPayloads.length, { timeout: 10000 }).toBe(1)
+    expect((mockState.patchPayloads[0]?.body.start as Record<string, unknown>)?.date).toBeNull()
+    expect((mockState.patchPayloads[0]?.body.end as Record<string, unknown>)?.date).toBeNull()
+    await expect(calendarModal).toContainText('09:00 – 10:00')
+    await expect(calendarModal).not.toContainText('Todo el día')
+    await expect(calendarModal.getByText(/^Pendiente$/)).toHaveCount(0, { timeout: 10000 })
+    await expect(calendarModal.getByText(/^Error$/)).toHaveCount(0)
+
+    // Editar nuevamente: timed -> allDay (PATCH debe enviar dateTime: null, timeZone: null)
+    await calendarModal.getByRole('button', { name: /Congreso Medicina Crítica/ }).click()
+    await expect(eventForm).toBeVisible()
+    await page.getByTestId('calendar-event-allday-toggle').check()
+    await expect(page.getByTestId('calendar-event-start-input')).toHaveValue(todayYmd)
+    await page.getByTestId('calendar-event-submit-btn').click()
+    await expect(eventForm).not.toBeVisible()
+
+    await expect.poll(() => mockState.patchPayloads.length, { timeout: 10000 }).toBe(2)
+    expect(mockState.patchPayloads[1]?.body.start).toEqual({
+      date: todayYmd,
+      dateTime: null,
+      timeZone: null,
+    })
+    expect(mockState.patchPayloads[1]?.body.end).toMatchObject({
+      dateTime: null,
+      timeZone: null,
+    })
+    await expect(calendarModal).toContainText('Todo el día')
+    await expect(calendarModal.getByText(/^Pendiente$/)).toHaveCount(0, { timeout: 10000 })
+    await expect(calendarModal.getByText(/^Error$/)).toHaveCount(0)
 
     // Cerrar modal, bloquear terminal y restablecer terminal local: debe limpiar tablas y flags de Calendar
     await calendarModal.getByRole('button', { name: 'Cerrar' }).click()

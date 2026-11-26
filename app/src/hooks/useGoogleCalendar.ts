@@ -78,6 +78,15 @@ function getNavigatorOnline(): boolean {
   return typeof navigator !== 'undefined' ? navigator.onLine : true
 }
 
+function containsCalendarScopes(scopeStr: string): boolean {
+  const scopes = new Set(scopeStr.split(/\s+/).filter(Boolean))
+  if (scopes.has('https://www.googleapis.com/auth/calendar')) return true
+  return (
+    scopes.has('https://www.googleapis.com/auth/calendar.events') &&
+    scopes.has('https://www.googleapis.com/auth/calendar.calendarlist.readonly')
+  )
+}
+
 export interface CalendarSyncRange {
   startMs: number
   endMs: number
@@ -200,11 +209,7 @@ export function createCalendarSyncCoordinator(
         return { token: null, transientError: null }
       }
       cb.setToken(rt.getStoredToken())
-      const scopesOk = rt.hasCalendarScopes()
-      cb.setHasScopes(scopesOk)
-      if (scopesOk) {
-        cb.setInsufficientScopeError(false)
-      }
+      cb.setHasScopes(rt.hasCalendarScopes())
       if (nextToken) {
         cb.setServerSessionExpired(false)
         cb.setErrorMessage(null)
@@ -555,7 +560,7 @@ export function createCalendarSyncCoordinator(
       scope: resolvedScope,
     })
 
-    const scopesOk = rt.hasCalendarScopes()
+    const scopesOk = rt.hasCalendarScopes() && containsCalendarScopes(resolvedScope)
     sessionEpoch += 1
     needsFollowupSync = false
     pendingRange = null
@@ -710,9 +715,6 @@ export function useGoogleCalendar(
       setHasScopes(nextHasScopes)
       if (nextToken && !isTokenExpired(0)) {
         setServerSessionExpired(false)
-      }
-      if (nextHasScopes) {
-        setInsufficientScopeError(false)
       }
     }
     window.addEventListener(GOOGLE_AUTH_CHANGE_EVENT, syncLocalState)

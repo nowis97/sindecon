@@ -22,8 +22,10 @@ export interface ClinicalStationHeaderProps {
   onOpenGoogleDriveSync?: () => void
   onOpenCalendar?: () => void
   calendarEnabled?: boolean
+  calendarOnline?: boolean
   calendarPendingCount?: number
   calendarSessionExpired?: boolean
+  calendarNeedsConsent?: boolean
 }
 
 const HEADER_ACTION_BTN_CLASS =
@@ -87,32 +89,74 @@ export function ClinicalStationHeader({
   onOpenGoogleDriveSync,
   onOpenCalendar,
   calendarEnabled = false,
+  calendarOnline = true,
   calendarPendingCount = 0,
   calendarSessionExpired = false,
+  calendarNeedsConsent = false,
 }: ClinicalStationHeaderProps) {
   const isDark = theme === 'dark'
 
   const calendarSummary = useMemo(() => {
-    const hasWarn = calendarPendingCount > 0 || calendarSessionExpired
-    const style = hasWarn
-      ? SYNC_STYLE_MAP.pending
-      : calendarEnabled
-        ? SYNC_STYLE_MAP.synced
-        : SYNC_STYLE_MAP.disconnected
-    const title = calendarSessionExpired
-      ? 'Google Calendar: sesión expirada — clic para reconectar'
-      : calendarPendingCount > 0
-        ? `Google Calendar: ${calendarPendingCount} cambio${calendarPendingCount === 1 ? '' : 's'} pendiente${calendarPendingCount === 1 ? '' : 's'}`
-        : calendarEnabled
-          ? 'Agenda clínica conectada a Google Calendar'
-          : 'Abrir o conectar Agenda de Google Calendar'
-    return {
-      title,
-      showDot: calendarEnabled || hasWarn,
-      dotClass: hasWarn ? 'bg-[var(--cl-warn)]' : 'bg-[var(--cl-success)]',
-      pillClass: style.pillClass,
+    if (calendarNeedsConsent) {
+      return {
+        title: 'Agenda: faltan permisos de Google Calendar. Haz clic para autorizar.',
+        ariaLabel: 'Agenda: permisos requeridos',
+        showDot: true,
+        dotClass: SYNC_STYLE_MAP.paused.dotClass,
+        pillClass: SYNC_STYLE_MAP.paused.pillClass,
+      }
     }
-  }, [calendarEnabled, calendarPendingCount, calendarSessionExpired])
+    if (calendarSessionExpired) {
+      return {
+        title: 'Google Calendar: sesión expirada — clic para reconectar',
+        ariaLabel: 'Agenda: sesión expirada',
+        showDot: true,
+        dotClass: SYNC_STYLE_MAP.paused.dotClass,
+        pillClass: SYNC_STYLE_MAP.paused.pillClass,
+      }
+    }
+    if (calendarPendingCount > 0) {
+      const pendingText = `${calendarPendingCount} cambio${calendarPendingCount === 1 ? '' : 's'} pendiente${calendarPendingCount === 1 ? '' : 's'}`
+      return {
+        title: `Google Calendar: ${pendingText}`,
+        ariaLabel: `Agenda: ${pendingText}`,
+        showDot: true,
+        dotClass: SYNC_STYLE_MAP.pending.dotClass,
+        pillClass: SYNC_STYLE_MAP.pending.pillClass,
+      }
+    }
+    if (calendarEnabled && !calendarOnline) {
+      return {
+        title: 'Agenda: sin conexión (modo offline local)',
+        ariaLabel: 'Agenda offline',
+        showDot: true,
+        dotClass: SYNC_STYLE_MAP.offline.dotClass,
+        pillClass: SYNC_STYLE_MAP.offline.pillClass,
+      }
+    }
+    if (calendarEnabled) {
+      return {
+        title: 'Agenda clínica conectada a Google Calendar',
+        ariaLabel: 'Agenda conectada',
+        showDot: true,
+        dotClass: SYNC_STYLE_MAP.synced.dotClass,
+        pillClass: SYNC_STYLE_MAP.synced.pillClass,
+      }
+    }
+    return {
+      title: 'Abrir o conectar Agenda de Google Calendar',
+      ariaLabel: 'Conectar Agenda',
+      showDot: false,
+      dotClass: SYNC_STYLE_MAP.disconnected.dotClass,
+      pillClass: SYNC_STYLE_MAP.disconnected.pillClass,
+    }
+  }, [
+    calendarEnabled,
+    calendarOnline,
+    calendarPendingCount,
+    calendarSessionExpired,
+    calendarNeedsConsent,
+  ])
 
   const driveSummary = useMemo(() => {
     const details = getSyncStatusDetails({
@@ -164,7 +208,7 @@ export function ClinicalStationHeader({
             type="button"
             data-testid="header-calendar-btn"
             onClick={onOpenCalendar}
-            aria-label="Agenda"
+            aria-label={calendarSummary.ariaLabel}
             title={calendarSummary.title}
             className={`inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-full border text-xs font-semibold cursor-pointer transition-colors ${calendarSummary.pillClass}`}
           >

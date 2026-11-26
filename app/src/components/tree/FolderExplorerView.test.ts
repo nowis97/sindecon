@@ -1,4 +1,7 @@
+import 'fake-indexeddb/auto'
 import { describe, it, expect } from 'vitest'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { FolderExplorerView, type FolderExplorerViewProps } from './FolderExplorerView'
 
 describe('FolderExplorerView Component Contract', () => {
@@ -121,5 +124,34 @@ describe('FolderExplorerView Component Contract', () => {
 
     props.onBulkExportPdf?.('folder-cardio')
     expect(exportCall).toEqual({ folderId: 'folder-cardio', selectedIds: undefined })
+  })
+
+  it('propaga calendarNeedsConsent a ClinicalStationHeader en vista de carpeta', () => {
+    const html = renderToStaticMarkup(
+      createElement(FolderExplorerView, {
+        folderNode: {
+          id: 'folder-uci',
+          parent_id: null,
+          kind: 'folder',
+          title: 'UCI Adulto',
+          order: 0,
+          system: null,
+          created_at: 1732147200000,
+          updated_at: 1732147200000,
+          deleted_at: null,
+        },
+        nodes: [],
+        onSelectNode: () => {},
+        onCreateArticle: () => {},
+        onCreateSubfolder: () => {},
+        onOpenCalendar: () => {},
+        calendarEnabled: true,
+        calendarNeedsConsent: true,
+      }),
+    )
+
+    expect(html).toContain('data-testid="header-calendar-btn"')
+    expect(html).toContain('aria-label="Agenda: permisos requeridos"')
+    expect(html).toContain('bg-[var(--cl-warn-soft)]')
   })
 })

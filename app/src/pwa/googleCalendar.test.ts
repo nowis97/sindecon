@@ -336,6 +336,130 @@ describe('createRemoteCalendarEvent / patchRemoteCalendarEvent / deleteRemoteCal
     expect(fetchMock.mock.calls[2]?.[1]?.method).toBe('DELETE')
   })
 
+  it('PATCH emite null al alternar allDay <-> timed y POST omite claves null', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        makeJsonResponse(200, {
+          id: 'ev-post-allday',
+          summary: 'Post AllDay',
+          start: { date: '2026-11-26' },
+          end: { date: '2026-11-27' },
+          status: 'confirmed',
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeJsonResponse(200, {
+          id: 'ev-post-timed',
+          summary: 'Post Timed',
+          start: { dateTime: '2026-11-26T08:00:00-03:00', timeZone: 'America/Santiago' },
+          end: { dateTime: '2026-11-26T10:00:00-03:00', timeZone: 'America/Santiago' },
+          status: 'confirmed',
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeJsonResponse(200, {
+          id: 'ev-patch-1',
+          summary: 'Timed -> AllDay',
+          start: { date: '2026-11-26' },
+          end: { date: '2026-11-27' },
+          status: 'confirmed',
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeJsonResponse(200, {
+          id: 'ev-patch-1',
+          summary: 'AllDay -> Timed',
+          start: { dateTime: '2026-11-26T09:00:00-03:00', timeZone: 'America/Santiago' },
+          end: { dateTime: '2026-11-26T11:00:00-03:00', timeZone: 'America/Santiago' },
+          status: 'confirmed',
+        }),
+      )
+
+    await createRemoteCalendarEvent(
+      'tok',
+      'primary',
+      { ...sampleDraft, allDay: true, timeZone: 'America/Santiago' },
+      fetchMock,
+    )
+    const postAllDayBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    expect(postAllDayBody.start).toEqual({ date: '2026-11-26' })
+    expect(postAllDayBody.end).toEqual({ date: '2026-11-27' })
+    expect('dateTime' in postAllDayBody.start).toBe(false)
+    expect('timeZone' in postAllDayBody.start).toBe(false)
+
+    await createRemoteCalendarEvent(
+      'tok',
+      'primary',
+      {
+        ...sampleDraft,
+        allDay: false,
+        startIso: '2026-11-26T08:00:00-03:00',
+        endIso: '2026-11-26T10:00:00-03:00',
+        timeZone: 'America/Santiago',
+      },
+      fetchMock,
+    )
+    const postTimedBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))
+    expect(postTimedBody.start).toEqual({
+      dateTime: '2026-11-26T08:00:00-03:00',
+      timeZone: 'America/Santiago',
+    })
+    expect('date' in postTimedBody.start).toBe(false)
+
+    await patchRemoteCalendarEvent(
+      'tok',
+      'primary',
+      'ev-patch-1',
+      {
+        ...sampleDraft,
+        summary: 'Timed -> AllDay',
+        allDay: true,
+        startIso: '2026-11-26',
+        endIso: '2026-11-27',
+        timeZone: 'America/Santiago',
+      },
+      fetchMock,
+    )
+    const patchAllDayBody = JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))
+    expect(patchAllDayBody.start).toEqual({
+      date: '2026-11-26',
+      dateTime: null,
+      timeZone: null,
+    })
+    expect(patchAllDayBody.end).toEqual({
+      date: '2026-11-27',
+      dateTime: null,
+      timeZone: null,
+    })
+
+    await patchRemoteCalendarEvent(
+      'tok',
+      'primary',
+      'ev-patch-1',
+      {
+        ...sampleDraft,
+        summary: 'AllDay -> Timed',
+        allDay: false,
+        startIso: '2026-11-26T09:00:00-03:00',
+        endIso: '2026-11-26T11:00:00-03:00',
+        timeZone: 'America/Santiago',
+      },
+      fetchMock,
+    )
+    const patchTimedBody = JSON.parse(String(fetchMock.mock.calls[3]?.[1]?.body))
+    expect(patchTimedBody.start).toEqual({
+      date: null,
+      dateTime: '2026-11-26T09:00:00-03:00',
+      timeZone: 'America/Santiago',
+    })
+    expect(patchTimedBody.end).toEqual({
+      date: null,
+      dateTime: '2026-11-26T11:00:00-03:00',
+      timeZone: 'America/Santiago',
+    })
+  })
+
   it('mapea 401, 403 insufficientPermissions, 404, 410, 429, 500/503 y 400 a CalendarApiError', async () => {
     const cases: Array<{
       status: number

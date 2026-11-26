@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { CalendarEventRow, CalendarListRow } from '../../db/db'
+import { ClinicalStationHeader } from '../common/ClinicalStationHeader'
 import { Dashboard, type DashboardProps } from './Dashboard'
 
 describe('Dashboard Component Contract', () => {
@@ -145,5 +146,39 @@ describe('Dashboard Component Contract', () => {
     expect(connectedHtml).toContain('data-testid="calendar-quick-add-btn"')
     expect(connectedHtml).toContain('Guardia UCI Noche')
     expect(connectedHtml).toContain('Pendiente (1)')
+  })
+
+  it('muestra advertencia y aria-label accesible en ClinicalStationHeader cuando calendarNeedsConsent es true o está offline', () => {
+    const consentHtml = renderToStaticMarkup(
+      createElement(Dashboard, {
+        nodes: [],
+        templates: [],
+        onSelectArticle: () => {},
+        onOpenQuickCapture: () => {},
+        onCreateNode: () => {},
+        onCreateFromTemplate: () => {},
+        calendarEnabled: true,
+        calendarOnline: true,
+        calendarNeedsConsent: true,
+        calendarSyncState: 'error',
+        onOpenCalendar: () => {},
+      }),
+    )
+
+    expect(consentHtml).toContain('data-testid="header-calendar-btn"')
+    expect(consentHtml).toContain('aria-label="Agenda: permisos requeridos"')
+    expect(consentHtml).toContain('title="Agenda: faltan permisos de Google Calendar. Haz clic para autorizar."')
+    expect(consentHtml).toContain('bg-[var(--cl-warn-soft)]')
+    expect(consentHtml).toContain('bg-[var(--cl-warn)]')
+
+    const headerOfflineHtml = renderToStaticMarkup(
+      createElement(ClinicalStationHeader, {
+        left: createElement('span', null, 'Header'),
+        onOpenCalendar: () => {},
+        calendarEnabled: true,
+        calendarOnline: false,
+      }),
+    )
+    expect(headerOfflineHtml).toContain('aria-label="Agenda offline"')
   })
 })

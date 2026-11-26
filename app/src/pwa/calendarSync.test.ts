@@ -790,4 +790,32 @@ describe('createCalendarSyncCoordinator concurrency & disconnect safety', () => 
     expect(await refreshErr).toEqual({ token: null, transientError: null })
     expect(callbacks.setErrorMessage).not.toHaveBeenCalled()
   })
+
+  it('refreshSilently con hasCalendarScopes() cacheado en true NO limpia insufficientScopeError', async () => {
+    const callbacks = createTestCallbacks()
+    const coordinator = createCalendarSyncCoordinator(callbacks, {
+      isCalendarSyncEnabled: () => true,
+      isOnline: () => true,
+      getStoredToken: () => 'ya29.drive-only-with-stale-cache',
+      isTokenExpired: () => false,
+      ensureValidAccessToken: async () => 'ya29.refreshed',
+      hasCalendarScopes: () => true,
+      shouldUseServerOAuth: () => true,
+      getDefaultSyncWindow: () => ({ startMs: 1000, endMs: 2000 }),
+      performGoogleCalendarSync: vi.fn(async () => {
+        throw new CalendarApiError(403, 'insufficient_scope', 'Insufficient Permission')
+      }),
+    })
+
+    await coordinator.triggerSync()
+    expect(callbacks.setInsufficientScopeError).toHaveBeenCalledWith(true)
+
+    vi.mocked(callbacks.setInsufficientScopeError).mockClear()
+    await coordinator.refreshSilently(true)
+    expect(callbacks.setInsufficientScopeError).not.toHaveBeenCalledWith(false)
+    expect(callbacks.setInsufficientScopeError).not.toHaveBeenCalled()
+
+    await coordinator.handleOAuthSuccess('ya29.no-cal', 3600, 'doc@hospital.cl', 'openid email')
+    expect(callbacks.setInsufficientScopeError).toHaveBeenLastCalledWith(true)
+  })
 })

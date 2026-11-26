@@ -457,8 +457,10 @@ export function Dashboard({
           onOpenGoogleDriveSync={onOpenGoogleDriveSync}
           onOpenCalendar={onOpenCalendar}
           calendarEnabled={calendarEnabled}
+          calendarOnline={calendarOnline}
           calendarPendingCount={calendarPendingCount}
           calendarSessionExpired={calendarSessionExpired}
+          calendarNeedsConsent={calendarNeedsConsent}
           left={
             <div className="flex items-center gap-3.5 min-w-0">
               <div

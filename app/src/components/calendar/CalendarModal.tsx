@@ -972,16 +972,7 @@ function CalendarModalBody({
                       return (
                         <div
                           key={day.ymd}
-                          onClick={() => setSelectedDayYmd(day.ymd)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault()
-                              setSelectedDayYmd(day.ymd)
-                            }
-                          }}
-                          className={`flex min-h-[84px] flex-col gap-1 rounded-xl border p-1.5 text-left cursor-pointer transition-colors ${
+                          className={`flex min-h-[84px] flex-col gap-1 rounded-xl border p-1.5 text-left transition-colors ${
                             isSelected
                               ? 'border-[var(--cl-accent)] bg-[var(--cl-accent-soft)]/30'
                               : day.inCurrentMonth
@@ -989,7 +980,13 @@ function CalendarModalBody({
                                 : 'border-[var(--cl-border-soft)] bg-[var(--cl-surface-muted)]/60 opacity-65'
                           }`}
                         >
-                          <div className="flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDayYmd(day.ymd)}
+                            aria-label={`Seleccionar ${day.ymd}`}
+                            aria-pressed={isSelected}
+                            className="flex w-full items-center justify-between rounded-md px-0.5 py-0.5 text-left hover:bg-[var(--cl-surface-warm)] cursor-pointer"
+                          >
                             <span
                               className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 font-mono text-[11px] font-bold ${
                                 day.isToday
@@ -1004,17 +1001,14 @@ function CalendarModalBody({
                                 {dayEvents.length}
                               </span>
                             )}
-                          </div>
+                          </button>
 
                           <div className="flex flex-col gap-0.5">
                             {visibleSlice.map((ev) => (
                               <button
                                 key={`${day.ymd}-${ev.id}`}
                                 type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  onSelectEvent(ev)
-                                }}
+                                onClick={() => onSelectEvent(ev)}
                                 className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-[var(--cl-surface-warm)] cursor-pointer"
                               >
                                 <span
@@ -1030,9 +1024,14 @@ function CalendarModalBody({
                               </button>
                             ))}
                             {overflowCount > 0 && (
-                              <span className="px-1 font-mono text-[10px] text-[var(--cl-muted)]">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDayYmd(day.ymd)}
+                                aria-label={`Ver ${overflowCount} eventos más del ${day.ymd}`}
+                                className="w-full rounded px-1 py-0.5 text-left font-mono text-[10px] text-[var(--cl-muted)] hover:bg-[var(--cl-surface-warm)] hover:text-[var(--cl-fg)] cursor-pointer"
+                              >
                                 +{overflowCount} más
-                              </span>
+                              </button>
                             )}
                           </div>
                         </div>

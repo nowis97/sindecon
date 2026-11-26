@@ -266,12 +266,10 @@ export function getDefaultSyncWindow(nowMs: number = Date.now()): {
 function mapStatusToErrorReason(
   status: number,
   apiReasons: string[],
-  message: string,
 ): CalendarApiErrorReason {
   if (status === 401) return 'unauthorized'
   if (status === 403) {
     const lowerReasons = apiReasons.map((r) => r.toLowerCase())
-    const lowerMsg = message.toLowerCase()
     if (
       lowerReasons.some(
         (r) =>
@@ -282,16 +280,6 @@ function mapStatusToErrorReason(
       )
     ) {
       return 'rate_limited'
-    }
-    if (
-      lowerReasons.some(
-        (r) => r === 'insufficientpermissions' || r === 'insufficientscope' || r === 'forbidden',
-      ) ||
-      lowerMsg.includes('insufficient') ||
-      lowerMsg.includes('permission') ||
-      lowerMsg.includes('scope')
-    ) {
-      return 'insufficient_scope'
     }
     return 'insufficient_scope'
   }
@@ -337,7 +325,7 @@ async function throwIfCalendarApiError(res: Response): Promise<never> {
     // Ignorar error de lectura de cuerpo en respuesta fallida
   }
 
-  throw new CalendarApiError(status, mapStatusToErrorReason(status, apiReasons, message), message)
+  throw new CalendarApiError(status, mapStatusToErrorReason(status, apiReasons), message)
 }
 
 async function calendarFetch(
@@ -410,21 +398,26 @@ function mapGoogleEventToRow(
   }
 }
 
-function buildGoogleEventBody(draft: CalendarEventDraft): Record<string, unknown> {
-  const timeZoneObj = draft.timeZone ? { timeZone: draft.timeZone } : {}
-  const start: GoogleEventTime = draft.allDay
-    ? { date: draft.startIso }
-    : { dateTime: draft.startIso, ...timeZoneObj }
-  const end: GoogleEventTime = draft.allDay
-    ? { date: draft.endIso }
-    : { dateTime: draft.endIso, ...timeZoneObj }
+function buildGoogleEventTime(
+  iso: string,
+  allDay: boolean,
+  timeZone: string | undefined,
+  forPatch: boolean,
+): { date?: string | null; dateTime?: string | null; timeZone?: string | null } {
+  if (allDay) {
+    return forPatch ? { date: iso, dateTime: null, timeZone: null } : { date: iso }
+  }
+  const timeZoneObj = timeZone ? { timeZone } : {}
+  return forPatch ? { date: null, dateTime: iso, ...timeZoneObj } : { dateTime: iso, ...timeZoneObj }
+}
 
+function buildGoogleEventBody(draft: CalendarEventDraft, forPatch = false): Record<string, unknown> {
   return {
     summary: draft.summary,
     description: draft.description,
     location: draft.location,
-    start,
-    end,
+    start: buildGoogleEventTime(draft.startIso, draft.allDay, draft.timeZone, forPatch),
+    end: buildGoogleEventTime(draft.endIso, draft.allDay, draft.timeZone, forPatch),
   }
 }
 
@@ -543,7 +536,7 @@ export async function patchRemoteCalendarEvent(
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildGoogleEventBody(draft)),
+      body: JSON.stringify(buildGoogleEventBody(draft, true)),
     },
     fetchFn,
   )
