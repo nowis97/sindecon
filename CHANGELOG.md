@@ -2,6 +2,14 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.5.1] - 2026-11-26
+
+### Added
+- **Política de Privacidad Pública y Enlace en Pantalla Inicial (`app/public/privacy.html`, `LoginView.tsx`)**: Página estática pública accesible en `/privacy.html` sin requerir autenticación ni paso previo por la SPA, detallando almacenamiento local-first en `IndexedDB`, permisos OAuth de Google (`openid/email/profile`, Drive `appdata/file`, Calendar `calendarlist.readonly/events`), sesión cifrada `AES-256-GCM` en `/api/oauth/*`, procedimientos de revocación y declaración explícita **Google API Services User Data Policy (Limited Use)**; enlazada en el pie de `LoginView` tanto en onboarding como en pantalla bloqueada (`data-testid="login-privacy-link"`).
+
+### Changed
+- **Exclusión PWA para `/privacy.html` y Cobertura E2E (`vite.config.ts`, `LoginView.test.ts`, `auth-fido-pin.spec.ts`)**: Exclusión de `/^\/privacy\.html$/` en `navigateFallbackDenylist` de Workbox para servir la política directamente desde assets estáticos, más pruebas SSR y Playwright verificando acceso público sin sesión.
+
 ## [1.5.0] - 2026-11-26
 
 ### Added
