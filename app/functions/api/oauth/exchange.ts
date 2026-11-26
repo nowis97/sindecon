@@ -15,6 +15,7 @@ interface GoogleTokenResponse {
   expires_in?: number
   refresh_token?: string
   id_token?: string
+  scope?: string
   error?: string
 }
 
@@ -132,6 +133,10 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
   }
 
   const expiresIn = typeof tokenData.expires_in === 'number' ? tokenData.expires_in : 3600
+  const grantedScope =
+    typeof tokenData.scope === 'string' && tokenData.scope.trim()
+      ? tokenData.scope.trim()
+      : undefined
 
   if (!refreshToken) {
     return jsonResponse(
@@ -140,6 +145,7 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
         expires_in: expiresIn,
         email: fallbackEmail,
         persistent: false,
+        ...(grantedScope ? { scope: grantedScope } : {}),
       },
       200,
       clearExistingCookie
@@ -163,6 +169,7 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
       expires_in: expiresIn,
       email: fallbackEmail,
       persistent: true,
+      ...(grantedScope ? { scope: grantedScope } : {}),
     },
     200,
     {
