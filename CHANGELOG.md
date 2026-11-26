@@ -2,6 +2,16 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.5.0] - 2026-11-26
+
+### Added
+- **Integración Nativa de Google Calendar Offline-First (`CalendarGuardCard.tsx`, `CalendarModal.tsx`, `CalendarEventFormModal.tsx`)**: Visualización y gestión de eventos, turnos y guardias directamente dentro de SINDECON en tema claro y modo oscuro `Guardia UCI`, con tarjeta compacta **"Agenda · Próximos turnos"** en `Panel clínico de guardia`, botón **`Agenda`** en cabecera (`ClinicalStationHeader.tsx`) y modal completo con vistas **`Agenda`**, **`Semana`** y **`Mes`**, filtro multi-calendario y soporte para eventos **`Todo el día`**.
+- **Caché `Dexie v4` y Cola Offline FIFO con Coalescencia (`db.ts`, `db/calendar.ts`, `calendarSync.ts`, `useGoogleCalendar.ts`)**: Nuevas tablas `calendar_list`, `calendar_events` y `calendar_outbox` aisladas del respaldo clínico (`.zip` / Drive KB). Permite crear, editar y eliminar eventos sin conexión (etiqueta `Pendiente`), fusiona cambios consecutivos sobre borradores `local-*` y vacía la cola automáticamente al reconectar antes de descargar una ventana móvil (`−30d` a `+120d`, expandible al navegar online).
+- **Cliente REST v3 Seguro en Fechas y Parches Merge (`googleCalendar.ts`)**: Expansión de recurrencias en servidor mediante `singleEvents=true`, parseo local de fechas `YYYY-MM-DD` sin desfase `UTC-3`, limpieza explícita de campos (`date: null` / `dateTime: null, timeZone: null`) conforme a RFC 7396 en `PATCH` al alternar `Todo el día`, y cobertura unitaria/SSR + E2E Playwright (`google-calendar.spec.ts`).
+
+### Changed
+- **OAuth Incremental y Aislamiento Drive vs Calendar (`/api/oauth/exchange`, `/api/oauth/refresh`, `googleDrive.ts`, `useGoogleSync.ts`)**: Reenvío opcional de `scope` desde el BFF, autorización incremental (`include_granted_scopes: true`) para `calendar.events` y `calendar.calendarlist.readonly`, separación estricta entre `cuaderno-gdrive-enabled` y `sindecon-gcal-enabled` (`disconnectDriveStorage` conserva la sesión compartida si Agenda sigue activa), y limpieza completa de caché/banderas al restablecer el terminal.
+
 ## [1.4.0] - 2026-11-25
 
 ### Added

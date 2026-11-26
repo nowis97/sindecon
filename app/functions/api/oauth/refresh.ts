@@ -14,6 +14,7 @@ interface GoogleRefreshResponse {
   access_token?: string
   expires_in?: number
   refresh_token?: string
+  scope?: string
   error?: string
 }
 
@@ -93,11 +94,17 @@ export async function onRequest(context: CfPagesContext): Promise<Response> {
     envCheck.cookieSecret,
   )
 
+  const grantedScope =
+    typeof tokenData.scope === 'string' && tokenData.scope.trim()
+      ? tokenData.scope.trim()
+      : undefined
+
   return jsonResponse(
     {
       access_token: tokenData.access_token,
       expires_in: typeof tokenData.expires_in === 'number' ? tokenData.expires_in : 3600,
       email: payload.email,
+      ...(grantedScope ? { scope: grantedScope } : {}),
     },
     200,
     {

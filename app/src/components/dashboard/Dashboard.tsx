@@ -31,7 +31,12 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { db, type NodeRow } from '../../db/db'
+import {
+  db,
+  type CalendarEventRow,
+  type CalendarListRow,
+  type NodeRow,
+} from '../../db/db'
 import {
   CLINICAL_MARK_META,
   countArticlesByTriage,
@@ -53,6 +58,7 @@ import {
   DOCK_BTN_IDLE,
 } from '../common/ClinicalBottomDock'
 import { ClinicalStationHeader } from '../common/ClinicalStationHeader'
+import { CalendarGuardCard } from '../calendar/CalendarGuardCard'
 import { AlertDialog } from '../common/DialogModal'
 
 export interface DashboardProps {
@@ -99,6 +105,22 @@ export interface DashboardProps {
   onMoveTarget?: (folderId: string | null) => void
   onCancelMove?: () => void
   storagePersisted?: boolean | null
+  // Google Calendar (Agenda y Guardias)
+  calendarEnabled?: boolean
+  calendarOnline?: boolean
+  calendarSessionExpired?: boolean
+  calendarNeedsConsent?: boolean
+  calendarSyncState?: SyncState
+  calendarPendingCount?: number
+  calendarCalendars?: CalendarListRow[]
+  calendarEvents?: CalendarEventRow[]
+  calendarLastSyncedAt?: Date | null
+  calendarErrorMessage?: string | null
+  onConnectCalendar?: () => void
+  onSyncCalendar?: () => void
+  onOpenCalendar?: () => void
+  onQuickCreateCalendarEvent?: () => void
+  onSelectCalendarEvent?: (event: CalendarEventRow) => void
 }
 
 type DockDrawerKey = 'create' | 'import' | 'export' | null
@@ -159,6 +181,21 @@ export function Dashboard({
   onMoveTarget,
   onCancelMove,
   storagePersisted = null,
+  calendarEnabled = false,
+  calendarOnline = true,
+  calendarSessionExpired = false,
+  calendarNeedsConsent = false,
+  calendarSyncState = 'idle',
+  calendarPendingCount = 0,
+  calendarCalendars = [],
+  calendarEvents = [],
+  calendarLastSyncedAt = null,
+  calendarErrorMessage = null,
+  onConnectCalendar,
+  onSyncCalendar,
+  onOpenCalendar,
+  onQuickCreateCalendarEvent,
+  onSelectCalendarEvent,
 }: DashboardProps) {
   const allTags = useAllTags()
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
@@ -418,6 +455,12 @@ export function Dashboard({
           googleSyncProgress={googleSyncProgress}
           googleLastSyncedAt={googleLastSyncedAt}
           onOpenGoogleDriveSync={onOpenGoogleDriveSync}
+          onOpenCalendar={onOpenCalendar}
+          calendarEnabled={calendarEnabled}
+          calendarOnline={calendarOnline}
+          calendarPendingCount={calendarPendingCount}
+          calendarSessionExpired={calendarSessionExpired}
+          calendarNeedsConsent={calendarNeedsConsent}
           left={
             <div className="flex items-center gap-3.5 min-w-0">
               <div
@@ -1086,6 +1129,26 @@ export function Dashboard({
                 </button>
               )}
             </section>
+
+            {/* Agenda y Guardias (Google Calendar Offline-First) */}
+            <CalendarGuardCard
+              theme={theme}
+              isEnabled={calendarEnabled}
+              isOnline={calendarOnline}
+              isSessionExpired={calendarSessionExpired}
+              needsCalendarConsent={calendarNeedsConsent}
+              syncState={calendarSyncState}
+              pendingCount={calendarPendingCount}
+              calendars={calendarCalendars}
+              events={calendarEvents}
+              lastSyncedAt={calendarLastSyncedAt}
+              errorMessage={calendarErrorMessage}
+              onConnect={onConnectCalendar ?? (() => {})}
+              onSync={onSyncCalendar ?? (() => {})}
+              onOpenModal={onOpenCalendar ?? (() => {})}
+              onQuickAdd={onQuickCreateCalendarEvent ?? (() => {})}
+              onSelectEvent={onSelectCalendarEvent}
+            />
 
             {/* Modificados Recientemente / Cola de Triage */}
             <section className="bg-[var(--cl-surface)] border border-[var(--cl-border)] rounded-2xl p-4">

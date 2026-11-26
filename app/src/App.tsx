@@ -13,6 +13,7 @@ import { LoginView } from './components/auth/LoginView'
 import { SecuritySettingsModal } from './components/auth/SecuritySettingsModal'
 import { checkServerAuthSession, initiateGoogleLoginFlow } from './pwa/googleAuth'
 import { useGoogleSync } from './hooks/useGoogleSync'
+import { useGoogleCalendar } from './hooks/useGoogleCalendar'
 import { usePWAUpdate } from './hooks/usePWAUpdate'
 import { usePwaInstall } from './hooks/usePwaInstall'
 import { FolderExplorerView } from './components/tree/FolderExplorerView'
@@ -34,8 +35,19 @@ import { StudyModal } from './components/flashcards/StudyModal'
 import { ArticleFlashcardsModal } from './components/flashcards/ArticleFlashcardsModal'
 import { AiSettingsModal } from './components/settings/AiSettingsModal'
 import { getDueFlashcards, getAllFlashcards } from './db/flashcards'
-import type { FlashcardRow, NodeRow, ArticleRow } from './db/db'
+import type {
+  ArticleRow,
+  CalendarEventDraft,
+  CalendarEventRow,
+  FlashcardRow,
+  NodeRow,
+} from './db/db'
 import { GoogleDriveModal } from './components/portability/GoogleDriveModal'
+import { CalendarModal } from './components/calendar/CalendarModal'
+import { CalendarEventFormModal } from './components/calendar/CalendarEventFormModal'
+import { clearLocalCalendarData } from './db/calendar'
+import { setLastCalendarSyncTime } from './pwa/calendarSync'
+import { GOOGLE_SCOPES_KEY, setCalendarSyncEnabled } from './pwa/googleDrive'
 import { IosInstallModal } from './components/portability/IosInstallModal'
 import { ExportPdfModal, type ExportPdfOptions } from './components/portability/ExportPdfModal'
 import { BulkExportPdfModal, type BulkExportPdfOptions } from './components/portability/BulkExportPdfModal'
@@ -143,6 +155,29 @@ function App() {
     logout,
   } = useAuth()
   const { ownerEmail, ownerName, ownerAvatarUrl } = securityProfile
+  const calendar = useGoogleCalendar({ fallbackEmail: ownerEmail })
+  const {
+    isEnabled: isCalendarEnabled,
+    isOnline: isCalendarOnline,
+    isSessionExpired: isCalendarSessionExpired,
+    needsCalendarConsent,
+    syncState: calendarSyncState,
+    lastSyncedAt: calendarLastSyncedAt,
+    errorMessage: calendarErrorMessage,
+    noticeMessage: calendarNoticeMessage,
+    pendingCount: calendarPendingCount,
+    calendars: calendarCalendars,
+    events: calendarEvents,
+    connectCalendar,
+    disconnectCalendar,
+    triggerSync: triggerCalendarSync,
+    createEvent: createCalendarEvent,
+    updateEvent: updateCalendarEvent,
+    deleteEvent: deleteCalendarEvent,
+    toggleCalendarVisibility,
+    ensureRangeLoaded: ensureCalendarRangeLoaded,
+    clearNotice: clearCalendarNotice,
+  } = calendar
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [moveMode, setMoveMode] = useState(false)
@@ -151,6 +186,15 @@ function App() {
   const [isQuickCaptureOpen, setIsQuickCaptureOpen] = useState(false)
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false)
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false)
+  const [calendarFormState, setCalendarFormState] = useState<{
+    isOpen: boolean
+    event: CalendarEventRow | null
+    defaultDateYmd?: string
+  }>({
+    isOpen: false,
+    event: null,
+  })
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false)
   const [googleLoginError, setGoogleLoginError] = useState<string | null>(null)
   const [isSmartImportOpen, setIsSmartImportOpen] = useState(false)
@@ -759,18 +803,74 @@ function App() {
   const handleLockTerminal = useCallback(() => {
     setGoogleLoginError(null)
     setIsSecurityModalOpen(false)
+    setIsCalendarModalOpen(false)
+    setCalendarFormState({ isOpen: false, event: null })
     logout()
   }, [logout])
+
+  const handleResetTerminal = useCallback(async () => {
+    setGoogleLoginError(null)
+    setIsSecurityModalOpen(false)
+    setIsCalendarModalOpen(false)
+    setCalendarFormState({ isOpen: false, event: null })
+    await disconnectCalendar()
+    await clearLocalCalendarData()
+    setCalendarSyncEnabled(false)
+    setLastCalendarSyncTime(0)
+    localStorage.removeItem(GOOGLE_SCOPES_KEY)
+    await resetLocalTerminalSecurity()
+  }, [disconnectCalendar, resetLocalTerminalSecurity])
+
+  const handleOpenCalendar = useCallback(() => {
+    if (!isCalendarEnabled) {
+      connectCalendar()
+      return
+    }
+    setIsCalendarModalOpen(true)
+  }, [isCalendarEnabled, connectCalendar])
+
+  const handleSaveCalendarEvent = useCallback(
+    async (draft: CalendarEventDraft, existingEventId?: string) => {
+      if (existingEventId) {
+        await updateCalendarEvent(existingEventId, draft)
+        setToastMessage(
+          isCalendarOnline
+            ? 'Evento actualizado en tu agenda'
+            : 'Cambio guardado offline (pendiente de sincronización)',
+        )
+      } else {
+        await createCalendarEvent(draft)
+        setToastMessage(
+          isCalendarOnline
+            ? 'Evento guardado en tu agenda'
+            : 'Evento guardado offline (pendiente de sincronización)',
+        )
+      }
+    },
+    [updateCalendarEvent, createCalendarEvent, isCalendarOnline],
+  )
+
+  const handleDeleteCalendarEvent = useCallback(
+    async (eventId: string) => {
+      await deleteCalendarEvent(eventId)
+      setToastMessage(
+        isCalendarOnline
+          ? 'Evento eliminado de tu agenda'
+          : 'Eliminación encolada offline',
+      )
+    },
+    [deleteCalendarEvent, isCalendarOnline],
+  )
+
+  const activeToastMessage =
+    toastMessage ?? (!isCalendarModalOpen ? calendarNoticeMessage : null)
 
   if (!isAuthenticated) {
     return (
       <LoginView
         onGoogleSignIn={() => handleGoogleSignIn(false)}
         onRecoverWithGoogle={() => handleGoogleSignIn(true)}
-        onResetTerminal={async () => {
-          setGoogleLoginError(null)
-          await resetLocalTerminalSecurity()
-        }}
+        onResetTerminal={handleResetTerminal}
         onPinSubmit={async (candidate) => {
           setGoogleLoginError(null)
           return await loginWithPin(candidate)
@@ -863,6 +963,12 @@ function App() {
                   googleSyncProgress={googleSyncProgress}
                   googleLastSyncedAt={googleLastSyncedAt}
                   onOpenGoogleDriveSync={() => setIsGoogleModalOpen(true)}
+                  onOpenCalendar={handleOpenCalendar}
+                  calendarEnabled={isCalendarEnabled}
+                  calendarOnline={isCalendarOnline}
+                  calendarPendingCount={calendarPendingCount}
+                  calendarSessionExpired={isCalendarSessionExpired}
+                  calendarNeedsConsent={needsCalendarConsent}
                   onInstallPwa={triggerInstallPwa}
                   canInstallPwa={canInstallPwa}
                 />
@@ -968,6 +1074,25 @@ function App() {
                 setMovingNodeId(null)
               }}
               storagePersisted={storagePersisted}
+              calendarEnabled={isCalendarEnabled}
+              calendarOnline={isCalendarOnline}
+              calendarSessionExpired={isCalendarSessionExpired}
+              calendarNeedsConsent={needsCalendarConsent}
+              calendarSyncState={calendarSyncState}
+              calendarPendingCount={calendarPendingCount}
+              calendarCalendars={calendarCalendars}
+              calendarEvents={calendarEvents}
+              calendarLastSyncedAt={calendarLastSyncedAt}
+              calendarErrorMessage={calendarErrorMessage}
+              onConnectCalendar={connectCalendar}
+              onSyncCalendar={() => void triggerCalendarSync()}
+              onOpenCalendar={handleOpenCalendar}
+              onQuickCreateCalendarEvent={() =>
+                setCalendarFormState({ isOpen: true, event: null })
+              }
+              onSelectCalendarEvent={(event) =>
+                setCalendarFormState({ isOpen: true, event })
+              }
             />
           )}
         </main>
@@ -1060,6 +1185,53 @@ function App() {
         onInitiateOAuth={initiateGoogleOAuth}
       />
 
+      {/* Modal de Agenda Clínica y Guardias (Google Calendar) */}
+      <CalendarModal
+        isOpen={isCalendarModalOpen}
+        onClose={() => {
+          if (!calendarFormState.isOpen) setIsCalendarModalOpen(false)
+        }}
+        theme={theme}
+        isOnline={isCalendarOnline}
+        isSessionExpired={isCalendarSessionExpired}
+        needsCalendarConsent={needsCalendarConsent}
+        syncState={calendarSyncState}
+        pendingCount={calendarPendingCount}
+        lastSyncedAt={calendarLastSyncedAt}
+        errorMessage={calendarErrorMessage}
+        noticeMessage={calendarNoticeMessage}
+        calendars={calendarCalendars}
+        events={calendarEvents}
+        onSync={() => void triggerCalendarSync()}
+        onReconnect={connectCalendar}
+        onDisconnect={async () => {
+          await disconnectCalendar()
+          setCalendarFormState({ isOpen: false, event: null })
+          setIsCalendarModalOpen(false)
+          setToastMessage('Google Calendar desconectado')
+        }}
+        onToggleCalendar={toggleCalendarVisibility}
+        onCreateEvent={(defaultDateYmd) =>
+          setCalendarFormState({ isOpen: true, event: null, defaultDateYmd })
+        }
+        onSelectEvent={(event) => setCalendarFormState({ isOpen: true, event })}
+        onEnsureRangeLoaded={ensureCalendarRangeLoaded}
+        onClearNotice={clearCalendarNotice}
+      />
+
+      {/* Modal de Creación/Edición de Evento de Google Calendar */}
+      <CalendarEventFormModal
+        isOpen={calendarFormState.isOpen}
+        onClose={() => setCalendarFormState({ isOpen: false, event: null })}
+        calendars={calendarCalendars}
+        event={calendarFormState.event}
+        defaultDateYmd={calendarFormState.defaultDateYmd}
+        theme={theme}
+        isOnline={isCalendarOnline}
+        onSubmit={handleSaveCalendarEvent}
+        onDelete={handleDeleteCalendarEvent}
+      />
+
       {/* Modal de Seguridad de Estación Clínica (Google Identity, PIN PBKDF2, Passkeys FIDO2) */}
       <SecuritySettingsModal
         isOpen={isSecurityModalOpen}
@@ -1077,7 +1249,7 @@ function App() {
         onRemovePin={removePin}
         onRegisterPasskey={registerDevicePasskey}
         onRemovePasskey={removeDevicePasskey}
-        onResetTerminalSecurity={resetLocalTerminalSecurity}
+        onResetTerminalSecurity={handleResetTerminal}
       />
 
       {/* Modal de Captura Rápida Global */}
@@ -1163,7 +1335,16 @@ function App() {
       )}
 
       {/* Notificación Toast Flotante */}
-      <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
+      <Toast
+        message={activeToastMessage}
+        onClose={() => {
+          if (toastMessage !== null) {
+            setToastMessage(null)
+          } else {
+            clearCalendarNotice()
+          }
+        }}
+      />
 
       {/* Aviso Flotante de Actualización PWA */}
       <UpdateToast

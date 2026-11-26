@@ -87,6 +87,62 @@ export interface PageAnnotationsRecord {
   updatedAt: number // Timestamp ms
 }
 
+export type CalendarAccessRole = 'owner' | 'writer' | 'reader' | 'freeBusyReader'
+export type CalendarSyncStatus = 'synced' | 'pending' | 'error'
+export type CalendarEventStatus = 'confirmed' | 'tentative' | 'cancelled'
+export type CalendarOutboxOp = 'create' | 'update' | 'delete'
+
+export interface CalendarListRow {
+  id: string
+  summary: string
+  primary: boolean
+  backgroundColor: string
+  accessRole: CalendarAccessRole
+  selected: boolean
+  timeZone?: string
+}
+
+export interface CalendarEventRow {
+  id: string // googleEventId o 'local-<uuid>' antes de sincronizar
+  calendarId: string
+  summary: string
+  description: string
+  location: string
+  startIso: string // 'YYYY-MM-DD' si allDay=true; RFC3339 si allDay=false
+  endIso: string // 'YYYY-MM-DD' exclusivo si allDay=true; RFC3339 si allDay=false
+  startMs: number // ms local inicio
+  endMs: number // ms local fin (exclusivo para allDay)
+  allDay: boolean
+  status: CalendarEventStatus
+  recurringEventId?: string
+  htmlLink?: string
+  updatedAt: number
+  syncStatus: CalendarSyncStatus
+  syncError?: string
+}
+
+export interface CalendarEventDraft {
+  calendarId: string
+  summary: string
+  description: string
+  location: string
+  startIso: string
+  endIso: string
+  allDay: boolean
+  timeZone?: string
+}
+
+export interface CalendarOutboxRow {
+  id?: number
+  op: CalendarOutboxOp
+  eventId: string
+  calendarId: string
+  payload?: CalendarEventDraft
+  createdAt: number
+  attempts: number
+  lastError?: string
+}
+
 export class KbDatabase extends Dexie {
   nodes!: Table<NodeRow, string>
   articles!: Table<ArticleRow, string>
@@ -94,6 +150,9 @@ export class KbDatabase extends Dexie {
   meta!: Table<MetaRow, string>
   flashcards!: Table<FlashcardRow, string>
   pdf_annotations!: Table<PageAnnotationsRecord, number>
+  calendar_list!: Table<CalendarListRow, string>
+  calendar_events!: Table<CalendarEventRow, string>
+  calendar_outbox!: Table<CalendarOutboxRow, number>
 
   constructor(name = 'cuaderno-medico') {
     super(name)
@@ -108,6 +167,11 @@ export class KbDatabase extends Dexie {
     })
     this.version(3).stores({
       pdf_annotations: '++id, [documentId+pageNumber], documentId, updatedAt',
+    })
+    this.version(4).stores({
+      calendar_list: 'id',
+      calendar_events: 'id, calendarId, startMs, endMs, [calendarId+startMs]',
+      calendar_outbox: '++id, eventId, createdAt',
     })
   }
 }

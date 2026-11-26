@@ -371,6 +371,40 @@ describe('oauth endpoints (exchange, refresh, logout)', () => {
       expect(netErrRes.status).toBe(502)
       expect(await netErrRes.json()).toEqual({ error: 'upstream_unavailable' })
     })
+
+    it('reenvía scope opcional en POST /api/oauth/exchange solo cuando Google lo incluye', async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: 'ya29.cal-scope',
+            expires_in: 3600,
+            refresh_token: '1//0g-cal-rt',
+            id_token: makeFakeJwt({ email: 'doc@hospital.cl' }),
+            scope: 'openid email https://www.googleapis.com/auth/calendar.events',
+          }),
+          { status: 200 },
+        ),
+      )
+
+      const req = new Request('https://sindecon.pages.dev/api/oauth/exchange', {
+        method: 'POST',
+        headers: {
+          Origin: 'https://sindecon.pages.dev',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code: 'auth-code-cal' }),
+      })
+
+      const res = await exchangeOnRequest({ request: req, env: TEST_ENV })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({
+        access_token: 'ya29.cal-scope',
+        expires_in: 3600,
+        email: 'doc@hospital.cl',
+        persistent: true,
+        scope: 'openid email https://www.googleapis.com/auth/calendar.events',
+      })
+    })
   })
 
   describe('POST /api/oauth/refresh', () => {
@@ -574,6 +608,40 @@ describe('oauth endpoints (exchange, refresh, logout)', () => {
       expect(res.status).toBe(502)
       expect(await res.json()).toEqual({ error: 'upstream_unavailable' })
       expect(res.headers.get('Set-Cookie')).toBeNull()
+    })
+
+    it('reenvía scope opcional en POST /api/oauth/refresh cuando Google lo incluye', async () => {
+      const sealed = await encryptCookiePayload(
+        { rt: '1//0g-rt', email: 'doc@hospital.cl', iat: Date.now() },
+        TEST_ENV.OAUTH_COOKIE_SECRET!,
+      )
+      fetchMock.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: 'ya29.refreshed-cal',
+            expires_in: 3500,
+            scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly',
+          }),
+          { status: 200 },
+        ),
+      )
+
+      const req = new Request('https://sindecon.pages.dev/api/oauth/refresh', {
+        method: 'POST',
+        headers: {
+          Origin: 'https://sindecon.pages.dev',
+          Cookie: `${COOKIE_NAME}=${encodeURIComponent(sealed)}`,
+        },
+      })
+
+      const res = await refreshOnRequest({ request: req, env: TEST_ENV })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({
+        access_token: 'ya29.refreshed-cal',
+        expires_in: 3500,
+        email: 'doc@hospital.cl',
+        scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly',
+      })
     })
   })
 
