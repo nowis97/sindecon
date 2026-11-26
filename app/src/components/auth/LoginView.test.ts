@@ -162,5 +162,30 @@ describe('LoginView Component & Lock Screen Rules', () => {
       )
       expect(bothHtml.match(/data-testid="fido-unlock-btn"/g)?.length).toBe(1)
     })
+
+    it('muestra descripción pública y enlace a /privacy.html tanto en onboarding como en bloqueo', () => {
+      const onboardingHtml = renderToStaticMarkup(
+        createElement(LoginView, {
+          protectionConfigured: false,
+          pinEnabled: true,
+          pinLength: 4,
+          hasPasskeys: false,
+        }),
+      )
+      expect(onboardingHtml).toContain('data-testid="login-privacy-link"')
+      expect(onboardingHtml).toContain('href="/privacy.html"')
+      expect(onboardingHtml).toContain('Google Calendar')
+
+      const lockedHtml = renderToStaticMarkup(
+        createElement(LoginView, {
+          protectionConfigured: true,
+          pinEnabled: true,
+          pinLength: 4,
+          hasPasskeys: false,
+        }),
+      )
+      expect(lockedHtml).toContain('data-testid="login-privacy-link"')
+      expect(lockedHtml).toContain('href="/privacy.html"')
+    })
   })
 })

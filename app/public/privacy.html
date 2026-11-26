@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Política de Privacidad y Uso de Datos — SINDECON</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f8fafc;
+        --surface: #ffffff;
+        --border: #e2e8f0;
+        --fg: #0f172a;
+        --muted: #475569;
+        --accent: #0f766e;
+        --accent-soft: rgba(15, 118, 110, 0.1);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1220;
+          --surface: #111c30;
+          --border: #22324d;
+          --fg: #f1f5f9;
+          --muted: #94a3b8;
+          --accent: #2dd4bf;
+          --accent-soft: rgba(45, 212, 191, 0.14);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        line-height: 1.65;
+        padding: 24px 16px 48px;
+      }
+
+      main {
+        max-width: 780px;
+        margin: 0 auto;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 28px 24px;
+      }
+
+      @media (min-width: 640px) {
+        main {
+          padding: 40px 44px;
+        }
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 1.75rem;
+        line-height: 1.25;
+      }
+
+      .subtitle {
+        margin: 0 0 24px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      h2 {
+        margin-top: 28px;
+        margin-bottom: 10px;
+        font-size: 1.15rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 6px;
+      }
+
+      p,
+      li {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      ul {
+        padding-left: 20px;
+      }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.85em;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: var(--accent-soft);
+        color: var(--fg);
+        word-break: break-all;
+      }
+
+      .callout {
+        margin: 18px 0;
+        padding: 14px 16px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: var(--accent-soft);
+      }
+
+      .callout p {
+        margin: 0;
+        color: var(--fg);
+      }
+
+      .actions {
+        margin-top: 32px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      a.btn {
+        display: inline-block;
+        padding: 10px 18px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #ffffff;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        a.btn {
+          color: #042f2e;
+        }
+      }
+
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="badge">SINDECON — Cuaderno Médico Offline-First</span>
+      <h1>Política de Privacidad y Uso de Datos de Google</h1>
+      <p class="subtitle">Última actualización: 26 de noviembre de 2026</p>
+
+      <h2>1. Qué es SINDECON</h2>
+      <p>
+        <strong>SINDECON</strong> (Sistema de Información y Notas para Decisiones Clínicas) es una aplicación web
+        progresiva (PWA) offline-first diseñada para profesionales y estudiantes de la salud. Permite organizar apuntes
+        clínicos, protocolos médicos, flashcards de estudio espaciado y gestionar opcionalmente la agenda de turnos en
+        Google Calendar y el respaldo cifrado en Google Drive.
+      </p>
+
+      <h2>2. Almacenamiento Local-First en tu Dispositivo</h2>
+      <p>
+        Todas las notas clínicas, carpetas, documentos PDF, flashcards y la caché local de eventos del calendario se
+        almacenan exclusivamente en la base de datos <code>IndexedDB</code> de tu propio navegador. SINDECON no opera
+        bases de datos remotas propias con contenido médico ni agenda personal.
+      </p>
+
+      <section id="google-data">
+        <h2>3. Datos y Permisos OAuth de Google que Utilizamos</h2>
+        <p>
+          La vinculación con Google es completamente opcional y granular. Según las funciones que decidas activar,
+          SINDECON solicita únicamente los permisos mínimos necesarios:
+        </p>
+        <ul>
+          <li>
+            <strong>Identificación del propietario</strong> (<code>openid</code>, <code>email</code>,
+            <code>profile</code>): verifica tu cuenta Google para desbloquear el terminal clínico y mostrar tu nombre,
+            correo y avatar.
+          </li>
+          <li>
+            <strong>Respaldo en Google Drive</strong> (<code>https://www.googleapis.com/auth/drive.appdata</code> y
+            <code>https://www.googleapis.com/auth/drive.file</code>): guarda tu copia de seguridad privada dentro de la
+            carpeta oculta de la aplicación en Drive y exporta notas individuales a Google Docs cuando lo solicitas.
+          </li>
+          <li>
+            <strong>Agenda clínica con Google Calendar</strong> (
+            <code>https://www.googleapis.com/auth/calendar.calendarlist.readonly</code> y
+            <code>https://www.googleapis.com/auth/calendar.events</code>): muestra tu lista de calendarios y te permite
+            consultar, crear, editar y eliminar eventos, turnos o recordatorios directamente dentro de SINDECON, con
+            caché offline en tu dispositivo.
+          </li>
+        </ul>
+      </section>
+
+      <h2>4. Cómo Procesamos, Protegemos y Compartimos tus Datos</h2>
+      <ul>
+        <li>
+          <strong>Comunicación directa:</strong> Las consultas a Google Drive y Google Calendar se realizan directamente
+          desde tu navegador hacia las APIs oficiales de Google mediante HTTPS/TLS.
+        </li>
+        <li>
+          <strong>Tokens de sesión OAuth:</strong> Para mantener tu sesión iniciada sin pedir autorización cada hora, el
+          worker BFF (<code>/api/oauth/*</code>) cifra temporalmente el <em>refresh token</em> con
+          <code>AES-256-GCM</code> dentro de una cookie <code>HttpOnly</code>, <code>SameSite</code> y
+          <code>Secure</code> en tu propio navegador. El servidor no persiste tus notas ni los eventos de tu calendario.
+        </li>
+        <li>
+          <strong>Cero venta o cesión a terceros:</strong> SINDECON no vende, alquila, transfiere ni comparte datos de
+          Google con anunciantes, brókeres de datos ni plataformas externas, ni los utiliza para publicidad o
+          entrenamiento de modelos de inteligencia artificial.
+        </li>
+      </ul>
+
+      <div class="callout" id="limited-use">
+        <p>
+          <strong>Google API Services User Data Policy (Limited Use Disclosure):</strong><br />
+          SINDECON's use and transfer to any other app of information received from Google APIs will adhere to the
+          <a
+            href="https://developers.google.com/terms/api-services-user-data-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Google API Services User Data Policy</a
+          >, including the Limited Use requirements.
+        </p>
+      </div>
+
+      <h2>5. Retención, Desconexión y Eliminación de Datos</h2>
+      <ul>
+        <li>
+          Puedes desconectar Google Calendar en cualquier momento desde el modal de Agenda
+          (<strong>Desconectar Agenda</strong>), lo que elimina inmediatamente la caché local de eventos y la cola
+          pendiente de tu navegador.
+        </li>
+        <li>
+          Puedes desvincular Google Drive o restablecer el terminal local desde <strong>Seguridad</strong> para limpiar
+          cookies de sesión y credenciales locales.
+        </li>
+        <li>
+          También puedes revocar todos los permisos otorgados a SINDECON directamente desde tu cuenta de Google en
+          <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer"
+            >myaccount.google.com/permissions</a
+          >.
+        </li>
+      </ul>
+
+      <h2>6. Contacto y Soporte</h2>
+      <p>
+        Si tienes consultas sobre privacidad, reportes de seguridad o solicitud de eliminación de sesiones asociadas,
+        puedes contactarnos a través del repositorio oficial en
+        <a href="https://github.com/nowis97/sindecon" target="_blank" rel="noopener noreferrer"
+          >github.com/nowis97/sindecon</a
+        >.
+      </p>
+
+      <div class="actions">
+        <a class="btn" href="/">Volver a SINDECON</a>
+        <span style="font-size: 0.85rem; color: var(--muted)">SINDECON PWA · Uso local-first</span>
+      </div>
+    </main>
+  </body>
+</html>

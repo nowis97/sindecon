@@ -698,6 +698,23 @@ export function LoginView({
             </div>
           </>
         )}
+
+        <footer
+          className="mt-5 border-t pt-3.5 text-center text-[11px] leading-relaxed"
+          style={{ borderColor: 'var(--cl-border-soft)', color: 'var(--cl-muted)' }}
+        >
+          <p className="mb-1">
+            Cuaderno médico personal offline-first con respaldo opcional en Google Drive y agenda Google Calendar.
+          </p>
+          <a
+            href="/privacy.html"
+            data-testid="login-privacy-link"
+            className="font-semibold underline-offset-2 hover:underline"
+            style={{ color: 'var(--cl-diagnostic)' }}
+          >
+            Política de Privacidad y Uso de Datos Google
+          </a>
+        </footer>
       </div>
     </div>
   )

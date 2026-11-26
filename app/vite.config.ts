@@ -47,7 +47,7 @@ export default defineConfig({
         // excluyendo /api/* para no interceptar Cloudflare Pages Functions.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         maximumFileSizeToCacheInBytes: 15 * 1024 * 1024,
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/privacy\.html$/],
       },
     }),
   ],

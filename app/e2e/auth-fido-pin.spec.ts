@@ -132,4 +132,23 @@ test.describe('Autenticación Clínica: Onboarding Obligatorio, PIN PBKDF2, Lock
     await page.getByTestId('fido-unlock-btn').click()
     await expect(page.getByTestId('header-security-btn')).toBeVisible({ timeout: 10000 })
   })
+
+  test('muestra Política de Privacidad pública en /privacy.html sin exigir login', async ({
+    page,
+  }) => {
+    await openCleanOnboarding(page)
+
+    const privacyLink = page.getByTestId('login-privacy-link')
+    await expect(privacyLink).toBeVisible()
+    await expect(privacyLink).toHaveAttribute('href', '/privacy.html')
+    await privacyLink.click()
+
+    await expect(page).toHaveURL(/\/privacy\.html$/)
+    await expect(
+      page.getByRole('heading', { name: /Política de Privacidad y Uso de Datos de Google/i }),
+    ).toBeVisible()
+    await expect(page.locator('#limited-use')).toContainText('Google API Services User Data Policy')
+    await expect(page.locator('#google-data')).toContainText('calendar.events')
+    await expect(page.locator('#google-data')).toContainText('calendar.calendarlist.readonly')
+  })
 })
