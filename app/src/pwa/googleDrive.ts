@@ -10,6 +10,8 @@ export const DEFAULT_RESUMABLE_CHUNK_SIZE = 2 * 1024 * 1024 // 2 MB (múltiplo d
 
 export const GOOGLE_DRIVE_SCOPES =
   'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file'
+export const GOOGLE_CALENDAR_SCOPES =
+  'openid email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly'
 
 const RESUMABLE_SESSION_KEY_PREFIX = 'cuaderno-gdrive-resumable-session:'
 const RESUMABLE_SESSION_TTL_MS = 24 * 60 * 60 * 1000 // 24 horas
@@ -49,6 +51,8 @@ const GDRIVE_EXPIRY_KEY = 'cuaderno-gdrive-expiry'
 const GDRIVE_EMAIL_KEY = 'cuaderno-gdrive-email'
 const GDRIVE_CLIENT_ID_KEY = 'cuaderno-gdrive-client-id'
 const GDRIVE_ENABLED_KEY = 'cuaderno-gdrive-enabled'
+export const GCAL_ENABLED_KEY = 'sindecon-gcal-enabled'
+export const GOOGLE_SCOPES_KEY = 'sindecon-google-scopes'
 
 export const GOOGLE_AUTH_CHANGE_EVENT = 'sindecon-google-auth-change'
 
@@ -101,6 +105,12 @@ export function shouldUseServerOAuth(): boolean {
   return true
 }
 
+export interface StoreTokenOptions {
+  enableDrive?: boolean
+  enableCalendar?: boolean
+  scope?: string
+}
+
 export function isGoogleSyncEnabled(): boolean {
   return localStorage.getItem(GDRIVE_ENABLED_KEY) === 'true'
 }
@@ -111,6 +121,50 @@ export function setGoogleSyncEnabled(enabled: boolean) {
   } else {
     localStorage.removeItem(GDRIVE_ENABLED_KEY)
   }
+}
+
+export function isCalendarSyncEnabled(): boolean {
+  return localStorage.getItem(GCAL_ENABLED_KEY) === 'true'
+}
+
+export function setCalendarSyncEnabled(enabled: boolean): void {
+  if (enabled) {
+    localStorage.setItem(GCAL_ENABLED_KEY, 'true')
+  } else {
+    localStorage.removeItem(GCAL_ENABLED_KEY)
+  }
+}
+
+export function getStoredScopes(): string[] {
+  const raw = localStorage.getItem(GOOGLE_SCOPES_KEY)
+  if (!raw) return []
+  return raw.split(/\s+/).filter(Boolean)
+}
+
+export function mergeStoredScopes(scopeStr?: string): string[] {
+  const set = new Set(getStoredScopes())
+  if (scopeStr) {
+    for (const part of scopeStr.split(/\s+/)) {
+      const trimmed = part.trim()
+      if (trimmed) set.add(trimmed)
+    }
+  }
+  const merged = Array.from(set)
+  if (merged.length > 0) {
+    localStorage.setItem(GOOGLE_SCOPES_KEY, merged.join(' '))
+  } else {
+    localStorage.removeItem(GOOGLE_SCOPES_KEY)
+  }
+  return merged
+}
+
+export function hasCalendarScopes(): boolean {
+  const scopes = new Set(getStoredScopes())
+  if (scopes.has('https://www.googleapis.com/auth/calendar')) return true
+  return (
+    scopes.has('https://www.googleapis.com/auth/calendar.events') &&
+    scopes.has('https://www.googleapis.com/auth/calendar.calendarlist.readonly')
+  )
 }
 
 export function isTokenExpired(marginMinutes = 2): boolean {
@@ -136,10 +190,25 @@ export function getStoredToken(): string | null {
   return token
 }
 
-export function setStoredToken(token: string, expiresInSeconds = 3600, email?: string) {
+export function setStoredToken(
+  token: string,
+  expiresInSeconds = 3600,
+  email?: string,
+  options?: StoreTokenOptions,
+) {
   localStorage.setItem(GDRIVE_TOKEN_KEY, token)
   localStorage.setItem(GDRIVE_EXPIRY_KEY, (Date.now() + expiresInSeconds * 1000).toString())
-  localStorage.setItem(GDRIVE_ENABLED_KEY, 'true')
+  if (options === undefined || options.enableDrive === true) {
+    localStorage.setItem(GDRIVE_ENABLED_KEY, 'true')
+  } else if (options.enableDrive === false) {
+    localStorage.removeItem(GDRIVE_ENABLED_KEY)
+  }
+  if (options?.enableCalendar !== undefined) {
+    setCalendarSyncEnabled(options.enableCalendar)
+  }
+  if (options?.scope) {
+    mergeStoredScopes(options.scope)
+  }
   if (email) {
     localStorage.setItem(GDRIVE_EMAIL_KEY, email)
   }
@@ -156,6 +225,8 @@ export function clearStoredToken(disconnectExplicit = false) {
   if (disconnectExplicit) {
     localStorage.removeItem(GDRIVE_EMAIL_KEY)
     localStorage.removeItem(GDRIVE_ENABLED_KEY)
+    localStorage.removeItem(GCAL_ENABLED_KEY)
+    localStorage.removeItem(GOOGLE_SCOPES_KEY)
   }
   notifyGoogleAuthChange()
 }
@@ -168,6 +239,7 @@ export async function exchangeOAuthCode(code: string): Promise<{
   expiresIn: number
   email?: string
   persistent: boolean
+  scope?: string
 } | null> {
   const res = await fetch('/api/oauth/exchange', {
     method: 'POST',
@@ -190,6 +262,7 @@ export async function exchangeOAuthCode(code: string): Promise<{
     expires_in?: number
     email?: string
     persistent?: boolean
+    scope?: string
   }
 
   if (!data.access_token) {
@@ -201,6 +274,7 @@ export async function exchangeOAuthCode(code: string): Promise<{
     expiresIn: typeof data.expires_in === 'number' ? data.expires_in : 3600,
     email: data.email,
     persistent: Boolean(data.persistent),
+    ...(data.scope ? { scope: data.scope } : {}),
   }
 }
 
@@ -252,6 +326,7 @@ export async function ensureValidAccessToken(forceRefresh = false): Promise<stri
         access_token?: string
         expires_in?: number
         email?: string
+        scope?: string
       }
 
       if (!data.access_token) {
@@ -262,6 +337,11 @@ export async function ensureValidAccessToken(forceRefresh = false): Promise<stri
         data.access_token,
         typeof data.expires_in === 'number' ? data.expires_in : 3600,
         data.email,
+        {
+          enableDrive: isGoogleSyncEnabled(),
+          enableCalendar: isCalendarSyncEnabled(),
+          scope: data.scope,
+        },
       )
       return data.access_token
     } finally {
@@ -293,7 +373,13 @@ interface GisOAuth2Namespace {
     scope: string
     prompt?: string
     login_hint?: string
-    callback: (res: { access_token?: string; expires_in?: number; error?: string }) => void
+    include_granted_scopes?: boolean
+    callback: (res: {
+      access_token?: string
+      expires_in?: number
+      scope?: string
+      error?: string
+    }) => void
   }) => { requestAccessToken: (opts?: { prompt?: string; login_hint?: string }) => void }
   initCodeClient?: (config: {
     client_id: string
@@ -301,6 +387,7 @@ interface GisOAuth2Namespace {
     ux_mode?: 'popup' | 'redirect'
     prompt?: string
     login_hint?: string
+    include_granted_scopes?: boolean
     callback: (res: { code?: string; error?: string }) => void
   }) => { requestCode: () => void }
 }
@@ -308,19 +395,33 @@ interface GisOAuth2Namespace {
 function triggerLegacyTokenFlow(
   oauth2: GisOAuth2Namespace,
   clientId: string,
-  storedEmail: string | null,
+  loginHint: string | null,
   callbacks: {
-    onSuccess: (token: string, expiresIn: number, email?: string) => void
+    scopes?: string
+    includeGrantedScopes?: boolean
+    onSuccess: (token: string, expiresIn: number, email?: string, scope?: string) => void
     onError: (message: string) => void
   },
 ): void {
+  const requestedScopes = callbacks.scopes || GOOGLE_DRIVE_SCOPES
   const client = oauth2.initTokenClient({
     client_id: clientId,
-    scope: GOOGLE_DRIVE_SCOPES,
-    login_hint: storedEmail || undefined,
+    scope: requestedScopes,
+    login_hint: loginHint || undefined,
+    include_granted_scopes: callbacks.includeGrantedScopes ?? true,
     callback: (response) => {
       if (response.access_token) {
-        callbacks.onSuccess(response.access_token, response.expires_in || 3600)
+        const resolvedScope = response.scope ?? callbacks.scopes
+        if (resolvedScope !== undefined) {
+          callbacks.onSuccess(
+            response.access_token,
+            response.expires_in || 3600,
+            undefined,
+            resolvedScope,
+          )
+        } else {
+          callbacks.onSuccess(response.access_token, response.expires_in || 3600)
+        }
       } else if (response.error) {
         callbacks.onError(`Error de Google: ${response.error}`)
       }
@@ -333,7 +434,10 @@ function triggerLegacyTokenFlow(
  * Inicia el flujo OAuth con Google: usa Authorization Code + BFF si está disponible y cae al Token Client implícito si no.
  */
 export function initiateGoogleOAuthFlow(callbacks: {
-  onSuccess: (token: string, expiresIn: number, email?: string) => void
+  scopes?: string
+  loginHint?: string
+  includeGrantedScopes?: boolean
+  onSuccess: (token: string, expiresIn: number, email?: string, scope?: string) => void
   onError: (message: string) => void
 }): void {
   const win =
@@ -355,15 +459,18 @@ export function initiateGoogleOAuthFlow(callbacks: {
     return
   }
 
-  const storedEmail = getStoredEmail()
+  const loginHint = callbacks.loginHint ?? getStoredEmail()
+  const requestedScopes = callbacks.scopes || GOOGLE_DRIVE_SCOPES
+  const includeGrantedScopes = callbacks.includeGrantedScopes ?? true
 
   if (shouldUseServerOAuth() && typeof oauth2.initCodeClient === 'function') {
     const codeClient = oauth2.initCodeClient({
       client_id: clientId,
-      scope: GOOGLE_DRIVE_SCOPES,
+      scope: requestedScopes,
       ux_mode: 'popup',
-      login_hint: storedEmail || undefined,
-      prompt: storedEmail ? 'consent' : 'select_account consent',
+      login_hint: loginHint || undefined,
+      include_granted_scopes: includeGrantedScopes,
+      prompt: loginHint ? 'consent' : 'select_account consent',
       callback: (response) => {
         if (response.error) {
           callbacks.onError(`Error de Google: ${response.error}`)
@@ -374,10 +481,23 @@ export function initiateGoogleOAuthFlow(callbacks: {
         void exchangeOAuthCode(response.code)
           .then((session) => {
             if (session === null) {
-              triggerLegacyTokenFlow(oauth2, clientId, storedEmail, callbacks)
+              triggerLegacyTokenFlow(oauth2, clientId, loginHint, {
+                ...callbacks,
+                includeGrantedScopes,
+              })
               return
             }
-            callbacks.onSuccess(session.accessToken, session.expiresIn, session.email)
+            const resolvedScope = session.scope ?? callbacks.scopes
+            if (resolvedScope !== undefined) {
+              callbacks.onSuccess(
+                session.accessToken,
+                session.expiresIn,
+                session.email,
+                resolvedScope,
+              )
+            } else {
+              callbacks.onSuccess(session.accessToken, session.expiresIn, session.email)
+            }
           })
           .catch((err: unknown) => {
             callbacks.onError((err as Error).message || 'Error al iniciar sesión con Google')
@@ -388,7 +508,10 @@ export function initiateGoogleOAuthFlow(callbacks: {
     return
   }
 
-  triggerLegacyTokenFlow(oauth2, clientId, storedEmail, callbacks)
+  triggerLegacyTokenFlow(oauth2, clientId, loginHint, {
+    ...callbacks,
+    includeGrantedScopes,
+  })
 }
 
 /**

@@ -1,12 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   GOOGLE_AUTH_CHANGE_EVENT,
+  GOOGLE_CALENDAR_SCOPES,
+  GCAL_ENABLED_KEY,
+  GOOGLE_SCOPES_KEY,
   setStoredClientId,
   setStoredToken,
   clearStoredToken,
   getStoredToken,
   getStoredEmail,
   isGoogleSyncEnabled,
+  isCalendarSyncEnabled,
+  setCalendarSyncEnabled,
+  getStoredScopes,
+  mergeStoredScopes,
+  hasCalendarScopes,
   shouldUseServerOAuth,
   ensureValidAccessToken,
   exchangeOAuthCode,
@@ -397,5 +405,178 @@ describe('googleDrive OAuth BFF & fallback helpers', () => {
     setStoredClientId('custom-client.apps.googleusercontent.com')
     await expect(revokeServerOAuthSession()).resolves.toBeUndefined()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('separa bandera de Calendar de Drive y acumula scopes incrementales con setStoredToken', () => {
+    setStoredToken('ya29.cal', 3600, 'med@hospital.cl', {
+      enableDrive: false,
+      enableCalendar: true,
+      scope:
+        'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly',
+    })
+
+    expect(isCalendarSyncEnabled()).toBe(true)
+    expect(hasCalendarScopes()).toBe(true)
+    expect(isGoogleSyncEnabled()).toBe(false)
+    expect(localStorageMock.getItem(GCAL_ENABLED_KEY)).toBe('true')
+
+    mergeStoredScopes('https://www.googleapis.com/auth/drive.file')
+    const scopes = getStoredScopes()
+    expect(scopes).toContain('https://www.googleapis.com/auth/calendar.events')
+    expect(scopes).toContain('https://www.googleapis.com/auth/calendar.calendarlist.readonly')
+    expect(scopes).toContain('https://www.googleapis.com/auth/drive.file')
+
+    setCalendarSyncEnabled(false)
+    expect(isCalendarSyncEnabled()).toBe(false)
+  })
+
+  it('ensureValidAccessToken(true) solo con Calendar habilitado refresca y preserva isGoogleSyncEnabled() === false', async () => {
+    setStoredToken('ya29.cal-exp', -10, 'med@hospital.cl', {
+      enableDrive: false,
+      enableCalendar: true,
+      scope: 'https://www.googleapis.com/auth/calendar.events',
+    })
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          access_token: 'ya29.cal-refreshed',
+          expires_in: 3600,
+          email: 'med@hospital.cl',
+          scope:
+            'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly',
+        }),
+        { status: 200 },
+      ),
+    )
+
+    const token = await ensureValidAccessToken(true)
+    expect(token).toBe('ya29.cal-refreshed')
+    expect(isGoogleSyncEnabled()).toBe(false)
+    expect(isCalendarSyncEnabled()).toBe(true)
+    expect(hasCalendarScopes()).toBe(true)
+  })
+
+  it('initiateGoogleOAuthFlow envía scopes, include_granted_scopes, login_hint y reenvía scope a onSuccess, con fallback a initTokenClient en 404', async () => {
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'env-client.apps.googleusercontent.com')
+    const requestCodeMock = vi.fn()
+    const requestAccessTokenMock = vi.fn()
+    let codeCallback: ((res: { code?: string; error?: string }) => void) | null = null
+    let tokenCallback: ((res: { access_token?: string; expires_in?: number; scope?: string }) => void) | null = null
+
+    const initCodeClientMock = vi.fn((cfg: { callback: (res: { code?: string; error?: string }) => void }) => {
+      codeCallback = cfg.callback
+      return { requestCode: requestCodeMock }
+    })
+    const initTokenClientMock = vi.fn(
+      (cfg: { callback: (res: { access_token?: string; expires_in?: number; scope?: string }) => void }) => {
+        tokenCallback = cfg.callback
+        return { requestAccessToken: requestAccessTokenMock }
+      },
+    )
+
+    vi.stubGlobal('window', {
+      dispatchEvent: vi.fn(),
+      google: {
+        accounts: {
+          oauth2: {
+            initCodeClient: initCodeClientMock,
+            initTokenClient: initTokenClientMock,
+          },
+        },
+      },
+    })
+
+    const onSuccess = vi.fn()
+    const onError = vi.fn()
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          access_token: 'ya29.cal-code',
+          expires_in: 3600,
+          email: 'doc@uci.cl',
+          persistent: true,
+          scope: GOOGLE_CALENDAR_SCOPES,
+        }),
+        { status: 200 },
+      ),
+    )
+
+    initiateGoogleOAuthFlow({
+      scopes: GOOGLE_CALENDAR_SCOPES,
+      includeGrantedScopes: true,
+      loginHint: 'doc@uci.cl',
+      onSuccess,
+      onError,
+    })
+
+    expect(initCodeClientMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: GOOGLE_CALENDAR_SCOPES,
+        include_granted_scopes: true,
+        login_hint: 'doc@uci.cl',
+      }),
+    )
+
+    codeCallback!({ code: 'cal-code-200' })
+    await vi.waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledWith(
+        'ya29.cal-code',
+        3600,
+        'doc@uci.cl',
+        GOOGLE_CALENDAR_SCOPES,
+      )
+    })
+
+    onSuccess.mockClear()
+    fetchMock.mockResolvedValueOnce(new Response('Not Found', { status: 404 }))
+    initiateGoogleOAuthFlow({
+      scopes: GOOGLE_CALENDAR_SCOPES,
+      includeGrantedScopes: true,
+      loginHint: 'doc@uci.cl',
+      onSuccess,
+      onError,
+    })
+
+    codeCallback!({ code: 'cal-code-404' })
+    await vi.waitFor(() => {
+      expect(initTokenClientMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          scope: GOOGLE_CALENDAR_SCOPES,
+          include_granted_scopes: true,
+          login_hint: 'doc@uci.cl',
+        }),
+      )
+    })
+    expect(requestAccessTokenMock).toHaveBeenCalledTimes(1)
+    tokenCallback!({ access_token: 'ya29.cal-legacy', expires_in: 1800 })
+    expect(onSuccess).toHaveBeenCalledWith(
+      'ya29.cal-legacy',
+      1800,
+      undefined,
+      GOOGLE_CALENDAR_SCOPES,
+    )
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  it('clearStoredToken(true) limpia GCAL_ENABLED_KEY y GOOGLE_SCOPES_KEY', () => {
+    setStoredToken('ya29.cal', 3600, 'med@hospital.cl', {
+      enableDrive: false,
+      enableCalendar: true,
+      scope: GOOGLE_CALENDAR_SCOPES,
+    })
+    expect(localStorageMock.getItem(GCAL_ENABLED_KEY)).toBe('true')
+    expect(localStorageMock.getItem(GOOGLE_SCOPES_KEY)).toBeTruthy()
+
+    clearStoredToken(false)
+    expect(localStorageMock.getItem(GCAL_ENABLED_KEY)).toBe('true')
+    expect(localStorageMock.getItem(GOOGLE_SCOPES_KEY)).toBeTruthy()
+
+    clearStoredToken(true)
+    expect(localStorageMock.getItem(GCAL_ENABLED_KEY)).toBeNull()
+    expect(localStorageMock.getItem(GOOGLE_SCOPES_KEY)).toBeNull()
+    expect(isCalendarSyncEnabled()).toBe(false)
+    expect(hasCalendarScopes()).toBe(false)
   })
 })
