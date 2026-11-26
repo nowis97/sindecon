@@ -19,6 +19,7 @@ const GCAL_LAST_SYNC_KEY = 'sindecon-gcal-last-sync'
 export interface CalendarSyncDeps {
   fetchFn?: typeof fetch
   now?: () => number
+  shouldAbort?: () => boolean
   fetchCalendarList?: typeof fetchCalendarList
   fetchCalendarEventsWindow?: typeof fetchCalendarEventsWindow
   createRemoteCalendarEvent?: typeof createRemoteCalendarEvent
@@ -104,6 +105,9 @@ export async function flushCalendarOutbox(
   const notices: string[] = []
 
   for (const item of items) {
+    if (deps?.shouldAbort?.()) {
+      return { syncedCount, notices }
+    }
     try {
       if (item.op === 'create') {
         if (!item.payload) {
@@ -111,6 +115,9 @@ export async function flushCalendarOutbox(
           continue
         }
         const remote = await createRemote(token, item.calendarId, item.payload, deps?.fetchFn)
+        if (deps?.shouldAbort?.()) {
+          return { syncedCount, notices }
+        }
 
         await db.transaction('rw', db.calendar_events, db.calendar_outbox, async () => {
           const currentOutbox =
@@ -179,6 +186,9 @@ export async function flushCalendarOutbox(
           item.payload,
           deps?.fetchFn,
         )
+        if (deps?.shouldAbort?.()) {
+          return { syncedCount, notices }
+        }
 
         await db.transaction('rw', db.calendar_events, db.calendar_outbox, async () => {
           const currentOutbox =
@@ -208,6 +218,9 @@ export async function flushCalendarOutbox(
       }
 
       await deleteRemote(token, item.calendarId, item.eventId, deps?.fetchFn)
+      if (deps?.shouldAbort?.()) {
+        return { syncedCount, notices }
+      }
       await db.transaction('rw', db.calendar_events, db.calendar_outbox, async () => {
         await db.calendar_events.delete(item.eventId)
         if (item.id !== undefined) {
@@ -216,6 +229,10 @@ export async function flushCalendarOutbox(
       })
       syncedCount += 1
     } catch (err) {
+      if (deps?.shouldAbort?.()) {
+        return { syncedCount, notices }
+      }
+
       if (isAuthOrScopeError(err)) {
         throw err
       }
@@ -259,12 +276,19 @@ export async function pullGoogleCalendarWindow(
   windowRange?: { startMs: number; endMs: number },
   deps?: CalendarSyncDeps,
 ): Promise<PullCalendarWindowResult> {
+  if (deps?.shouldAbort?.()) {
+    return { calendarsCount: 0, eventsCount: 0 }
+  }
+
   const listFn = deps?.fetchCalendarList ?? fetchCalendarList
   const eventsFn = deps?.fetchCalendarEventsWindow ?? fetchCalendarEventsWindow
   const nowFn = deps?.now ?? Date.now
 
   const range = windowRange ?? getDefaultSyncWindow(nowFn())
   const remoteCalendars = await listFn(token, deps?.fetchFn)
+  if (deps?.shouldAbort?.()) {
+    return { calendarsCount: 0, eventsCount: 0 }
+  }
 
   const savedCalendars = await upsertCalendarList(
     remoteCalendars.map(({ defaultSelected, ...cal }) => ({
@@ -277,7 +301,13 @@ export async function pullGoogleCalendarWindow(
   let eventsCount = 0
 
   for (const cal of selectedCalendars) {
+    if (deps?.shouldAbort?.()) {
+      return { calendarsCount: savedCalendars.length, eventsCount }
+    }
     const remoteEvents = await eventsFn(token, cal.id, range.startMs, range.endMs, deps?.fetchFn)
+    if (deps?.shouldAbort?.()) {
+      return { calendarsCount: savedCalendars.length, eventsCount }
+    }
     await reconcileRemoteEventsWindow({
       calendarId: cal.id,
       windowStartMs: range.startMs,
@@ -308,6 +338,14 @@ export async function performGoogleCalendarSync(
   const nowFn = deps?.now ?? Date.now
 
   const pushResult = await flushCalendarOutbox(token, deps)
+  if (deps?.shouldAbort?.()) {
+    return {
+      timestamp: nowFn(),
+      syncedOutboxCount: pushResult.syncedCount,
+      eventsCount: 0,
+      notices: pushResult.notices,
+    }
+  }
 
   const defaultWin = getDefaultSyncWindow(nowFn())
   const windowRange = {
@@ -317,6 +355,15 @@ export async function performGoogleCalendarSync(
 
   const pullResult = await pullGoogleCalendarWindow(token, windowRange, deps)
   const timestamp = nowFn()
+  if (deps?.shouldAbort?.()) {
+    return {
+      timestamp,
+      syncedOutboxCount: pushResult.syncedCount,
+      eventsCount: pullResult.eventsCount,
+      notices: pushResult.notices,
+    }
+  }
+
   setLastCalendarSyncTime(timestamp)
 
   return {

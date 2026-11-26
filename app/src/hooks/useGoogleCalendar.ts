@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   db,
@@ -18,6 +18,7 @@ import {
   getLastCalendarSyncTime,
   performGoogleCalendarSync,
   setLastCalendarSyncTime,
+  type CalendarSyncResult,
 } from '../pwa/calendarSync'
 import type { SyncEngineResult, SyncState } from '../pwa/syncEngine'
 import {
@@ -77,6 +78,528 @@ function getNavigatorOnline(): boolean {
   return typeof navigator !== 'undefined' ? navigator.onLine : true
 }
 
+export interface CalendarSyncRange {
+  startMs: number
+  endMs: number
+}
+
+export interface CalendarCoordinatorCallbacks {
+  setIsEnabled: (value: boolean) => void
+  setToken: (value: string | null) => void
+  setHasScopes: (value: boolean) => void
+  setInsufficientScopeError: (value: boolean) => void
+  setServerSessionExpired: (value: boolean) => void
+  setIsOnline: (value: boolean) => void
+  setIsRefreshing: (value: boolean) => void
+  setSyncState: (value: SyncState) => void
+  setLastSyncedTime: (value: number) => void
+  setErrorMessage: (value: string | null) => void
+  setNoticeMessage: (value: string | null) => void
+}
+
+export interface CalendarCoordinatorRuntime {
+  isCalendarSyncEnabled?: typeof isCalendarSyncEnabled
+  setCalendarSyncEnabled?: typeof setCalendarSyncEnabled
+  isGoogleSyncEnabled?: typeof isGoogleSyncEnabled
+  getStoredToken?: typeof getStoredToken
+  isTokenExpired?: typeof isTokenExpired
+  ensureValidAccessToken?: typeof ensureValidAccessToken
+  fetchGoogleUserEmail?: typeof fetchGoogleUserEmail
+  hasCalendarScopes?: typeof hasCalendarScopes
+  shouldUseServerOAuth?: typeof shouldUseServerOAuth
+  clearStoredToken?: typeof clearStoredToken
+  setStoredToken?: typeof setStoredToken
+  revokeServerOAuthSession?: typeof revokeServerOAuthSession
+  getDefaultSyncWindow?: typeof getDefaultSyncWindow
+  performGoogleCalendarSync?: typeof performGoogleCalendarSync
+  getLastCalendarSyncTime?: typeof getLastCalendarSyncTime
+  setLastCalendarSyncTime?: typeof setLastCalendarSyncTime
+  clearLocalCalendarData?: typeof clearLocalCalendarData
+  isOnline?: () => boolean
+  now?: () => number
+}
+
+function mergeRange(
+  a: CalendarSyncRange | null,
+  b: CalendarSyncRange | null,
+): CalendarSyncRange | null {
+  if (!a) return b
+  if (!b) return a
+  return {
+    startMs: Math.min(a.startMs, b.startMs),
+    endMs: Math.max(a.endMs, b.endMs),
+  }
+}
+
+function isRangeCovered(
+  range: CalendarSyncRange | null,
+  target: CalendarSyncRange,
+): boolean {
+  return Boolean(range && target.startMs >= range.startMs && target.endMs <= range.endMs)
+}
+
+/**
+ * Coordina sincronizaciones serializadas de Google Calendar, coalescing de rangos/mutaciones
+ * concurrentes y limpieza segura ante desconexión.
+ */
+export function createCalendarSyncCoordinator(
+  cb: CalendarCoordinatorCallbacks,
+  runtime?: CalendarCoordinatorRuntime,
+) {
+  const rt = {
+    isCalendarSyncEnabled: runtime?.isCalendarSyncEnabled ?? isCalendarSyncEnabled,
+    setCalendarSyncEnabled: runtime?.setCalendarSyncEnabled ?? setCalendarSyncEnabled,
+    isGoogleSyncEnabled: runtime?.isGoogleSyncEnabled ?? isGoogleSyncEnabled,
+    getStoredToken: runtime?.getStoredToken ?? getStoredToken,
+    isTokenExpired: runtime?.isTokenExpired ?? isTokenExpired,
+    ensureValidAccessToken: runtime?.ensureValidAccessToken ?? ensureValidAccessToken,
+    fetchGoogleUserEmail: runtime?.fetchGoogleUserEmail ?? fetchGoogleUserEmail,
+    hasCalendarScopes: runtime?.hasCalendarScopes ?? hasCalendarScopes,
+    shouldUseServerOAuth: runtime?.shouldUseServerOAuth ?? shouldUseServerOAuth,
+    clearStoredToken: runtime?.clearStoredToken ?? clearStoredToken,
+    setStoredToken: runtime?.setStoredToken ?? setStoredToken,
+    revokeServerOAuthSession: runtime?.revokeServerOAuthSession ?? revokeServerOAuthSession,
+    getDefaultSyncWindow: runtime?.getDefaultSyncWindow ?? getDefaultSyncWindow,
+    performGoogleCalendarSync: runtime?.performGoogleCalendarSync ?? performGoogleCalendarSync,
+    getLastCalendarSyncTime: runtime?.getLastCalendarSyncTime ?? getLastCalendarSyncTime,
+    setLastCalendarSyncTime: runtime?.setLastCalendarSyncTime ?? setLastCalendarSyncTime,
+    clearLocalCalendarData: runtime?.clearLocalCalendarData ?? clearLocalCalendarData,
+    isOnline: runtime?.isOnline ?? getNavigatorOnline,
+    now: runtime?.now ?? Date.now,
+  }
+
+  let syncInFlight: Promise<void> | null = null
+  let lastSyncAttemptAt = 0
+  let loadedRange: CalendarSyncRange | null = null
+  let activeRange: CalendarSyncRange | null = null
+  let sessionEpoch = 0
+  let needsFollowupSync = false
+  let pendingMutationFollowup = false
+  let pendingRange: CalendarSyncRange | null = null
+
+  async function refreshSilently(
+    forceRefresh = false,
+  ): Promise<{ token: string | null; transientError: string | null }> {
+    const epoch = sessionEpoch
+    const isStale = () => sessionEpoch !== epoch || !rt.isCalendarSyncEnabled()
+
+    if (isStale()) {
+      cb.setIsRefreshing(false)
+      return { token: null, transientError: null }
+    }
+    if (!rt.isOnline()) {
+      cb.setIsOnline(false)
+      cb.setIsRefreshing(false)
+      return { token: null, transientError: null }
+    }
+
+    cb.setIsRefreshing(true)
+    try {
+      const nextToken = await rt.ensureValidAccessToken(forceRefresh)
+      if (isStale()) {
+        return { token: null, transientError: null }
+      }
+      cb.setToken(rt.getStoredToken())
+      const scopesOk = rt.hasCalendarScopes()
+      cb.setHasScopes(scopesOk)
+      if (scopesOk) {
+        cb.setInsufficientScopeError(false)
+      }
+      if (nextToken) {
+        cb.setServerSessionExpired(false)
+        cb.setErrorMessage(null)
+        return { token: nextToken, transientError: null }
+      }
+      if (rt.shouldUseServerOAuth() && rt.isOnline()) {
+        cb.setServerSessionExpired(true)
+      }
+      return { token: null, transientError: null }
+    } catch (e) {
+      if (isStale()) {
+        return { token: null, transientError: null }
+      }
+      if (!rt.isOnline()) {
+        cb.setIsOnline(false)
+        return { token: null, transientError: null }
+      }
+      const msg = (e as Error)?.message || 'Error temporal renovando sesión de Google Calendar'
+      cb.setErrorMessage(msg)
+      return { token: null, transientError: msg }
+    } finally {
+      if (!isStale()) {
+        cb.setIsRefreshing(false)
+      }
+    }
+  }
+
+  async function triggerSync(range?: { startMs?: number; endMs?: number }): Promise<void> {
+    if (!rt.isCalendarSyncEnabled()) return
+
+    if (!rt.isOnline()) {
+      cb.setIsOnline(false)
+      cb.setIsRefreshing(false)
+      cb.setSyncState('offline')
+      return
+    }
+
+    const hasExplicitRange = range?.startMs !== undefined && range?.endMs !== undefined
+    const explicitRange = hasExplicitRange
+      ? { startMs: range.startMs!, endMs: range.endMs! }
+      : null
+
+    if (!syncInFlight && explicitRange && isRangeCovered(loadedRange, explicitRange)) {
+      return
+    }
+
+    if (syncInFlight) {
+      if (explicitRange) {
+        if (!isRangeCovered(activeRange, explicitRange) && !isRangeCovered(loadedRange, explicitRange)) {
+          pendingRange = mergeRange(pendingRange, explicitRange)
+          needsFollowupSync = true
+        }
+      } else {
+        pendingMutationFollowup = true
+        needsFollowupSync = true
+      }
+
+      while (syncInFlight) {
+        try {
+          await syncInFlight
+        } catch {
+          // El runner serializado drenará las operaciones pendientes antes de limpiar syncInFlight
+        }
+      }
+      return
+    }
+
+    if (explicitRange) {
+      pendingRange = mergeRange(pendingRange, explicitRange)
+    }
+
+    const jobEpoch = sessionEpoch
+    let job!: Promise<void>
+    job = (async () => {
+      try {
+        while (true) {
+          if (sessionEpoch !== jobEpoch || !rt.isCalendarSyncEnabled() || !rt.isOnline()) {
+            needsFollowupSync = false
+            pendingRange = null
+            pendingMutationFollowup = false
+            break
+          }
+
+          const requestedRange = pendingRange
+          const isMutationFollowup = pendingMutationFollowup
+          pendingRange = null
+          pendingMutationFollowup = false
+          needsFollowupSync = false
+
+          if (
+            !isMutationFollowup &&
+            requestedRange &&
+            isRangeCovered(loadedRange, requestedRange)
+          ) {
+            if (!needsFollowupSync) break
+            continue
+          }
+
+          const defaultWin = rt.getDefaultSyncWindow()
+          const syncWindow: CalendarSyncRange = {
+            startMs: Math.min(
+              requestedRange?.startMs ?? defaultWin.startMs,
+              loadedRange?.startMs ?? defaultWin.startMs,
+            ),
+            endMs: Math.max(
+              requestedRange?.endMs ?? defaultWin.endMs,
+              loadedRange?.endMs ?? defaultWin.endMs,
+            ),
+          }
+
+          activeRange = syncWindow
+          lastSyncAttemptAt = rt.now()
+
+          const shouldAbort = () =>
+            sessionEpoch !== jobEpoch || !rt.isCalendarSyncEnabled()
+          const attemptState: {
+            transientError: string | null
+            syncOutcome: CalendarSyncResult | null
+            calendarError: unknown
+          } = {
+            transientError: null,
+            syncOutcome: null,
+            calendarError: null,
+          }
+          let canContinueFollowup = true
+
+          try {
+            cb.setErrorMessage(null)
+
+            const res = await syncWithAutoRefresh({
+              getToken: () => {
+                const t = rt.getStoredToken()
+                return t && !rt.isTokenExpired(2) ? t : null
+              },
+              ensureToken: async (force = false) => {
+                if (shouldAbort()) return null
+                const outcome = await refreshSilently(force)
+                attemptState.transientError = outcome.transientError
+                return outcome.token
+              },
+              runSync: async (activeToken: string): Promise<SyncEngineResult> => {
+                if (shouldAbort()) {
+                  return { action: 'skipped', timestamp: rt.now() }
+                }
+                cb.setSyncState('syncing')
+                try {
+                  const outcome = await rt.performGoogleCalendarSync(activeToken, {
+                    startMs: syncWindow.startMs,
+                    endMs: syncWindow.endMs,
+                    deps: { shouldAbort },
+                  })
+                  attemptState.syncOutcome = outcome
+                  attemptState.calendarError = null
+                  return {
+                    action: 'up-to-date',
+                    timestamp: outcome.timestamp,
+                  }
+                } catch (err) {
+                  attemptState.calendarError = err
+                  if (
+                    err instanceof CalendarApiError &&
+                    (err.status === 401 || err.reason === 'unauthorized') &&
+                    !isCalendarSessionError(err.message)
+                  ) {
+                    throw new Error(`401 Unauthorized: ${err.message}`)
+                  }
+                  throw err
+                }
+              },
+              isSessionError: isCalendarSessionError,
+              onSessionExpired: () => {
+                if (shouldAbort()) return
+                rt.clearStoredToken(false)
+                cb.setToken(null)
+                if (rt.shouldUseServerOAuth()) {
+                  cb.setServerSessionExpired(true)
+                }
+              },
+            })
+
+            if (shouldAbort()) {
+              canContinueFollowup = false
+            } else if (!res) {
+              cb.setToken(rt.getStoredToken())
+              if (!rt.isOnline()) {
+                cb.setIsOnline(false)
+                cb.setSyncState('offline')
+                canContinueFollowup = false
+              } else if (attemptState.transientError) {
+                cb.setSyncState('error')
+                cb.setErrorMessage(attemptState.transientError)
+                canContinueFollowup = pendingMutationFollowup
+              } else {
+                cb.setSyncState('idle')
+                canContinueFollowup = false
+              }
+            } else {
+              loadedRange = syncWindow
+              cb.setLastSyncedTime(
+                attemptState.syncOutcome?.timestamp ?? rt.getLastCalendarSyncTime(),
+              )
+              cb.setInsufficientScopeError(false)
+              if (attemptState.syncOutcome && attemptState.syncOutcome.notices.length > 0) {
+                cb.setNoticeMessage(attemptState.syncOutcome.notices.join(' · '))
+              }
+              cb.setSyncState('idle')
+            }
+          } catch (e) {
+            if (shouldAbort()) {
+              canContinueFollowup = false
+            } else if (!rt.isOnline()) {
+              cb.setIsOnline(false)
+              cb.setSyncState('offline')
+              canContinueFollowup = false
+            } else {
+              const apiErr =
+                e instanceof CalendarApiError
+                  ? e
+                  : attemptState.calendarError instanceof CalendarApiError
+                    ? attemptState.calendarError
+                    : null
+
+              if (apiErr?.reason === 'insufficient_scope') {
+                cb.setInsufficientScopeError(true)
+                cb.setSyncState('error')
+                cb.setErrorMessage(
+                  apiErr.message ||
+                    'Faltan permisos de Google Calendar. Vuelve a autorizar el acceso.',
+                )
+                canContinueFollowup = false
+              } else {
+                const msg = (e as Error)?.message || ''
+                if (isCalendarSessionError(msg)) {
+                  rt.clearStoredToken(false)
+                  cb.setToken(null)
+                  if (rt.shouldUseServerOAuth()) {
+                    cb.setServerSessionExpired(true)
+                  }
+                  cb.setSyncState('idle')
+                  cb.setErrorMessage(null)
+                  canContinueFollowup = false
+                } else {
+                  cb.setSyncState('error')
+                  cb.setErrorMessage(msg || 'Error sincronizando Google Calendar')
+                  canContinueFollowup = pendingMutationFollowup
+                }
+              }
+            }
+          } finally {
+            activeRange = null
+          }
+
+          if (!canContinueFollowup || !needsFollowupSync) {
+            needsFollowupSync = false
+            pendingRange = null
+            pendingMutationFollowup = false
+            break
+          }
+        }
+      } finally {
+        if (syncInFlight === job) {
+          syncInFlight = null
+        }
+      }
+    })()
+
+    syncInFlight = job
+    await job
+  }
+
+  async function ensureRangeLoaded(startMs: number, endMs: number): Promise<void> {
+    if (!rt.isCalendarSyncEnabled() || !rt.isOnline()) return
+
+    if (isRangeCovered(loadedRange, { startMs, endMs })) {
+      return
+    }
+
+    const base = loadedRange ?? rt.getDefaultSyncWindow()
+    await triggerSync({
+      startMs: Math.min(base.startMs, startMs),
+      endMs: Math.max(base.endMs, endMs),
+    })
+  }
+
+  async function disconnect(): Promise<void> {
+    const disconnectEpoch = ++sessionEpoch
+    lastSyncAttemptAt = 0
+    loadedRange = null
+    activeRange = null
+    needsFollowupSync = false
+    pendingRange = null
+    pendingMutationFollowup = false
+
+    rt.setCalendarSyncEnabled(false)
+    rt.setLastCalendarSyncTime(0)
+    cb.setIsEnabled(false)
+    cb.setLastSyncedTime(0)
+    cb.setInsufficientScopeError(false)
+    cb.setNoticeMessage(null)
+    cb.setErrorMessage(null)
+    cb.setSyncState('idle')
+    cb.setIsRefreshing(false)
+
+    await rt.clearLocalCalendarData()
+
+    while (syncInFlight) {
+      try {
+        await syncInFlight
+      } catch {
+        // Esperar cierre ordenado del sync en curso antes de limpiar definitivamente
+      }
+    }
+
+    if (sessionEpoch !== disconnectEpoch || rt.isCalendarSyncEnabled()) {
+      return
+    }
+
+    await rt.clearLocalCalendarData()
+    rt.setLastCalendarSyncTime(0)
+
+    if (!rt.isGoogleSyncEnabled()) {
+      rt.clearStoredToken(true)
+      cb.setToken(null)
+      cb.setHasScopes(false)
+      cb.setServerSessionExpired(false)
+      void rt.revokeServerOAuthSession()
+    }
+  }
+
+  async function handleOAuthSuccess(
+    accessToken: string,
+    expiresIn: number,
+    email?: string,
+    scope?: string,
+  ): Promise<void> {
+    const startEpoch = sessionEpoch
+    let finalEmail = email
+    if (!finalEmail) {
+      finalEmail = (await rt.fetchGoogleUserEmail(accessToken)) || undefined
+    }
+    if (sessionEpoch !== startEpoch) {
+      return
+    }
+
+    const resolvedScope = scope ?? GOOGLE_CALENDAR_SCOPES
+    rt.setStoredToken(accessToken, expiresIn, finalEmail, {
+      enableCalendar: true,
+      scope: resolvedScope,
+    })
+
+    const scopesOk = rt.hasCalendarScopes()
+    sessionEpoch += 1
+    needsFollowupSync = false
+    pendingRange = null
+    pendingMutationFollowup = false
+
+    cb.setIsEnabled(true)
+    cb.setToken(accessToken)
+    cb.setHasScopes(scopesOk)
+    cb.setInsufficientScopeError(!scopesOk)
+    cb.setServerSessionExpired(false)
+    cb.setIsRefreshing(false)
+    cb.setErrorMessage(null)
+    cb.setSyncState('idle')
+
+    while (syncInFlight) {
+      try {
+        await syncInFlight
+      } catch {
+        // Continuar con el token recién otorgado
+      }
+    }
+
+    if (scopesOk) {
+      await triggerSync()
+    } else {
+      cb.setSyncState('error')
+      cb.setErrorMessage(
+        'No se otorgaron todos los permisos de Google Calendar necesarios. Autoriza nuevamente el acceso a la agenda.',
+      )
+    }
+  }
+
+  return {
+    refreshSilently,
+    triggerSync,
+    ensureRangeLoaded,
+    disconnect,
+    handleOAuthSuccess,
+    isSyncing: () => Boolean(syncInFlight),
+    getLastSyncAttemptAt: () => lastSyncAttemptAt,
+    getLoadedRange: () => loadedRange,
+  }
+}
+
 export interface UseGoogleCalendarOptions {
   fallbackEmail?: string | null
 }
@@ -129,10 +652,21 @@ export function useGoogleCalendar(
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null)
 
-  const syncInFlightRef = useRef<Promise<void> | null>(null)
-  const lastSyncAttemptAtRef = useRef<number>(0)
-  const loadedRangeRef = useRef<{ startMs: number; endMs: number } | null>(null)
-  const disconnectGenRef = useRef<number>(0)
+  const [coordinator] = useState(() =>
+    createCalendarSyncCoordinator({
+      setIsEnabled,
+      setToken,
+      setHasScopes,
+      setInsufficientScopeError,
+      setServerSessionExpired,
+      setIsOnline,
+      setIsRefreshing,
+      setSyncState,
+      setLastSyncedTime,
+      setErrorMessage,
+      setNoticeMessage,
+    }),
+  )
 
   const calendars =
     useLiveQuery(async () => {
@@ -204,242 +738,9 @@ export function useGoogleCalendar(
     }
   }, [])
 
-  const trackSyncJob = useCallback(async (task: () => Promise<void>) => {
-    lastSyncAttemptAtRef.current = Date.now()
-    let job!: Promise<void>
-    job = (async () => {
-      try {
-        await task()
-      } finally {
-        if (syncInFlightRef.current === job) {
-          syncInFlightRef.current = null
-        }
-      }
-    })()
-    syncInFlightRef.current = job
-    await job
-  }, [])
-
-  const refreshSilently = useCallback(
-    async (
-      forceRefresh = false,
-    ): Promise<{ token: string | null; transientError: string | null }> => {
-      if (!isCalendarSyncEnabled()) {
-        setIsRefreshing(false)
-        return { token: null, transientError: null }
-      }
-      if (!getNavigatorOnline()) {
-        setIsOnline(false)
-        setIsRefreshing(false)
-        return { token: null, transientError: null }
-      }
-
-      setIsRefreshing(true)
-      try {
-        const nextToken = await ensureValidAccessToken(forceRefresh)
-        setToken(getStoredToken())
-        const scopesOk = hasCalendarScopes()
-        setHasScopes(scopesOk)
-        if (scopesOk) {
-          setInsufficientScopeError(false)
-        }
-        if (nextToken) {
-          setServerSessionExpired(false)
-          setErrorMessage(null)
-          return { token: nextToken, transientError: null }
-        }
-        if (shouldUseServerOAuth() && getNavigatorOnline()) {
-          setServerSessionExpired(true)
-        }
-        return { token: null, transientError: null }
-      } catch (e) {
-        if (!getNavigatorOnline()) {
-          setIsOnline(false)
-          return { token: null, transientError: null }
-        }
-        const msg = (e as Error)?.message || 'Error temporal renovando sesión de Google Calendar'
-        setErrorMessage(msg)
-        return { token: null, transientError: msg }
-      } finally {
-        setIsRefreshing(false)
-      }
-    },
-    [],
-  )
-
   const triggerSync = useCallback(
-    async (range?: { startMs?: number; endMs?: number }) => {
-      if (!isCalendarSyncEnabled()) return
-
-      if (!getNavigatorOnline()) {
-        setIsOnline(false)
-        setIsRefreshing(false)
-        setSyncState('offline')
-        return
-      }
-
-      if (syncInFlightRef.current) {
-        if (!range) {
-          return await syncInFlightRef.current
-        }
-        try {
-          await syncInFlightRef.current
-        } catch {
-          // Continuar evaluando el nuevo rango solicitado tras cerrar el job previo
-        }
-        if (!isCalendarSyncEnabled() || !getNavigatorOnline()) return
-      }
-
-      const defaultWin = getDefaultSyncWindow()
-      const currentLoaded = loadedRangeRef.current
-      if (
-        range?.startMs !== undefined &&
-        range?.endMs !== undefined &&
-        currentLoaded &&
-        range.startMs >= currentLoaded.startMs &&
-        range.endMs <= currentLoaded.endMs
-      ) {
-        return
-      }
-
-      const syncWindow = {
-        startMs: Math.min(
-          range?.startMs ?? defaultWin.startMs,
-          currentLoaded?.startMs ?? defaultWin.startMs,
-        ),
-        endMs: Math.max(
-          range?.endMs ?? defaultWin.endMs,
-          currentLoaded?.endMs ?? defaultWin.endMs,
-        ),
-      }
-
-      const jobGen = disconnectGenRef.current
-      let lastTransientError: string | null = null
-      let lastSyncOutcome: Awaited<ReturnType<typeof performGoogleCalendarSync>> | null = null
-      let lastCalendarError: unknown = null
-
-      await trackSyncJob(async () => {
-        try {
-          setErrorMessage(null)
-
-          const res = await syncWithAutoRefresh({
-            getToken: () => {
-              const t = getStoredToken()
-              return t && !isTokenExpired(2) ? t : null
-            },
-            ensureToken: async (force = false) => {
-              const outcome = await refreshSilently(force)
-              lastTransientError = outcome.transientError
-              return outcome.token
-            },
-            runSync: async (activeToken: string): Promise<SyncEngineResult> => {
-              setSyncState('syncing')
-              try {
-                const outcome = await performGoogleCalendarSync(activeToken, {
-                  startMs: syncWindow.startMs,
-                  endMs: syncWindow.endMs,
-                })
-                lastSyncOutcome = outcome
-                lastCalendarError = null
-                return {
-                  action: 'up-to-date',
-                  timestamp: outcome.timestamp,
-                }
-              } catch (err) {
-                lastCalendarError = err
-                if (
-                  err instanceof CalendarApiError &&
-                  (err.status === 401 || err.reason === 'unauthorized') &&
-                  !isCalendarSessionError(err.message)
-                ) {
-                  throw new Error(`401 Unauthorized: ${err.message}`)
-                }
-                throw err
-              }
-            },
-            isSessionError: isCalendarSessionError,
-            onSessionExpired: () => {
-              clearStoredToken(false)
-              setToken(null)
-              if (shouldUseServerOAuth()) {
-                setServerSessionExpired(true)
-              }
-            },
-          })
-
-          if (disconnectGenRef.current !== jobGen || !isCalendarSyncEnabled()) {
-            return
-          }
-
-          if (!res) {
-            setToken(getStoredToken())
-            if (!getNavigatorOnline()) {
-              setIsOnline(false)
-              setSyncState('offline')
-              return
-            }
-            if (lastTransientError) {
-              setSyncState('error')
-              setErrorMessage(lastTransientError)
-              return
-            }
-            setSyncState('idle')
-            return
-          }
-
-          loadedRangeRef.current = syncWindow
-          setLastSyncedTime(lastSyncOutcome?.timestamp ?? getLastCalendarSyncTime())
-          setInsufficientScopeError(false)
-          if (lastSyncOutcome && lastSyncOutcome.notices.length > 0) {
-            setNoticeMessage(lastSyncOutcome.notices.join(' · '))
-          }
-          setSyncState('idle')
-        } catch (e) {
-          if (disconnectGenRef.current !== jobGen || !isCalendarSyncEnabled()) {
-            return
-          }
-
-          if (!getNavigatorOnline()) {
-            setIsOnline(false)
-            setSyncState('offline')
-            return
-          }
-
-          const apiErr =
-            e instanceof CalendarApiError
-              ? e
-              : lastCalendarError instanceof CalendarApiError
-                ? lastCalendarError
-                : null
-
-          if (apiErr?.reason === 'insufficient_scope') {
-            setInsufficientScopeError(true)
-            setSyncState('error')
-            setErrorMessage(
-              apiErr.message ||
-                'Faltan permisos de Google Calendar. Vuelve a autorizar el acceso.',
-            )
-            return
-          }
-
-          const msg = (e as Error)?.message || ''
-          if (isCalendarSessionError(msg)) {
-            clearStoredToken(false)
-            setToken(null)
-            if (shouldUseServerOAuth()) {
-              setServerSessionExpired(true)
-            }
-            setSyncState('idle')
-            setErrorMessage(null)
-            return
-          }
-
-          setSyncState('error')
-          setErrorMessage(msg || 'Error sincronizando Google Calendar')
-        }
-      })
-    },
-    [refreshSilently, trackSyncJob],
+    (range?: { startMs?: number; endMs?: number }) => coordinator.triggerSync(range),
+    [coordinator],
   )
 
   const connectCalendar = useCallback(() => {
@@ -451,76 +752,16 @@ export function useGoogleCalendar(
       includeGrantedScopes: true,
       loginHint,
       onSuccess: (accessToken, expiresIn, email, scope) => {
-        void (async () => {
-          let finalEmail = email
-          if (!finalEmail) {
-            finalEmail = (await fetchGoogleUserEmail(accessToken)) || undefined
-          }
-          const resolvedScope = scope ?? GOOGLE_CALENDAR_SCOPES
-          setStoredToken(accessToken, expiresIn, finalEmail, {
-            enableCalendar: true,
-            scope: resolvedScope,
-          })
-
-          const scopesOk = hasCalendarScopes()
-          setIsEnabled(true)
-          setToken(accessToken)
-          setHasScopes(scopesOk)
-          setInsufficientScopeError(!scopesOk)
-          setServerSessionExpired(false)
-          setIsRefreshing(false)
-          setErrorMessage(null)
-          setSyncState('idle')
-
-          if (syncInFlightRef.current) {
-            try {
-              await syncInFlightRef.current
-            } catch {
-              // Continuar con el token recién otorgado
-            }
-          }
-
-          if (scopesOk) {
-            await triggerSync()
-          } else {
-            setSyncState('error')
-            setErrorMessage(
-              'No se otorgaron todos los permisos de Google Calendar necesarios. Autoriza nuevamente el acceso a la agenda.',
-            )
-          }
-        })()
+        void coordinator.handleOAuthSuccess(accessToken, expiresIn, email, scope)
       },
       onError: (msg) => {
         setSyncState('error')
         setErrorMessage(msg)
       },
     })
-  }, [fallbackEmail, triggerSync])
+  }, [coordinator, fallbackEmail])
 
-  const disconnectCalendar = useCallback(async () => {
-    disconnectGenRef.current += 1
-    lastSyncAttemptAtRef.current = 0
-    loadedRangeRef.current = null
-    setCalendarSyncEnabled(false)
-    setLastCalendarSyncTime(0)
-    setIsEnabled(false)
-    setLastSyncedTime(0)
-    setInsufficientScopeError(false)
-    setNoticeMessage(null)
-    setErrorMessage(null)
-    setSyncState('idle')
-    setIsRefreshing(false)
-
-    await clearLocalCalendarData()
-
-    if (!isGoogleSyncEnabled()) {
-      clearStoredToken(true)
-      setToken(null)
-      setHasScopes(false)
-      setServerSessionExpired(false)
-      void revokeServerOAuthSession()
-    }
-  }, [])
+  const disconnectCalendar = useCallback(() => coordinator.disconnect(), [coordinator])
 
   // Sincronización inicial al montar si Calendar ya estaba habilitado
   useEffect(() => {
@@ -528,17 +769,17 @@ export function useGoogleCalendar(
       return
     }
     const timer = setTimeout(() => {
-      void triggerSync()
+      void coordinator.triggerSync()
     }, 0)
     return () => clearTimeout(timer)
-  }, [triggerSync])
+  }, [coordinator])
 
   // Sincronización pasiva al recuperar foco, conexión o periódicamente
   useEffect(() => {
     if (!isEnabled || typeof window === 'undefined') return
 
     const ensureAndSync = (respectCooldown = true) => {
-      if (!getNavigatorOnline() || syncInFlightRef.current || needsCalendarConsent) return
+      if (!getNavigatorOnline() || coordinator.isSyncing() || needsCalendarConsent) return
       const activeToken = getStoredToken()
       const usesServerOAuth = shouldUseServerOAuth()
       const hasValidToken = Boolean(activeToken && !isTokenExpired(usesServerOAuth ? 5 : 2))
@@ -550,11 +791,11 @@ export function useGoogleCalendar(
           serverSessionExpired,
           hasValidToken,
           now: Date.now(),
-          lastAttemptAt: lastSyncAttemptAtRef.current,
+          lastAttemptAt: coordinator.getLastSyncAttemptAt(),
           cooldownMs: respectCooldown ? PASSIVE_SYNC_COOLDOWN_MS : 0,
         })
       ) {
-        void triggerSync()
+        void coordinator.triggerSync()
       }
     }
 
@@ -588,7 +829,7 @@ export function useGoogleCalendar(
         !serverSessionExpired &&
         isTokenExpired(PROACTIVE_REFRESH_MARGIN_MINUTES)
       ) {
-        void refreshSilently(true)
+        void coordinator.refreshSilently(true)
       }
     }, PROACTIVE_REFRESH_INTERVAL_MS)
 
@@ -598,7 +839,7 @@ export function useGoogleCalendar(
       clearInterval(syncInterval)
       clearInterval(proactiveRefreshInterval)
     }
-  }, [isEnabled, needsCalendarConsent, serverSessionExpired, triggerSync, refreshSilently])
+  }, [coordinator, isEnabled, needsCalendarConsent, serverSessionExpired])
 
   const createEvent = useCallback(
     async (draft: CalendarEventDraft): Promise<CalendarEventRow> => {
@@ -609,11 +850,11 @@ export function useGoogleCalendar(
         !isSessionExpired &&
         !needsCalendarConsent
       ) {
-        void triggerSync()
+        void coordinator.triggerSync()
       }
       return row
     },
-    [isSessionExpired, needsCalendarConsent, triggerSync],
+    [coordinator, isSessionExpired, needsCalendarConsent],
   )
 
   const updateEvent = useCallback(
@@ -625,11 +866,11 @@ export function useGoogleCalendar(
         !isSessionExpired &&
         !needsCalendarConsent
       ) {
-        void triggerSync()
+        void coordinator.triggerSync()
       }
       return row
     },
-    [isSessionExpired, needsCalendarConsent, triggerSync],
+    [coordinator, isSessionExpired, needsCalendarConsent],
   )
 
   const deleteEvent = useCallback(
@@ -641,10 +882,10 @@ export function useGoogleCalendar(
         !isSessionExpired &&
         !needsCalendarConsent
       ) {
-        void triggerSync()
+        void coordinator.triggerSync()
       }
     },
-    [isSessionExpired, needsCalendarConsent, triggerSync],
+    [coordinator, isSessionExpired, needsCalendarConsent],
   )
 
   const toggleCalendarVisibility = useCallback(
@@ -657,29 +898,18 @@ export function useGoogleCalendar(
         !isSessionExpired &&
         !needsCalendarConsent
       ) {
-        void triggerSync()
+        void coordinator.triggerSync()
       }
     },
-    [isSessionExpired, needsCalendarConsent, triggerSync],
+    [coordinator, isSessionExpired, needsCalendarConsent],
   )
 
   const ensureRangeLoaded = useCallback(
     async (startMs: number, endMs: number): Promise<void> => {
-      if (!isCalendarSyncEnabled() || !getNavigatorOnline()) return
       if (isSessionExpired || needsCalendarConsent) return
-
-      const current = loadedRangeRef.current
-      if (current && startMs >= current.startMs && endMs <= current.endMs) {
-        return
-      }
-
-      const base = current ?? getDefaultSyncWindow()
-      await triggerSync({
-        startMs: Math.min(base.startMs, startMs),
-        endMs: Math.max(base.endMs, endMs),
-      })
+      await coordinator.ensureRangeLoaded(startMs, endMs)
     },
-    [isSessionExpired, needsCalendarConsent, triggerSync],
+    [coordinator, isSessionExpired, needsCalendarConsent],
   )
 
   const clearNotice = useCallback(() => {

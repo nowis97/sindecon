@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db, type CalendarEventDraft, type CalendarEventRow } from '../db/db'
 import {
+  clearLocalCalendarData,
   enqueueCreateEvent,
   enqueueDeleteEvent,
   enqueueUpdateEvent,
@@ -15,7 +16,12 @@ import {
   pullGoogleCalendarWindow,
   setLastCalendarSyncTime,
 } from './calendarSync'
-import { canWriteCalendar, isCalendarSessionError } from '../hooks/useGoogleCalendar'
+import {
+  canWriteCalendar,
+  createCalendarSyncCoordinator,
+  isCalendarSessionError,
+  type CalendarCoordinatorCallbacks,
+} from '../hooks/useGoogleCalendar'
 import { syncWithAutoRefresh } from '../hooks/useGoogleSync'
 
 const store: Record<string, string> = {}
@@ -485,5 +491,303 @@ describe('useGoogleCalendar pure helpers & syncWithAutoRefresh integration', () 
       }),
     ).rejects.toThrow('Insufficient Permission')
     expect(ensureTokenScope).not.toHaveBeenCalled()
+  })
+})
+
+function createTestCallbacks() {
+  const callbacks: CalendarCoordinatorCallbacks = {
+    setIsEnabled: vi.fn(),
+    setToken: vi.fn(),
+    setHasScopes: vi.fn(),
+    setInsufficientScopeError: vi.fn(),
+    setServerSessionExpired: vi.fn(),
+    setIsOnline: vi.fn(),
+    setIsRefreshing: vi.fn(),
+    setSyncState: vi.fn(),
+    setLastSyncedTime: vi.fn(),
+    setErrorMessage: vi.fn(),
+    setNoticeMessage: vi.fn(),
+  }
+  return callbacks
+}
+
+describe('createCalendarSyncCoordinator concurrency & disconnect safety', () => {
+  it('serializa triggerSync(range) concurrentes sin solapamiento y coalescea rangos en un solo follow-up', async () => {
+    const callbacks = createTestCallbacks()
+    let releaseInitial!: () => void
+    const initialBarrier = new Promise<void>((resolve) => {
+      releaseInitial = resolve
+    })
+
+    let activeCount = 0
+    let maxActiveCount = 0
+    const recordedRanges: Array<{ startMs: number; endMs: number }> = []
+
+    const coordinator = createCalendarSyncCoordinator(callbacks, {
+      isCalendarSyncEnabled: () => true,
+      isOnline: () => true,
+      getStoredToken: () => 'tok-ok',
+      isTokenExpired: () => false,
+      getDefaultSyncWindow: () => ({ startMs: 1000, endMs: 5000 }),
+      performGoogleCalendarSync: vi.fn(async (_token, opts) => {
+        activeCount += 1
+        maxActiveCount = Math.max(maxActiveCount, activeCount)
+        recordedRanges.push({ startMs: opts?.startMs ?? 0, endMs: opts?.endMs ?? 0 })
+        if (recordedRanges.length === 1) {
+          await initialBarrier
+        }
+        activeCount -= 1
+        return {
+          timestamp: 1795700000000 + recordedRanges.length,
+          syncedOutboxCount: 0,
+          eventsCount: 0,
+          notices: [],
+        }
+      }),
+    })
+
+    const p1 = coordinator.triggerSync()
+    // Esperar un microtask para asegurar que p1 ya tomó el lock
+    await Promise.resolve()
+
+    const p2 = coordinator.triggerSync({ startMs: 800, endMs: 6000 })
+    const p3 = coordinator.triggerSync({ startMs: 400, endMs: 9000 })
+    const p4 = coordinator.ensureRangeLoaded(300, 12000)
+
+    expect(maxActiveCount).toBe(1)
+    releaseInitial()
+    await Promise.all([p1, p2, p3, p4])
+
+    expect(maxActiveCount).toBe(1)
+    expect(recordedRanges).toEqual([
+      { startMs: 1000, endMs: 5000 },
+      { startMs: 300, endMs: 12000 },
+    ])
+    expect(coordinator.getLoadedRange()).toEqual({ startMs: 300, endMs: 12000 })
+  })
+
+  it('encola triggerSync() por mutación durante un pull en curso y vacía el outbox inmediatamente después', async () => {
+    const callbacks = createTestCallbacks()
+    let releasePull!: () => void
+    const pullBarrier = new Promise<void>((resolve) => {
+      releasePull = resolve
+    })
+
+    let pullCalls = 0
+    const serverEvents: Array<Omit<CalendarEventRow, 'syncStatus' | 'syncError'>> = []
+    const createRemoteCalendarEvent = vi.fn(async (_token, calendarId, draft) => {
+      const created = makeSyncedEvent('remote-mid-pull', { calendarId, summary: draft.summary })
+      serverEvents.push(created)
+      return created
+    })
+
+    const coordinator = createCalendarSyncCoordinator(callbacks, {
+      isCalendarSyncEnabled: () => true,
+      isOnline: () => true,
+      getStoredToken: () => 'tok-ok',
+      isTokenExpired: () => false,
+      getDefaultSyncWindow: () => ({
+        startMs: Date.parse('2026-11-01T00:00:00-03:00'),
+        endMs: Date.parse('2026-12-31T23:59:59-03:00'),
+      }),
+      performGoogleCalendarSync: (token, opts) =>
+        performGoogleCalendarSync(token, {
+          ...opts,
+          deps: {
+            ...opts?.deps,
+            createRemoteCalendarEvent,
+            fetchCalendarList: async () => [
+              {
+                id: 'primary',
+                summary: 'Principal',
+                primary: true,
+                backgroundColor: '#039be5',
+                accessRole: 'owner',
+                defaultSelected: true,
+              },
+            ],
+            fetchCalendarEventsWindow: async () => {
+              pullCalls += 1
+              if (pullCalls === 1) {
+                await pullBarrier
+              }
+              return [...serverEvents]
+            },
+          },
+        }),
+    })
+
+    const firstSync = coordinator.triggerSync()
+    await vi.waitFor(() => {
+      expect(pullCalls).toBe(1)
+    })
+
+    // Usuario crea un evento mientras el primer sync ya está esperando GET /events
+    const createdLocal = await enqueueCreateEvent(makeDraft({ summary: 'Creado mid-pull' }))
+    const followupSync = coordinator.triggerSync()
+
+    releasePull()
+    await Promise.all([firstSync, followupSync])
+
+    expect(pullCalls).toBe(2)
+    expect(createRemoteCalendarEvent).toHaveBeenCalledTimes(1)
+    expect(await db.calendar_events.get(createdLocal.id)).toBeUndefined()
+    expect((await db.calendar_events.get('remote-mid-pull'))?.syncStatus).toBe('synced')
+    expect(await getPendingOutboxItems()).toHaveLength(0)
+  })
+
+  it('disconnect espera cierre de sync mid-pull y evita que Dexie o localStorage se repueblen', async () => {
+    const callbacks = createTestCallbacks()
+    let calendarEnabled = true
+    let driveEnabled = false
+    let releasePull!: () => void
+    const pullBarrier = new Promise<void>((resolve) => {
+      releasePull = resolve
+    })
+    let pullStarted = false
+
+    const clearStoredToken = vi.fn()
+    const revokeServerOAuthSession = vi.fn(async () => {})
+
+    const coordinator = createCalendarSyncCoordinator(callbacks, {
+      isCalendarSyncEnabled: () => calendarEnabled,
+      setCalendarSyncEnabled: (v) => {
+        calendarEnabled = v
+      },
+      isGoogleSyncEnabled: () => driveEnabled,
+      isOnline: () => true,
+      getStoredToken: () => 'tok-ok',
+      isTokenExpired: () => false,
+      clearStoredToken,
+      revokeServerOAuthSession,
+      clearLocalCalendarData,
+      setLastCalendarSyncTime,
+      getLastCalendarSyncTime,
+      getDefaultSyncWindow: () => ({
+        startMs: Date.parse('2026-11-01T00:00:00-03:00'),
+        endMs: Date.parse('2026-12-31T23:59:59-03:00'),
+      }),
+      performGoogleCalendarSync: (token, opts) =>
+        performGoogleCalendarSync(token, {
+          ...opts,
+          deps: {
+            ...opts?.deps,
+            fetchCalendarList: async () => [
+              {
+                id: 'primary',
+                summary: 'Cuenta desconectada',
+                primary: true,
+                backgroundColor: '#039be5',
+                accessRole: 'owner',
+                defaultSelected: true,
+              },
+            ],
+            fetchCalendarEventsWindow: async () => {
+              pullStarted = true
+              await pullBarrier
+              return [
+                {
+                  id: 'zombie-remote-ev',
+                  calendarId: 'primary',
+                  summary: 'No debe quedar en Dexie',
+                  description: '',
+                  location: '',
+                  startIso: '2026-11-26T10:00:00-03:00',
+                  endIso: '2026-11-26T11:00:00-03:00',
+                  startMs: Date.parse('2026-11-26T10:00:00-03:00'),
+                  endMs: Date.parse('2026-11-26T11:00:00-03:00'),
+                  allDay: false,
+                  status: 'confirmed',
+                  updatedAt: 5000,
+                },
+              ]
+            },
+          },
+        }),
+    })
+
+    const syncPromise = coordinator.triggerSync()
+    await vi.waitFor(() => {
+      expect(pullStarted).toBe(true)
+    })
+
+    let disconnectResolved = false
+    const disconnectPromise = coordinator.disconnect().then(() => {
+      disconnectResolved = true
+    })
+
+    await Promise.resolve()
+    expect(calendarEnabled).toBe(false)
+    expect(disconnectResolved).toBe(false)
+
+    releasePull()
+    await Promise.all([syncPromise, disconnectPromise])
+
+    expect(disconnectResolved).toBe(true)
+    expect(await db.calendar_list.count()).toBe(0)
+    expect(await db.calendar_events.count()).toBe(0)
+    expect(await db.calendar_outbox.count()).toBe(0)
+    expect(getLastCalendarSyncTime()).toBe(0)
+    expect(clearStoredToken).toHaveBeenCalledWith(true)
+    expect(revokeServerOAuthSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('refreshSilently ignora resultados o errores tardíos si se desconectó mientras esperaba ensureValidAccessToken', async () => {
+    const callbacks = createTestCallbacks()
+    let calendarEnabled = true
+
+    let resolveRefresh!: (tok: string | null) => void
+    let rejectRefresh!: (err: Error) => void
+
+    const ensureValidAccessToken = vi
+      .fn<() => Promise<string | null>>()
+      .mockImplementationOnce(
+        () =>
+          new Promise<string | null>((resolve) => {
+            resolveRefresh = resolve
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<string | null>((_resolve, reject) => {
+            rejectRefresh = reject
+          }),
+      )
+
+    const coordinator = createCalendarSyncCoordinator(callbacks, {
+      isCalendarSyncEnabled: () => calendarEnabled,
+      setCalendarSyncEnabled: (v) => {
+        calendarEnabled = v
+      },
+      isGoogleSyncEnabled: () => true,
+      isOnline: () => true,
+      ensureValidAccessToken,
+      getStoredToken: () => 'ya29.stale',
+      hasCalendarScopes: () => true,
+      shouldUseServerOAuth: () => true,
+      clearLocalCalendarData,
+    })
+
+    const refreshOk = coordinator.refreshSilently(true)
+    await coordinator.disconnect()
+    vi.mocked(callbacks.setToken).mockClear()
+    vi.mocked(callbacks.setServerSessionExpired).mockClear()
+    vi.mocked(callbacks.setErrorMessage).mockClear()
+
+    resolveRefresh('ya29.late-token')
+    expect(await refreshOk).toEqual({ token: null, transientError: null })
+    expect(callbacks.setToken).not.toHaveBeenCalled()
+    expect(callbacks.setServerSessionExpired).not.toHaveBeenCalled()
+    expect(callbacks.setErrorMessage).not.toHaveBeenCalled()
+
+    // Caso 2: respuesta con error tardío tras desconectar
+    calendarEnabled = true
+    const refreshErr = coordinator.refreshSilently(true)
+    await coordinator.disconnect()
+    vi.mocked(callbacks.setErrorMessage).mockClear()
+
+    rejectRefresh(new Error('502 Bad Gateway'))
+    expect(await refreshErr).toEqual({ token: null, transientError: null })
+    expect(callbacks.setErrorMessage).not.toHaveBeenCalled()
   })
 })
