@@ -54,6 +54,24 @@ interface FormInitialState {
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
 
+/**
+ * Resuelve el `calendarId` efectivo en modo creación.
+ * Evita desincronización cuando `calendars` carga de forma asíncrona tras montar el modal.
+ */
+export function resolveCreateCalendarId(
+  selectedId: string,
+  calendars: CalendarListRow[],
+): string {
+  const writable = calendars.filter(isCalendarWritable)
+  if (writable.length > 0) {
+    if (writable.some((c) => c.id === selectedId)) {
+      return selectedId
+    }
+    return writable.find((c) => c.primary)?.id ?? writable[0].id
+  }
+  return calendars[0]?.id ?? (selectedId || 'primary')
+}
+
 function computeInclusiveEndDate(startIso: string, endIso: string, startMs: number): string {
   try {
     const prev = addDaysToYmd(endIso, -1)
@@ -93,12 +111,7 @@ function buildInitialFormState(
     }
   }
 
-  const writable = calendars.filter(isCalendarWritable)
-  const defaultCalId =
-    writable.find((c) => c.primary)?.id ??
-    writable[0]?.id ??
-    calendars[0]?.id ??
-    'primary'
+  const defaultCalId = resolveCreateCalendarId('primary', calendars)
 
   if (defaultDateYmd && YMD_RE.test(defaultDateYmd)) {
     return {
@@ -176,7 +189,10 @@ function CalendarEventFormBody({
 
   const isEdit = Boolean(event)
   const writableCalendars = calendars.filter(isCalendarWritable)
-  const activeCalendar = calendars.find((c) => c.id === calendarId)
+  const effectiveCalendarId = isEdit
+    ? calendarId
+    : resolveCreateCalendarId(calendarId, calendars)
+  const activeCalendar = calendars.find((c) => c.id === effectiveCalendarId)
   const noWritableOnCreate = !isEdit && calendars.length > 0 && writableCalendars.length === 0
   const isReadOnlyEvent = Boolean(isEdit && activeCalendar && !isCalendarWritable(activeCalendar))
   const isReadOnly = isReadOnlyEvent || noWritableOnCreate
@@ -226,7 +242,7 @@ function CalendarEventFormBody({
     try {
       await onSubmit(
         {
-          calendarId,
+          calendarId: effectiveCalendarId,
           summary: trimmedTitle,
           description: description.trim(),
           location: location.trim(),
@@ -341,7 +357,7 @@ function CalendarEventFormBody({
             id="calendar-event-calendar"
             data-testid="calendar-event-calendar-select"
             className={CLINICAL_FIELD_CLASS}
-            value={calendarId}
+            value={effectiveCalendarId}
             onChange={(e) => setCalendarId(e.target.value)}
             disabled={busy}
           >

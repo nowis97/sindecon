@@ -3,7 +3,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { CalendarEventRow, CalendarListRow } from '../../db/db'
 import { CalendarGuardCard } from './CalendarGuardCard'
-import { CalendarEventFormModal } from './CalendarEventFormModal'
+import { CalendarEventFormModal, resolveCreateCalendarId } from './CalendarEventFormModal'
 import {
   CalendarModal,
   formatEventTimeRange,
@@ -551,5 +551,51 @@ describe('CalendarEventFormModal SSR contract', () => {
     expect(html).toContain('Turnos Jefatura')
     expect(html).not.toContain('data-testid="calendar-event-submit-btn"')
     expect(html).not.toContain('data-testid="calendar-event-delete-btn"')
+  })
+
+  it('resolveCreateCalendarId resuelve el calendario primario real cuando calendarId quedó en primary tras carga asíncrona', () => {
+    expect(resolveCreateCalendarId('primary', [])).toBe('primary')
+
+    const asyncCalendars: CalendarListRow[] = [
+      makeCalendar({
+        id: 'ro@holiday.calendar.google.com',
+        summary: 'Feriados',
+        primary: false,
+        accessRole: 'reader',
+      }),
+      makeCalendar({
+        id: 'guardias@group.calendar.google.com',
+        summary: 'Guardias Equipo',
+        primary: false,
+        accessRole: 'writer',
+      }),
+      makeCalendar({
+        id: 'medico@gmail.com',
+        summary: 'Agenda Principal',
+        primary: true,
+        accessRole: 'owner',
+      }),
+    ]
+
+    expect(resolveCreateCalendarId('primary', asyncCalendars)).toBe('medico@gmail.com')
+    expect(resolveCreateCalendarId('guardias@group.calendar.google.com', asyncCalendars)).toBe(
+      'guardias@group.calendar.google.com',
+    )
+
+    const nonPrimaryOnly = asyncCalendars.filter((c) => c.id !== 'medico@gmail.com')
+    expect(resolveCreateCalendarId('primary', nonPrimaryOnly)).toBe(
+      'guardias@group.calendar.google.com',
+    )
+
+    const createEmailHtml = renderToStaticMarkup(
+      createElement(CalendarEventFormModal, {
+        isOpen: true,
+        onClose: () => {},
+        calendars: asyncCalendars,
+        onSubmit: () => {},
+      }),
+    )
+    expect(createEmailHtml).toContain('value="medico@gmail.com" selected=""')
+    expect(createEmailHtml).toContain('Agenda Principal (Principal)')
   })
 })
