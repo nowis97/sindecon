@@ -441,6 +441,14 @@ test.describe('Google Calendar E2E: Conexión, Vistas, Temas, Outbox Offline y E
     const eventForm = page.getByTestId('calendar-event-form-modal')
     await expect(eventForm).toBeVisible()
 
+    // Presionar Escape con ambos modales apilados debe cerrar solo el formulario y mantener CalendarModal abierto
+    await page.keyboard.press('Escape')
+    await expect(eventForm).not.toBeVisible()
+    await expect(calendarModal).toBeVisible()
+
+    await page.getByTestId('calendar-modal-add-btn').click()
+    await expect(eventForm).toBeVisible()
+
     const todayYmd = await page.evaluate(() => {
       const d = new Date()
       const y = String(d.getFullYear()).padStart(4, '0')

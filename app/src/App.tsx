@@ -1186,7 +1186,9 @@ function App() {
       {/* Modal de Agenda Clínica y Guardias (Google Calendar) */}
       <CalendarModal
         isOpen={isCalendarModalOpen}
-        onClose={() => setIsCalendarModalOpen(false)}
+        onClose={() => {
+          if (!calendarFormState.isOpen) setIsCalendarModalOpen(false)
+        }}
         theme={theme}
         isOnline={isCalendarOnline}
         isSessionExpired={isCalendarSessionExpired}
