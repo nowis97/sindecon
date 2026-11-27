@@ -49,6 +49,13 @@ export async function fetchIndex(base = '/decks'): Promise<DeckIndex> {
   return fetchJson<DeckIndex>(`${base}/index.json`)
 }
 
+export async function fetchManifest(
+  deckId: string,
+  base = '/decks',
+): Promise<DeckManifest> {
+  return fetchJson<DeckManifest>(`${base}/${deckId}/manifest.json`)
+}
+
 /**
  * Descarga un bloque de tarjetas y lo fusiona en IndexedDB.
  *

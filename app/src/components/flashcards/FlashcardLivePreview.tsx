@@ -7,6 +7,7 @@ import {
   PenLine,
   Stethoscope,
   RotateCw,
+  Layers,
 } from 'lucide-react'
 import { FlashcardMarkdown } from './FlashcardMarkdown'
 
@@ -14,7 +15,7 @@ export interface FlashcardLivePreviewProps {
   front: string
   back: string
   articleTitle?: string
-  sourceType?: 'manual' | 'structural' | 'cloud_ai' | 'local_ai'
+  sourceType?: 'manual' | 'structural' | 'cloud_ai' | 'local_ai' | 'eunacom'
   initialFlipped?: boolean
   onFlipToggle?: (flipped: boolean) => void
   className?: string
@@ -47,6 +48,8 @@ export const FlashcardLivePreview: React.FC<FlashcardLivePreviewProps> = ({
         return { icon: <BrainCircuit className="h-3 w-3" />, label: 'IA Local Qwen' }
       case 'cloud_ai':
         return { icon: <Sparkles className="h-3 w-3" />, label: 'IA Cloud' }
+      case 'eunacom':
+        return { icon: <Layers className="h-3 w-3" />, label: 'EUNACOM' }
       case 'manual':
       default:
         return { icon: <PenLine className="h-3 w-3" />, label: 'Manual' }
@@ -157,4 +160,6 @@ export const FlashcardLivePreview: React.FC<FlashcardLivePreviewProps> = ({
     </div>
   )
 }
+
+
 
