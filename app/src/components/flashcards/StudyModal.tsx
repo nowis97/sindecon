@@ -141,7 +141,7 @@ export const StudyModal: React.FC<StudyModalProps> = ({
       aria-label="Repaso Activo SM-2"
     >
       <div
-        className="clinical-home flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-[22px] border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-primary)] shadow-[var(--ch-shadow-modal)]"
+        className="clinical-home flex h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[22px] border border-[var(--ch-border-strong)] bg-[var(--ch-bg-elevated)] text-[var(--ch-text-primary)] shadow-[var(--ch-shadow-modal)] sm:h-[calc(100dvh-2rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

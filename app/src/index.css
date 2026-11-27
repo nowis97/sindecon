@@ -8111,6 +8111,7 @@ select.dialog-input {
 
 .flashcard-3d-wrapper {
   width: 100%;
+  flex: 1 1 auto;
   min-height: 260px;
   position: relative;
   transform-style: preserve-3d;
@@ -8182,8 +8183,9 @@ select.dialog-input {
   color: var(--text-primary);
   margin: 16px 0;
   word-break: break-word;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  max-height: 380px;
   padding-right: 4px;
 }
 
