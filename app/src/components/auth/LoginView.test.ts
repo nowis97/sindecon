@@ -172,8 +172,15 @@ describe('LoginView Component & Lock Screen Rules', () => {
           hasPasskeys: false,
         }),
       )
+      expect(onboardingHtml).toContain('data-testid="login-public-overview"')
+      expect(onboardingHtml).toContain('sindecon.app')
+      expect(onboardingHtml).toContain('calendar.events')
+      expect(onboardingHtml).toContain('drive.appdata')
+      expect(onboardingHtml).toContain('data-testid="overview-privacy-link"')
+      expect(onboardingHtml).toContain('data-testid="overview-terms-link"')
       expect(onboardingHtml).toContain('data-testid="login-privacy-link"')
       expect(onboardingHtml).toContain('href="/privacy.html"')
+      expect(onboardingHtml).toContain('href="/privacy.html#terminos"')
       expect(onboardingHtml).toContain('Google Calendar')
 
       const lockedHtml = renderToStaticMarkup(
@@ -184,6 +191,7 @@ describe('LoginView Component & Lock Screen Rules', () => {
           hasPasskeys: false,
         }),
       )
+      expect(lockedHtml).toContain('data-testid="login-public-overview"')
       expect(lockedHtml).toContain('data-testid="login-privacy-link"')
       expect(lockedHtml).toContain('href="/privacy.html"')
     })

@@ -133,22 +133,30 @@ test.describe('Autenticación Clínica: Onboarding Obligatorio, PIN PBKDF2, Lock
     await expect(page.getByTestId('header-security-btn')).toBeVisible({ timeout: 10000 })
   })
 
-  test('muestra Política de Privacidad pública en /privacy.html sin exigir login', async ({
+  test('muestra Política de Privacidad pública en /privacy.html y resumen de sindecon.app sin exigir login', async ({
     page,
   }) => {
     await openCleanOnboarding(page)
 
-    const privacyLink = page.getByTestId('login-privacy-link')
+    const overview = page.getByTestId('login-public-overview')
+    await expect(overview).toBeVisible()
+    await expect(overview).toContainText('SINDECON — Cuaderno Médico Personal')
+    await expect(overview).toContainText('sindecon.app')
+    await expect(overview).toContainText('Google Calendar')
+    await expect(page.getByTestId('overview-terms-link')).toHaveAttribute('href', '/privacy.html#terminos')
+
+    const privacyLink = page.getByTestId('overview-privacy-link')
     await expect(privacyLink).toBeVisible()
     await expect(privacyLink).toHaveAttribute('href', '/privacy.html')
     await privacyLink.click()
 
     await expect(page).toHaveURL(/\/privacy\.html$/)
     await expect(
-      page.getByRole('heading', { name: /Política de Privacidad y Uso de Datos de Google/i }),
+      page.getByRole('heading', { name: /Política de Privacidad y Condiciones de Uso/i }),
     ).toBeVisible()
     await expect(page.locator('#limited-use')).toContainText('Google API Services User Data Policy')
     await expect(page.locator('#google-data')).toContainText('calendar.events')
     await expect(page.locator('#google-data')).toContainText('calendar.calendarlist.readonly')
+    await expect(page.locator('#terminos')).toBeVisible()
   })
 })

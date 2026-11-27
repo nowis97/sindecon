@@ -2,6 +2,12 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.5.2] - 2026-11-26
+
+### Added
+- **Homepage Pública para Verificación OAuth en `https://sindecon.app/` (`LoginView.tsx`, `index.html`, `privacy.html`)**: Diseño responsivo en dos columnas en `LoginView` que expone públicamente sin exigir login la descripción oficial de SINDECON, propósito clínico offline-first y uso transparente de Google Drive (`drive.appdata`/`drive.file`) y Google Calendar (`calendar.events`/`calendar.calendarlist.readonly`), con enlaces visibles a `https://sindecon.app/privacy.html` y `https://sindecon.app/privacy.html#terminos`.
+- **Canonical, Términos Básicos y Cobertura E2E (`app/index.html`, `app/public/privacy.html`, `LoginView.test.ts`, `auth-fido-pin.spec.ts`)**: Metadatos SEO/canonical para `sindecon.app`, sección `#terminos` en `privacy.html` y aserciones unitarias + Playwright validando el bloque público y los enlaces sin autenticación.
+
 ## [1.5.1] - 2026-11-26
 
 ### Added
