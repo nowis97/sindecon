@@ -45,13 +45,13 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await res.json()) as T
 }
 
-export async function fetchIndex(base = '/decks'): Promise<DeckIndex> {
+export async function fetchIndex(base = '/api/decks'): Promise<DeckIndex> {
   return fetchJson<DeckIndex>(`${base}/index.json`)
 }
 
 export async function fetchManifest(
   deckId: string,
-  base = '/decks',
+  base = '/api/decks',
 ): Promise<DeckManifest> {
   return fetchJson<DeckManifest>(`${base}/${deckId}/manifest.json`)
 }
@@ -69,9 +69,10 @@ export async function downloadBlock(
   nuevasPorDia = 20,
   now = Date.now(),
   hash = '',
+  base = '/api/decks',
 ): Promise<{ added: number; removed: number }> {
   const key = `${deckId}/${file}`
-  const incoming = await fetchJson<FlashcardRow[]>(`/decks/${key}`)
+  const incoming = await fetchJson<FlashcardRow[]>(`${base}/${key}`)
   const state = await getDecksState()
 
   const previous = await db.flashcards.bulkGet(incoming.map((c) => c.id))

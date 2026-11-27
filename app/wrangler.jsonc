@@ -8,5 +8,12 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DECKS_DB",
+      "database_name": "sindecon-decks",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+    }
+  ]
 }
