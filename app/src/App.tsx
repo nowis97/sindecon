@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo, lazy, Suspense } from 'react'
+﻿import { useEffect, useRef, useState, useCallback, useMemo, lazy, Suspense } from 'react'
 import {
   useAllNodes,
   useArticle,
@@ -1376,6 +1376,7 @@ function App() {
         isOpen={isDecksModalOpen}
         onClose={() => setIsDecksModalOpen(false)}
         onDownloaded={refreshFlashcardCounts}
+        onLogin={() => handleGoogleSignIn(false)}
       />
 
       {/* Modal de Flashcards del Artículo */}
@@ -1554,3 +1555,4 @@ function App() {
 }
 
 export default App
+

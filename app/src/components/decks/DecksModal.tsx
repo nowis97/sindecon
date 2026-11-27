@@ -14,12 +14,15 @@ interface DecksModalProps {
   onClose: () => void
   /** Se llama tras una descarga para refrescar conteos del dashboard. */
   onDownloaded?: () => void
+  /** Vincula la sesión de Google (la API exige cookie de servidor). */
+  onLogin?: () => void
 }
 
 export const DecksModal: React.FC<DecksModalProps> = ({
   isOpen,
   onClose,
   onDownloaded,
+  onLogin,
 }) => {
   const [decks, setDecks] = useState<DeckSummary[]>([])
   const [manifests, setManifests] = useState<Record<string, DeckManifest>>({})
@@ -27,6 +30,7 @@ export const DecksModal: React.FC<DecksModalProps> = ({
   const [newPerDay, setNewPerDay] = useState(20)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [needsAuth, setNeedsAuth] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
@@ -36,6 +40,7 @@ export const DecksModal: React.FC<DecksModalProps> = ({
     async function load() {
       setError(null)
       setMessage(null)
+      setNeedsAuth(false)
       try {
         const index = await fetchIndex()
         if (cancelled) return
@@ -54,9 +59,14 @@ export const DecksModal: React.FC<DecksModalProps> = ({
         setState(await getDecksState())
       } catch (e) {
         if (!cancelled) {
-          setError(
-            e instanceof Error ? e.message : 'No se pudieron cargar los mazos',
-          )
+          const msg =
+            e instanceof Error ? e.message : 'No se pudieron cargar los mazos'
+          if (msg.includes('401')) {
+            setNeedsAuth(true)
+            setError('Inicia sesión para descargar los mazos.')
+          } else {
+            setError(msg)
+          }
         }
       }
     }
@@ -120,6 +130,16 @@ export const DecksModal: React.FC<DecksModalProps> = ({
             <p className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-700">
               {message}
             </p>
+          )}
+
+          {needsAuth && onLogin && (
+            <button
+              type="button"
+              onClick={onLogin}
+              className="mb-3 w-full rounded-lg bg-[var(--ch-accent-solid)] px-3 py-2 text-xs font-semibold text-white"
+            >
+              Iniciar sesión con Google
+            </button>
           )}
 
           {decks.length === 0 && !error && (
