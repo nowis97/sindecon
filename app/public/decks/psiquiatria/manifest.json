@@ -1,0 +1,12 @@
+{
+  "id": "psiquiatria",
+  "title": "Psiquiatría",
+  "source_version": "eb2495113e6a7ce601d5bf6f3d2c68f0344a13efbb6acf69a88a9ceac625f554",
+  "blocks": [
+    {
+      "file": "01.json",
+      "count": 167,
+      "hash": "4065964a5f0b4d80cce79175eaebb437b9cdce807547bed5acbca63c91b49fc1"
+    }
+  ]
+}

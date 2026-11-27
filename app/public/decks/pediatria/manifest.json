@@ -1,0 +1,22 @@
+{
+  "id": "pediatria",
+  "title": "Pediatría",
+  "source_version": "eb2495113e6a7ce601d5bf6f3d2c68f0344a13efbb6acf69a88a9ceac625f554",
+  "blocks": [
+    {
+      "file": "01.json",
+      "count": 200,
+      "hash": "69635adb5ca8d1efe78394811d803e7781eb33f07caf14aa50c1af3bc95d7849"
+    },
+    {
+      "file": "02.json",
+      "count": 200,
+      "hash": "87681e5f22a73117eae9075ad70575979073d4b0e1f388c54e07dd4221b27f39"
+    },
+    {
+      "file": "03.json",
+      "count": 198,
+      "hash": "2c5b9728b75d4bd43ed9ea657c595092293dc7799d06e787f7ee71909195dd73"
+    }
+  ]
+}

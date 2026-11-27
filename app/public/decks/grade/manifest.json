@@ -1,0 +1,22 @@
+{
+  "id": "grade",
+  "title": "GRADE",
+  "source_version": "eb2495113e6a7ce601d5bf6f3d2c68f0344a13efbb6acf69a88a9ceac625f554",
+  "blocks": [
+    {
+      "file": "01.json",
+      "count": 200,
+      "hash": "4176f44358013fb2ed51d88c9bd474de14514f5da21fa308112c7353e281a3db"
+    },
+    {
+      "file": "02.json",
+      "count": 200,
+      "hash": "6d2a24877d8d2ce47d9517ac79060200fb52bf3e1b94143459c9ab0153dad474"
+    },
+    {
+      "file": "03.json",
+      "count": 12,
+      "hash": "de0dc1a636f92cbe82925909decc7af736cb9c968ac8570db02748e2e32da40a"
+    }
+  ]
+}

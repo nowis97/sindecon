@@ -1,0 +1,47 @@
+{
+  "id": "medicina-interna",
+  "title": "Medicina Interna",
+  "source_version": "eb2495113e6a7ce601d5bf6f3d2c68f0344a13efbb6acf69a88a9ceac625f554",
+  "blocks": [
+    {
+      "file": "01.json",
+      "count": 200,
+      "hash": "571cfef811a5ab3c453271cc16c78d22d6490fc31ff5cba7c5638ce751bed793"
+    },
+    {
+      "file": "02.json",
+      "count": 200,
+      "hash": "6e67487520c744e5811fa0388fb12db57ab6a417b8348edb5c76ef6ed370c3c0"
+    },
+    {
+      "file": "03.json",
+      "count": 200,
+      "hash": "249b2c18b640123eab056e10bd0aae60d5dd1b0864d3edaaca258c1790524449"
+    },
+    {
+      "file": "04.json",
+      "count": 200,
+      "hash": "1999c31154eafd7806d64507546f72158b4b9dca0e50e7ed14fded305b0bed98"
+    },
+    {
+      "file": "05.json",
+      "count": 200,
+      "hash": "4b1fb2c51af21a50c0480a67df8f3145199a829b9bf9c75e4b25d8a03976e849"
+    },
+    {
+      "file": "06.json",
+      "count": 200,
+      "hash": "26b02b95e6a9ef8eb942cf0b7bcd33c45521a1270bbb0991cdbfa371a2a774e8"
+    },
+    {
+      "file": "07.json",
+      "count": 200,
+      "hash": "c25ebbe4da6f25578101254ee72276dc7dd73bfee1f8659f38e5f6838af8e272"
+    },
+    {
+      "file": "08.json",
+      "count": 180,
+      "hash": "497eb93489d2ba02880beb461348d6a5c1640943dbb09d8864e81f3b8eb908e9"
+    }
+  ]
+}

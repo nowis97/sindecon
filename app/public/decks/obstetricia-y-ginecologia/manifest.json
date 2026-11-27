@@ -1,0 +1,17 @@
+{
+  "id": "obstetricia-y-ginecologia",
+  "title": "Obstetricia y ginecología",
+  "source_version": "eb2495113e6a7ce601d5bf6f3d2c68f0344a13efbb6acf69a88a9ceac625f554",
+  "blocks": [
+    {
+      "file": "01.json",
+      "count": 200,
+      "hash": "201ce57c3446a2d87573355258712f966a646017016166fca955b4408849fc3d"
+    },
+    {
+      "file": "02.json",
+      "count": 17,
+      "hash": "5fc8f1857727193e288d42c586f1c391b979a89416768c4b7d382a2d26f38f2c"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "especialidades",
+  "title": "Especialidades",
+  "source_version": "eb2495113e6a7ce601d5bf6f3d2c68f0344a13efbb6acf69a88a9ceac625f554",
+  "blocks": [
+    {
+      "file": "01.json",
+      "count": 200,
+      "hash": "56ae1cc3640f958288c6eebc38cf56d504d39f0fbc684852cfdd2fb004fda957"
+    },
+    {
+      "file": "02.json",
+      "count": 200,
+      "hash": "09a366c844891900353e6d0410c6ed4163ff03a5ded8f30a7208adb0d069fbe2"
+    },
+    {
+      "file": "03.json",
+      "count": 149,
+      "hash": "f901d71851a2644aa898446253127c38e5cb97570002a8939e05a9d385f8e134"
+    }
+  ]
+}

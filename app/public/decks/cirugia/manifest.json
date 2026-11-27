@@ -1,0 +1,27 @@
+{
+  "id": "cirugia",
+  "title": "Cirugía",
+  "source_version": "eb2495113e6a7ce601d5bf6f3d2c68f0344a13efbb6acf69a88a9ceac625f554",
+  "blocks": [
+    {
+      "file": "01.json",
+      "count": 200,
+      "hash": "25ab8ff02a80fc7bed833d36acf1d7193c2295d6ef2779d358fc85042790f652"
+    },
+    {
+      "file": "02.json",
+      "count": 200,
+      "hash": "3bad776774e8fc1abdebb8827e8fbeba619e3ba575b5ba2b128f7a3844b310e1"
+    },
+    {
+      "file": "03.json",
+      "count": 200,
+      "hash": "c1991b5bf40b8e6713c56e6a1ab3809ae792113b974ca73f9538b4c08c034295"
+    },
+    {
+      "file": "04.json",
+      "count": 38,
+      "hash": "51b0fe1f3da0739389f9c3b4f09e7f3e153fe42ec85ddfb79ed6c7e49197d124"
+    }
+  ]
+}
