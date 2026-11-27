@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from 'react'
+import React, { useMemo } from 'react'
 import { resolveBracketCallout } from '../../domain/callouts'
 import { renderCloze } from '../../domain/cloze'
 

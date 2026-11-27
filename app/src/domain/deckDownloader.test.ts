@@ -89,4 +89,46 @@ describe('deckDownloader', () => {
     await downloadBlock('pediatria', '01.json', 20)
     expect(await db.flashcards.count()).toBe(1)
   })
+
+  it('el goteo continua entre bloques del mismo mazo', async () => {
+    const block1 = Array.from({ length: 20 }, (_, i) => mk(`a${i}`))
+    const block2 = Array.from({ length: 20 }, (_, i) => mk(`b${i}`))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        jsonResponse(url.includes('/02.json') ? block2 : block1),
+      ),
+    )
+    const now = 1_700_000_000_000
+    await downloadBlock('mazo', '01.json', 20, now)
+    await downloadBlock('mazo', '02.json', 20, now)
+
+    const second = await db.flashcards.toArray()
+    const days = new Set(
+      second
+        .filter((c) => c.id.startsWith('b'))
+        .map((c) => Math.floor((c.due_date - now) / 86_400_000)),
+    )
+    expect(days).toEqual(new Set([1])) // 20 nuevas del bloque 1 -> dia 0; bloque 2 -> dia 1
+  })
+
+  it('no borra una tarjeta que se movio a otro bloque del mazo', async () => {
+    let block1 = [mk('a'), mk('b')]
+    let block2 = [mk('c'), mk('d')]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        jsonResponse(url.includes('/02.json') ? block2 : block1),
+      ),
+    )
+    await downloadBlock('mazo', '01.json', 20)
+    await downloadBlock('mazo', '02.json', 20)
+
+    // 'b' se movio al bloque 02: el 01 ahora solo tiene 'a'
+    block1 = [mk('a')]
+    block2 = [mk('b'), mk('c'), mk('d')]
+    await downloadBlock('mazo', '02.json', 20)
+    await downloadBlock('mazo', '01.json', 20)
+    expect(await db.flashcards.get('b')).toBeTruthy() // no se borro
+  })
 })

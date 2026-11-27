@@ -79,7 +79,7 @@ export async function downloadBlock(
     previous.filter((c): c is FlashcardRow => Boolean(c)).map((c) => [c.id, c]),
   )
 
-  let newIndex = 0
+  let nextIndex = state.nextDayIndex
   const merged = incoming.map((card) => {
     const prev = previousById.get(card.id)
     if (prev) {
@@ -91,10 +91,11 @@ export async function downloadBlock(
         lapses: prev.lapses,
         due_date: prev.due_date,
         created_at: prev.created_at,
+        updated_at: prev.updated_at,
       }
     }
-    const day = Math.floor(newIndex / Math.max(1, nuevasPorDia))
-    newIndex += 1
+    const day = Math.floor(nextIndex / Math.max(1, nuevasPorDia))
+    nextIndex += 1
     return {
       ...card,
       due_date: now + day * DAY_MS,
@@ -104,8 +105,18 @@ export async function downloadBlock(
   })
 
   const newIds = merged.map((c) => c.id)
-  const previousIds = state[key]?.cardIds ?? []
-  const removed = previousIds.filter((id) => !newIds.includes(id))
+  const previousIds = state.blocks[key]?.cardIds ?? []
+
+  // Una tarjeta que se movió a otro bloque del mismo mazo no es huérfana.
+  const deckPrefix = `${deckId}/`
+  const otherBlockIds = new Set(
+    Object.entries(state.blocks)
+      .filter(([blockKey]) => blockKey !== key && blockKey.startsWith(deckPrefix))
+      .flatMap(([, block]) => block.cardIds),
+  )
+  const removed = previousIds.filter(
+    (id) => !newIds.includes(id) && !otherBlockIds.has(id),
+  )
 
   await db.flashcards.bulkPut(merged)
   if (removed.length > 0) {
@@ -113,8 +124,8 @@ export async function downloadBlock(
   }
 
   await saveDecksState({
-    ...state,
-    [key]: { hash, cardIds: newIds },
+    blocks: { ...state.blocks, [key]: { hash, cardIds: newIds } },
+    nextDayIndex: nextIndex,
   })
 
   return {

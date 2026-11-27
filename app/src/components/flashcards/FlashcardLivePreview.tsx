@@ -1,4 +1,4 @@
-﻿import { allClozeIndices } from '../../domain/cloze'
+import { allClozeIndices } from '../../domain/cloze'
 import React, { useState } from 'react'
 import {
   Zap,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+﻿import React, { useEffect, useState } from 'react'
 import { Download, Layers, Loader2, RefreshCw, X } from 'lucide-react'
 import { getDecksState, type DeckState } from '../../db/decks'
 import {
@@ -23,7 +23,7 @@ export const DecksModal: React.FC<DecksModalProps> = ({
 }) => {
   const [decks, setDecks] = useState<DeckSummary[]>([])
   const [manifests, setManifests] = useState<Record<string, DeckManifest>>({})
-  const [state, setState] = useState<DeckState>({})
+  const [state, setState] = useState<DeckState>({ blocks: {}, nextDayIndex: 0 })
   const [newPerDay, setNewPerDay] = useState(20)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -145,7 +145,7 @@ export const DecksModal: React.FC<DecksModalProps> = ({
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(manifest?.blocks ?? []).map((block) => {
                     const key = `${deck.id}/${block.file}`
-                    const saved = state[key]
+                    const saved = state.blocks[key]
                     const upToDate = saved?.hash === block.hash
                     const isBusy = busy === key
                     return (
@@ -187,3 +187,4 @@ export const DecksModal: React.FC<DecksModalProps> = ({
     </div>
   )
 }
+
