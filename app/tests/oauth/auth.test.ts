@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+﻿import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import worker from '../../worker'
 import {
   COOKIE_NAME as GDRIVE_COOKIE_NAME,
@@ -92,7 +92,7 @@ describe('/api/auth/google, /session y /logout', () => {
     expect(cookieHeader).toContain('sindecon_auth_session=')
     expect(cookieHeader).toContain('HttpOnly')
     expect(cookieHeader).toContain('SameSite=Lax')
-    expect(cookieHeader).toContain('Path=/api/auth')
+    expect(cookieHeader).toContain('Path=/api')
     expect(cookieHeader).toContain('Secure')
     const cookieVal = extractCookie(cookieHeader, 'sindecon_auth_session')!
 
@@ -118,7 +118,7 @@ describe('/api/auth/google, /session y /logout', () => {
     expect(logoutRes.status).toBe(200)
     expect(await logoutRes.json()).toEqual({ ok: true })
     expect(logoutRes.headers.get('Set-Cookie')).toContain('Max-Age=0')
-    expect(logoutRes.headers.get('Set-Cookie')).toContain('Path=/api/auth')
+    expect(logoutRes.headers.get('Set-Cookie')).toContain('Path=/api')
   })
 
   it('detecta cookie pasiva de Drive si coincide el email sin re-emitirla', async () => {
@@ -262,6 +262,7 @@ describe('/api/auth/google, /session y /logout', () => {
     expect(res.status).toBe(401)
     expect(await res.json()).toEqual({ authenticated: false })
     expect(res.headers.get('Set-Cookie')).toContain('Max-Age=0')
-    expect(res.headers.get('Set-Cookie')).toContain('Path=/api/auth')
+    expect(res.headers.get('Set-Cookie')).toContain('Path=/api')
   })
 })
+

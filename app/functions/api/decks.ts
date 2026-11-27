@@ -9,6 +9,7 @@
  * solo cambia la base de `fetchIndex` a `/api/decks`.
  */
 import { jsonResponse, type CfPagesContext } from './oauth/_shared'
+import { readAuthSessionCookie } from './auth/_session'
 
 /** Interfaz mínima de D1 (permite testear el handler con un mock). */
 export interface DecksDb {
@@ -23,12 +24,75 @@ export interface DecksDb {
 
 export interface DecksEnv {
   DECKS_DB?: DecksDb
+  OAUTH_COOKIE_SECRET?: string
+}
+
+/** Límites por usuario. Un bloque de 200 tarjetas es una sola petición. */
+const RATE_LIMITS = { minute: 60, hour: 600 }
+
+async function bumpWindow(
+  db: DecksDb,
+  bucket: string,
+  windowSeconds: number,
+  nowMs: number,
+): Promise<number> {
+  const windowStart = Math.floor(nowMs / 1000 / windowSeconds) * windowSeconds
+  const row = await db
+    .prepare(
+      `INSERT INTO rate_limits (bucket, window_start, count) VALUES (?, ?, 1)
+       ON CONFLICT(bucket) DO UPDATE SET
+         count = CASE WHEN rate_limits.window_start = excluded.window_start
+                      THEN rate_limits.count + 1 ELSE 1 END,
+         window_start = excluded.window_start
+       RETURNING count`,
+    )
+    .bind(bucket, windowStart)
+    .first<{ count: number }>()
+  return row?.count ?? 1
+}
+
+/** Devuelve los segundos de espera si el usuario excedió el límite, o null. */
+async function rateLimit(
+  db: DecksDb,
+  email: string,
+  nowMs = Date.now(),
+): Promise<number | null> {
+  const perMinute = await bumpWindow(db, `decks:m:${email}`, 60, nowMs)
+  if (perMinute > RATE_LIMITS.minute) {
+    return 60 - (Math.floor(nowMs / 1000) % 60)
+  }
+  const perHour = await bumpWindow(db, `decks:h:${email}`, 3600, nowMs)
+  if (perHour > RATE_LIMITS.hour) {
+    return 3600 - (Math.floor(nowMs / 1000) % 3600)
+  }
+  return null
 }
 
 export async function onRequest(context: CfPagesContext): Promise<Response> {
-  const db = (context.env as DecksEnv).DECKS_DB
+  const env = context.env as DecksEnv
+  const db = env.DECKS_DB
   if (!db) {
     return jsonResponse({ error: 'decks_not_configured' }, 503)
+  }
+
+  const secret = env.OAUTH_COOKIE_SECRET?.trim()
+  if (!secret) {
+    return jsonResponse({ error: 'server_not_configured' }, 500)
+  }
+
+  // Solo usuarios con sesión válida (cookie HttpOnly firmada)
+  const session = await readAuthSessionCookie(context.request, secret)
+  if (!session) {
+    return jsonResponse({ error: 'unauthorized' }, 401)
+  }
+
+  const retryAfter = await rateLimit(db, session.user.email)
+  if (retryAfter !== null) {
+    return jsonResponse(
+      { error: 'rate_limited', retry_after: retryAfter },
+      429,
+      { 'Retry-After': String(retryAfter) },
+    )
   }
 
   const { pathname } = new URL(context.request.url)

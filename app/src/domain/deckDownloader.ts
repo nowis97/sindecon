@@ -33,7 +33,7 @@ export interface DeckIndex {
 const DAY_MS = 86_400_000
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url)
+  const res = await fetch(url, { credentials: 'same-origin' })
   if (!res.ok) {
     throw new Error(`No se pudo descargar ${url} (HTTP ${res.status})`)
   }
