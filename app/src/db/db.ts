@@ -38,7 +38,7 @@ export interface MetaRow {
   value: unknown
 }
 
-export type FlashcardSourceType = 'manual' | 'structural' | 'cloud_ai' | 'local_ai'
+export type FlashcardSourceType = 'manual' | 'structural' | 'cloud_ai' | 'local_ai' | 'eunacom'
 
 export interface FlashcardRow {
   id: string // uuid

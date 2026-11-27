@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowUpDown,
   Brain,
+  Layers,
   Camera,
   ChevronDown,
   ChevronRight,
@@ -74,6 +75,7 @@ export interface DashboardProps {
   dueFlashcardsCount?: number
   totalFlashcardsCount?: number
   onOpenStudy?: () => void
+  onOpenDecks?: () => void
   onOpenAiSettings?: () => void
   // Extensiones de estación clínica completa
   userName?: string
@@ -151,6 +153,7 @@ export function Dashboard({
   dueFlashcardsCount = 0,
   totalFlashcardsCount = 0,
   onOpenStudy,
+  onOpenDecks,
   onOpenAiSettings,
   userName = 'Médico de Guardia',
   theme = 'light',
@@ -1128,6 +1131,16 @@ export function Dashboard({
                   </span>
                 </button>
               )}
+              {onOpenDecks && (
+                <button
+                  type="button"
+                  onClick={onOpenDecks}
+                  className="mt-2 w-full min-h-[40px] rounded-[10px] border border-[var(--cl-border)] bg-[var(--cl-surface)] text-[var(--cl-fg-2)] text-xs font-semibold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors hover:bg-[var(--cl-surface-warm)]"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Descargar mazos EUNACOM</span>
+                </button>
+              )}
             </section>
 
             {/* Agenda y Guardias (Google Calendar Offline-First) */}
@@ -1717,3 +1730,4 @@ export function Dashboard({
     </div>
   )
 }
+

@@ -1,3 +1,4 @@
+import { allClozeIndices } from '../../domain/cloze'
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   BrainCircuit,
@@ -32,6 +33,7 @@ export const StudyModal: React.FC<StudyModalProps> = ({
   const [deck, setDeck] = useState<FlashcardRow[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
+  const [revealedClozes, setRevealedClozes] = useState<Set<number>>(new Set())
   const [isFinished, setIsFinished] = useState(false)
   const [sessionStats, setSessionStats] = useState({
     total: 0,
@@ -47,6 +49,7 @@ export const StudyModal: React.FC<StudyModalProps> = ({
       setDeck(shuffled)
       setCurrentIndex(0)
       setIsFlipped(false)
+      setRevealedClozes(new Set())
       setIsFinished(false)
       setSessionStats({ total: shuffled.length, again: 0, hard: 0, good: 0, easy: 0 })
     }
@@ -73,6 +76,7 @@ export const StudyModal: React.FC<StudyModalProps> = ({
 
       if (currentIndex + 1 < deck.length) {
         setIsFlipped(false)
+        setRevealedClozes(new Set())
         setCurrentIndex((i) => i + 1)
       } else {
         setIsFinished(true)
@@ -83,8 +87,13 @@ export const StudyModal: React.FC<StudyModalProps> = ({
   )
 
   const handleFlip = useCallback(() => {
+    // Al revelar la respuesta, se destapan los huecos del front para que
+    // el estudiante vea el contenido que debía recordar.
+    if (!isFlipped && currentCard) {
+      setRevealedClozes(allClozeIndices(currentCard.front))
+    }
     setIsFlipped((f) => !f)
-  }, [])
+  }, [isFlipped, currentCard])
 
   useEffect(() => {
     if (!isOpen || isFinished) return
@@ -275,7 +284,7 @@ export const StudyModal: React.FC<StudyModalProps> = ({
                   </span>
                 </div>
                 <div className="flashcard-body-text">
-                  <FlashcardMarkdown content={currentCard.front} />
+                  <FlashcardMarkdown content={currentCard.front} revealed={revealedClozes} />
                 </div>
                 <div className="flashcard-flip-prompt inline-flex items-center gap-1.5">
                   <RotateCw className="h-3.5 w-3.5" />
@@ -289,7 +298,7 @@ export const StudyModal: React.FC<StudyModalProps> = ({
                   <span className="card-answer-badge">RESPUESTA CLÍNICA</span>
                 </div>
                 <div className="flashcard-body-text">
-                  <FlashcardMarkdown content={currentCard.back} />
+                  <FlashcardMarkdown content={currentCard.back} revealed={allClozeIndices(currentCard.back)} />
                 </div>
               </div>
             </div>
@@ -374,3 +383,4 @@ export const StudyModal: React.FC<StudyModalProps> = ({
     </div>
   )
 }
+

@@ -32,6 +32,7 @@ import { UploadPdfModal } from './components/portability/UploadPdfModal'
 import type { BulkImportResult } from './db/bulkArticles'
 import type { SavedPdfArticleResult } from './db/pdfArticles'
 import { StudyModal } from './components/flashcards/StudyModal'
+import { DecksModal } from './components/decks/DecksModal'
 import { ArticleFlashcardsModal } from './components/flashcards/ArticleFlashcardsModal'
 import { AiSettingsModal } from './components/settings/AiSettingsModal'
 import { getDueFlashcards, getAllFlashcards } from './db/flashcards'
@@ -210,6 +211,7 @@ function App() {
 
   // Estados de Flashcards y Repaso Activo SM-2
   const [isStudyModalOpen, setIsStudyModalOpen] = useState(false)
+  const [isDecksModalOpen, setIsDecksModalOpen] = useState(false)
   const [studyDeck, setStudyDeck] = useState<FlashcardRow[]>([])
   const [isArticleFlashcardsOpen, setIsArticleFlashcardsOpen] = useState(false)
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false)
@@ -1038,6 +1040,7 @@ function App() {
               dueFlashcardsCount={dueFlashcardsCount}
               totalFlashcardsCount={totalFlashcardsCount}
               onOpenStudy={handleStartGeneralStudy}
+              onOpenDecks={() => setIsDecksModalOpen(true)}
               onOpenAiSettings={() => setIsAiSettingsOpen(true)}
               userName={user?.name}
               theme={theme}
@@ -1366,6 +1369,13 @@ function App() {
         cards={studyDeck}
         onOpenArticle={(nodeId) => selectArticle(nodeId)}
         onSessionComplete={() => refreshFlashcardCounts()}
+      />
+
+      {/* Mazos EUNACOM descargables */}
+      <DecksModal
+        isOpen={isDecksModalOpen}
+        onClose={() => setIsDecksModalOpen(false)}
+        onDownloaded={refreshFlashcardCounts}
       />
 
       {/* Modal de Flashcards del Artículo */}

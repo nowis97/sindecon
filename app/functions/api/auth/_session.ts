@@ -7,7 +7,9 @@ import {
 } from '../oauth/_shared'
 
 export const AUTH_COOKIE_NAME = 'sindecon_auth_session'
-export const AUTH_COOKIE_PATH = '/api/auth'
+// Path /api (no /api/auth) para que la cookie llegue también a /api/decks.
+// Mismo origen y HttpOnly: no se amplía la exposición fuera del Worker.
+export const AUTH_COOKIE_PATH = '/api'
 
 export interface AuthSessionUser {
   sub: string

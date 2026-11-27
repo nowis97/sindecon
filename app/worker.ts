@@ -7,6 +7,7 @@ import { onRequest as handleAuthLogout } from './functions/api/auth/logout'
 import { onRequest as handleFidoChallenge } from './functions/api/auth/fido/challenge'
 import { onRequest as handleFidoEnroll } from './functions/api/auth/fido/enroll'
 import { onRequest as handleFidoVerify } from './functions/api/auth/fido/verify'
+import { onRequest as handleDecks } from './functions/api/decks'
 import { jsonResponse, type CfPagesContext, type OAuthEnv } from './functions/api/oauth/_shared'
 
 export interface WorkerEnv extends OAuthEnv {
@@ -36,6 +37,10 @@ export default {
     const handler = OAUTH_ROUTES.get(pathname)
     if (handler) {
       return await handler({ request, env })
+    }
+
+    if (pathname === '/api/decks' || pathname.startsWith('/api/decks/')) {
+      return await handleDecks({ request, env })
     }
 
     if (pathname.startsWith('/api/')) {

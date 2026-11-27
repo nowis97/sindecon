@@ -1,3 +1,4 @@
+import { allClozeIndices } from '../../domain/cloze'
 import React, { useState } from 'react'
 import {
   Zap,
@@ -6,6 +7,7 @@ import {
   PenLine,
   Stethoscope,
   RotateCw,
+  Layers,
 } from 'lucide-react'
 import { FlashcardMarkdown } from './FlashcardMarkdown'
 
@@ -13,7 +15,7 @@ export interface FlashcardLivePreviewProps {
   front: string
   back: string
   articleTitle?: string
-  sourceType?: 'manual' | 'structural' | 'cloud_ai' | 'local_ai'
+  sourceType?: 'manual' | 'structural' | 'cloud_ai' | 'local_ai' | 'eunacom'
   initialFlipped?: boolean
   onFlipToggle?: (flipped: boolean) => void
   className?: string
@@ -46,6 +48,8 @@ export const FlashcardLivePreview: React.FC<FlashcardLivePreviewProps> = ({
         return { icon: <BrainCircuit className="h-3 w-3" />, label: 'IA Local Qwen' }
       case 'cloud_ai':
         return { icon: <Sparkles className="h-3 w-3" />, label: 'IA Cloud' }
+      case 'eunacom':
+        return { icon: <Layers className="h-3 w-3" />, label: 'EUNACOM' }
       case 'manual':
       default:
         return { icon: <PenLine className="h-3 w-3" />, label: 'Manual' }
@@ -93,7 +97,7 @@ export const FlashcardLivePreview: React.FC<FlashcardLivePreviewProps> = ({
 
           <div className="preview-card-body">
             {hasFront ? (
-              <FlashcardMarkdown content={front} />
+              <FlashcardMarkdown content={front} revealed={allClozeIndices(front)} />
             ) : (
               <p className="preview-empty-hint inline-flex items-center gap-1.5">
                 <PenLine className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
@@ -134,7 +138,7 @@ export const FlashcardLivePreview: React.FC<FlashcardLivePreviewProps> = ({
 
           <div className="preview-card-body">
             {hasBack ? (
-              <FlashcardMarkdown content={back} />
+              <FlashcardMarkdown content={back} revealed={allClozeIndices(back)} />
             ) : (
               <p className="preview-empty-hint inline-flex items-center gap-1.5">
                 <PenLine className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
@@ -156,3 +160,6 @@ export const FlashcardLivePreview: React.FC<FlashcardLivePreviewProps> = ({
     </div>
   )
 }
+
+
+

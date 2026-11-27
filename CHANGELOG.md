@@ -2,6 +2,19 @@
 
 All notable changes to SINDECON are documented in this file.
 
+## [1.6.0] - 2026-11-27
+
+### Added
+- **Mazos EUNACOM descargables con cloze real (`app/src/components/decks/DecksModal.tsx`, `app/src/domain/cloze.ts`, `app/src/domain/deckDownloader.ts`)**: Pantalla "Mazos" en el dashboard para descargar bajo demanda el banco EUNACOM (10 mazos, 4671 tarjetas) por bloques de 200. Soporte de cloze Anki (`{{c1::…}}`) con huecos ocultos hasta revelar en el estudio, merge por `id` que conserva el progreso SM-2, borrado de huérfanas acotado al mazo y goteo global de 20 tarjetas nuevas por día.
+- **API de mazos sobre Cloudflare D1 (`app/functions/api/decks.ts`, `app/migrations/0001_decks.sql`)**: `/api/decks/index.json`, `/api/decks/:id/manifest.json` y `/api/decks/:id/:file` servidos desde D1 (SQLite serverless), sin JSONs estáticos en el repositorio.
+- **Auth y rate limit de la API (`app/functions/api/decks.ts`, `app/migrations/0002_rate_limits.sql`, `app/functions/api/auth/_session.ts`)**: los mazos exigen sesión válida (cookie HttpOnly `sindecon_auth_session`, ampliada a `Path=/api`) y limitan por usuario a 60 req/min y 600 req/hora con `429` + `Retry-After`.
+
+### Changed
+- **Cookie de sesión con `Path=/api` (`app/functions/api/auth/_session.ts`)**: permite enviar la cookie a `/api/decks` además de `/api/auth`. Requiere volver a iniciar sesión una vez.
+
+### Tests
+- 534 tests unitarios (vitest) verdes, incluidos 10 del handler D1 (auth, rate limit, manifest y bloque).
+
 ## [1.5.2] - 2026-11-26
 
 ### Added
