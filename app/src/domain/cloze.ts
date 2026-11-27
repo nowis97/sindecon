@@ -25,3 +25,12 @@ export function renderCloze(text: string, revealed: Set<number>): string {
     revealed.has(Number(n)) ? content : '[…]',
   )
 }
+
+/** Índices de todos los huecos del texto (para mostrar el contenido completo). */
+export function allClozeIndices(text: string): Set<number> {
+  const indices = new Set<number>()
+  for (const match of text.matchAll(CLOZE_RE)) {
+    indices.add(Number(match[1]))
+  }
+  return indices
+}

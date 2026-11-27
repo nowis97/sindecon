@@ -1,3 +1,4 @@
+﻿import { allClozeIndices } from '../../domain/cloze'
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   BrainCircuit,
@@ -552,7 +553,7 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
                           PREGUNTA
                         </span>
                         <div className="text-xs leading-relaxed text-[var(--ch-text-primary)]">
-                          <FlashcardMarkdown content={card.front} />
+                          <FlashcardMarkdown content={card.front} revealed={allClozeIndices(card.front)} />
                         </div>
                       </div>
                       <div className="rounded-xl border border-[var(--ch-accent)]/25 bg-[var(--ch-accent-soft)]/30 p-3">
@@ -560,7 +561,7 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
                           RESPUESTA CLÍNICA
                         </span>
                         <div className="text-xs leading-relaxed text-[var(--ch-text-primary)]">
-                          <FlashcardMarkdown content={card.back} />
+                          <FlashcardMarkdown content={card.back} revealed={allClozeIndices(card.back)} />
                         </div>
                       </div>
                     </div>
@@ -584,3 +585,4 @@ export const ArticleFlashcardsModal: React.FC<ArticleFlashcardsModalProps> = ({
     </>
   )
 }
+

@@ -1,3 +1,4 @@
+﻿import { allClozeIndices } from '../../domain/cloze'
 import React, { useState } from 'react'
 import {
   Zap,
@@ -93,7 +94,7 @@ export const FlashcardLivePreview: React.FC<FlashcardLivePreviewProps> = ({
 
           <div className="preview-card-body">
             {hasFront ? (
-              <FlashcardMarkdown content={front} />
+              <FlashcardMarkdown content={front} revealed={allClozeIndices(front)} />
             ) : (
               <p className="preview-empty-hint inline-flex items-center gap-1.5">
                 <PenLine className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
@@ -134,7 +135,7 @@ export const FlashcardLivePreview: React.FC<FlashcardLivePreviewProps> = ({
 
           <div className="preview-card-body">
             {hasBack ? (
-              <FlashcardMarkdown content={back} />
+              <FlashcardMarkdown content={back} revealed={allClozeIndices(back)} />
             ) : (
               <p className="preview-empty-hint inline-flex items-center gap-1.5">
                 <PenLine className="h-3.5 w-3.5 shrink-0 text-[var(--ch-accent)]" />
@@ -156,3 +157,4 @@ export const FlashcardLivePreview: React.FC<FlashcardLivePreviewProps> = ({
     </div>
   )
 }
+

@@ -36,4 +36,24 @@ describe('FlashcardMarkdown', () => {
     expect(html).toContain('<strong>Signo de Beck</strong>')
     expect(html).not.toContain('>[!PERLA]')
   })
+
+  it('oculta el hueco si no fue revelado', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(FlashcardMarkdown, {
+        content: 'se recomienda {{c1::usar CPAP}}.',
+      }),
+    )
+    expect(html).toContain('[…]')
+    expect(html).not.toContain('usar CPAP')
+  })
+
+  it('muestra el hueco si fue revelado', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(FlashcardMarkdown, {
+        content: 'se recomienda {{c1::usar CPAP}}.',
+        revealed: new Set([1]),
+      }),
+    )
+    expect(html).toContain('usar CPAP')
+  })
 })

@@ -1,9 +1,12 @@
 ﻿import React, { useMemo } from 'react'
 import { resolveBracketCallout } from '../../domain/callouts'
+import { renderCloze } from '../../domain/cloze'
 
 interface FlashcardMarkdownProps {
   content: string
   className?: string
+  /** Índices de cloze ya revelados (1, 2, …). Omitido = todos ocultos. */
+  revealed?: Set<number>
 }
 
 interface NestedListItem {
@@ -312,8 +315,16 @@ function renderNestedList(items: NestedListItem[]): React.ReactNode {
   ))
 }
 
-export const FlashcardMarkdown: React.FC<FlashcardMarkdownProps> = ({ content, className = '' }) => {
-  const blocks = useMemo(() => parseMarkdownBlocks(content), [content])
+export const FlashcardMarkdown: React.FC<FlashcardMarkdownProps> = ({
+  content,
+  className = '',
+  revealed,
+}) => {
+  const rendered = useMemo(
+    () => renderCloze(content, revealed ?? new Set<number>()),
+    [content, revealed],
+  )
+  const blocks = useMemo(() => parseMarkdownBlocks(rendered), [rendered])
 
   if (!content || !content.trim()) {
     return null

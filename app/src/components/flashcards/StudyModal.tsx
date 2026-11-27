@@ -1,3 +1,4 @@
+﻿import { allClozeIndices } from '../../domain/cloze'
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   BrainCircuit,
@@ -289,7 +290,7 @@ export const StudyModal: React.FC<StudyModalProps> = ({
                   <span className="card-answer-badge">RESPUESTA CLÍNICA</span>
                 </div>
                 <div className="flashcard-body-text">
-                  <FlashcardMarkdown content={currentCard.back} />
+                  <FlashcardMarkdown content={currentCard.back} revealed={allClozeIndices(currentCard.back)} />
                 </div>
               </div>
             </div>
@@ -374,3 +375,4 @@ export const StudyModal: React.FC<StudyModalProps> = ({
     </div>
   )
 }
+
