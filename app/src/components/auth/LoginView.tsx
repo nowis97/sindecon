@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import {
   Activity,
+  BookOpen,
+  CalendarDays,
+  Cloud,
   Delete,
   Fingerprint,
   KeyRound,
@@ -275,16 +278,99 @@ export function LoginView({
     <div
       data-testid="login-screen"
       data-login-theme={theme === 'dark' ? 'dark' : 'light'}
-      className="clinical-login min-h-screen min-h-[100dvh] flex flex-col items-center justify-center px-4 py-8"
+      className="clinical-login min-h-screen min-h-[100dvh] flex flex-col items-center justify-center px-4 py-8 sm:px-6"
     >
-      <div
-        className="w-full max-w-md rounded-3xl border p-6 sm:p-8"
-        style={{
-          backgroundColor: 'var(--cl-surface)',
-          borderColor: 'var(--cl-border)',
-          boxShadow: 'var(--cl-shadow-dock)',
-        }}
-      >
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,420px)] gap-6 lg:gap-10 items-center">
+        {/* Información pública visible en Homepage (sindecon.app) sin requerir inicio de sesión */}
+        <section
+          aria-label="Información pública de SINDECON"
+          data-testid="login-public-overview"
+          className="order-2 lg:order-1 rounded-3xl border p-6 sm:p-8"
+          style={{
+            backgroundColor: 'var(--cl-surface)',
+            borderColor: 'var(--cl-border)',
+          }}
+        >
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold mb-3"
+            style={{
+              backgroundColor: 'var(--cl-accent-soft)',
+              color: 'var(--cl-diagnostic)',
+            }}
+          >
+            PWA Clínica Offline-First · sindecon.app
+          </span>
+
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-2.5" style={{ color: 'var(--cl-fg)' }}>
+            SINDECON — Cuaderno Médico Personal
+          </h2>
+          <p className="text-sm leading-relaxed mb-5" style={{ color: 'var(--cl-muted)' }}>
+            Sistema de Información y Notas para Decisiones Clínicas. Organiza tus protocolos médicos, fichas en
+            Markdown/Mermaid/KaTeX, documentos PDF y tarjetas de repaso espaciado SM-2 directamente en tu navegador
+            (IndexedDB), con acceso instantáneo sin conexión durante la guardia hospitalaria.
+          </p>
+
+          <ul className="space-y-3 mb-6 text-xs sm:text-sm" style={{ color: 'var(--cl-fg-2)' }}>
+            <li className="flex items-start gap-2.5">
+              <BookOpen className="h-4 w-4 shrink-0 mt-0.5" style={{ color: 'var(--cl-diagnostic)' }} />
+              <span>
+                <strong style={{ color: 'var(--cl-fg)' }}>Privacidad local-first:</strong> tus apuntes médicos y PDFs
+                permanecen exclusivamente en el almacenamiento local de tu dispositivo.
+              </span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <Cloud className="h-4 w-4 shrink-0 mt-0.5" style={{ color: 'var(--cl-diagnostic)' }} />
+              <span>
+                <strong style={{ color: 'var(--cl-fg)' }}>Google Drive (opcional):</strong> respaldo privado cifrado en
+                la carpeta oculta de la aplicación (<code>drive.appdata</code>) y exportación puntual a Google Docs (
+                <code>drive.file</code>).
+              </span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <CalendarDays className="h-4 w-4 shrink-0 mt-0.5" style={{ color: 'var(--cl-diagnostic)' }} />
+              <span>
+                <strong style={{ color: 'var(--cl-fg)' }}>Google Calendar integrado (opcional):</strong> muestra tus
+                turnos y recordatorios clínicos y permite crear, editar o eliminar eventos directamente en tu cuenta
+                Google incluso con cola offline (<code>calendar.events</code> y{' '}
+                <code>calendar.calendarlist.readonly</code>).
+              </span>
+            </li>
+          </ul>
+
+          <div
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t pt-4 text-xs"
+            style={{ borderColor: 'var(--cl-border-soft)', color: 'var(--cl-muted)' }}
+          >
+            <a
+              href="/privacy.html"
+              data-testid="overview-privacy-link"
+              className="font-semibold underline-offset-2 hover:underline"
+              style={{ color: 'var(--cl-diagnostic)' }}
+            >
+              Política de Privacidad
+            </a>
+            <span aria-hidden="true">·</span>
+            <a
+              href="/privacy.html#terminos"
+              data-testid="overview-terms-link"
+              className="font-semibold underline-offset-2 hover:underline"
+              style={{ color: 'var(--cl-diagnostic)' }}
+            >
+              Condiciones de Uso
+            </a>
+            <span aria-hidden="true">·</span>
+            <span>Cumple con Google API Services User Data Policy (Limited Use)</span>
+          </div>
+        </section>
+
+        <div
+          className="order-1 lg:order-2 w-full max-w-md mx-auto rounded-3xl border p-6 sm:p-8"
+          style={{
+            backgroundColor: 'var(--cl-surface)',
+            borderColor: 'var(--cl-border)',
+            boxShadow: 'var(--cl-shadow-dock)',
+          }}
+        >
         <div className="mb-6 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div
@@ -715,6 +801,7 @@ export function LoginView({
             Política de Privacidad y Uso de Datos Google
           </a>
         </footer>
+      </div>
       </div>
     </div>
   )
