@@ -451,6 +451,7 @@ export function Dashboard({
           onToggleTheme={onToggleTheme}
           onOpenSecuritySettings={onOpenSecuritySettings}
           onLockTerminal={onLockTerminal}
+          onOpenDecks={onOpenDecks}
           isGoogleConnected={isGoogleConnected}
           isGoogleSessionExpired={isGoogleSessionExpired}
           googleHasPendingChanges={googleHasPendingChanges}

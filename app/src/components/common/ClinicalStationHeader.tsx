@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
-import { CalendarDays, Lock, Moon, ShieldCheck, Smartphone, Sun } from 'lucide-react'
+import { CalendarDays, Layers, Lock, Moon, ShieldCheck, Smartphone, Sun } from 'lucide-react'
 import type { Theme } from '../../hooks/useTheme'
 import { getSyncStatusDetails, type SyncProgress, type SyncState } from '../../pwa/syncEngine'
 
@@ -13,6 +13,7 @@ export interface ClinicalStationHeaderProps {
   onToggleTheme?: () => void
   onOpenSecuritySettings?: () => void
   onLockTerminal?: () => void
+  onOpenDecks?: () => void
   isGoogleConnected?: boolean
   isGoogleSessionExpired?: boolean
   googleHasPendingChanges?: boolean
@@ -80,6 +81,7 @@ export function ClinicalStationHeader({
   onToggleTheme,
   onOpenSecuritySettings,
   onLockTerminal,
+  onOpenDecks,
   isGoogleConnected = false,
   isGoogleSessionExpired = false,
   googleHasPendingChanges = false,
@@ -191,6 +193,19 @@ export function ClinicalStationHeader({
       {left}
 
       <div className="flex items-center gap-2 flex-wrap shrink-0">
+        {onOpenDecks && (
+          <button
+            type="button"
+            data-testid="header-decks-btn"
+            onClick={onOpenDecks}
+            className={HEADER_ACTION_BTN_CLASS}
+            title="Descargar mazos de estudio EUNACOM"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Mazos</span>
+          </button>
+        )}
+
         {onOpenGoogleDriveSync && (
           <button
             type="button"

@@ -48,6 +48,23 @@ describe('Dashboard Component Contract', () => {
     expect(studyOpened).toBe(true)
   })
 
+  it('muestra el acceso a Mazos en la cabecera cuando se pasa onOpenDecks', () => {
+    const html = renderToStaticMarkup(
+      createElement(Dashboard, {
+        nodes: [],
+        templates: [],
+        onSelectArticle: () => {},
+        onOpenQuickCapture: () => {},
+        onCreateNode: () => {},
+        onCreateFromTemplate: () => {},
+        onOpenDecks: () => {},
+      }),
+    )
+
+    expect(html).toContain('data-testid="header-decks-btn"')
+    expect(html).toContain('Mazos')
+  })
+
   it('acepta props opcionales de Google Calendar y renderiza CalendarGuardCard y botón Agenda en cabecera', () => {
     let calendarOpened = false
     let quickCreated = false
