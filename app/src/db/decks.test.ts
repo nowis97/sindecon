@@ -62,8 +62,22 @@ describe('decks state', () => {
       'cirugia/01.json',
       'pediatria/clinica-01.json',
     ])
-    expect(pruned.state.nextDayIndex).toBe(7)
+    expect(pruned.state.nextDayIndex).toBe(0)
     expect(pruned.removedCardIds.sort()).toEqual(['b', 'g1', 'r1'])
+  })
+
+  it('conserva el contador cuando no se retira ningún bloque', () => {
+    const state = {
+      blocks: {
+        'pediatria/clinica-01.json': { hash: 'new', cardIds: ['a'] },
+      },
+      nextDayIndex: 7,
+    }
+    const pruned = pruneDeckState(state, {
+      pediatria: new Set(['clinica-01.json']),
+    })
+    expect(pruned.state.nextDayIndex).toBe(7)
+    expect(pruned.removedCardIds).toEqual([])
   })
 
   it('no borra tarjetas que siguen en un bloque vigente', () => {

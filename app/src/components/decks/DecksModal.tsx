@@ -82,6 +82,7 @@ export const DecksModal: React.FC<DecksModalProps> = ({
         if (pruned.removedCardIds.length > 0) {
           await db.flashcards.bulkDelete(pruned.removedCardIds)
           await saveDecksState(pruned.state)
+          onDownloaded?.()
         }
         setState(pruned.state)
       } catch (e) {

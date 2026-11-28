@@ -52,9 +52,16 @@ export function pruneDeckState(
   }
 
   const keptIds = new Set(Object.values(blocks).flatMap((block) => block.cardIds))
+  const removedCardIds = removed.filter((id) => !keptIds.has(id))
   return {
-    state: { ...state, blocks },
-    removedCardIds: removed.filter((id) => !keptIds.has(id)),
+    // Si se retiraron tarjetas, el goteo arranca de nuevo: si no, las
+    // tarjetas nuevas quedarían programadas según el banco viejo.
+    state: {
+      ...state,
+      blocks,
+      nextDayIndex: removedCardIds.length > 0 ? 0 : state.nextDayIndex,
+    },
+    removedCardIds,
   }
 }
 
