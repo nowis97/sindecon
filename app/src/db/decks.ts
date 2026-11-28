@@ -16,6 +16,14 @@ export interface DeckState {
   nextDayIndex: number
 }
 
+/** IDs de todas las tarjetas descargadas de un mazo. */
+export function deckCardIds(state: DeckState, deckId: string): string[] {
+  const prefix = `${deckId}/`
+  return Object.entries(state.blocks)
+    .filter(([key]) => key.startsWith(prefix))
+    .flatMap(([, block]) => block.cardIds)
+}
+
 const KEY = 'decks_state'
 
 export function emptyDecksState(): DeckState {

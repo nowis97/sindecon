@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from './db'
-import { getDecksState, saveDecksState } from './decks'
+import { deckCardIds, getDecksState, saveDecksState } from './decks'
 
 describe('decks state', () => {
   beforeEach(async () => {
@@ -21,6 +21,19 @@ describe('decks state', () => {
     expect(s.blocks['pediatria/01.json'].hash).toBe('h1')
     expect(s.blocks['pediatria/01.json'].cardIds).toEqual(['a', 'b'])
     expect(s.nextDayIndex).toBe(40)
+  })
+
+  it('devuelve solo las tarjetas descargadas del mazo pedido', () => {
+    const state = {
+      blocks: {
+        'pediatria/01.json': { hash: 'h1', cardIds: ['a', 'b'] },
+        'pediatria/02.json': { hash: 'h2', cardIds: ['c'] },
+        'cirugia/01.json': { hash: 'h3', cardIds: ['d'] },
+      },
+      nextDayIndex: 0,
+    }
+    expect(deckCardIds(state, 'pediatria')).toEqual(['a', 'b', 'c'])
+    expect(deckCardIds(state, 'casos-ia')).toEqual([])
   })
 
   it('ignora estado corrupto o del formato viejo', async () => {

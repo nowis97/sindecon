@@ -275,6 +275,19 @@ function App() {
     refreshFlashcardCounts()
   }, [refreshFlashcardCounts, selectedId])
 
+  const handleStartDeckStudy = async (cardIds: string[]) => {
+    const cards = (await db.flashcards.bulkGet(cardIds)).filter(
+      (card): card is FlashcardRow => Boolean(card),
+    )
+    if (cards.length === 0) {
+      setToastMessage('Descarga un bloque del mazo antes de estudiarlo.')
+      return
+    }
+    setStudyDeck(cards)
+    setIsDecksModalOpen(false)
+    setIsStudyModalOpen(true)
+  }
+
   const handleStartGeneralStudy = async (nodeIdsFilter?: string[]) => {
     const due = await getDueFlashcards()
     const all = await getAllFlashcards()
@@ -1377,6 +1390,7 @@ function App() {
         onClose={() => setIsDecksModalOpen(false)}
         onDownloaded={refreshFlashcardCounts}
         onLogin={() => handleGoogleSignIn(false)}
+        onStudyDeck={(cardIds) => void handleStartDeckStudy(cardIds)}
       />
 
       {/* Modal de Flashcards del Artículo */}

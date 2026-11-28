@@ -1,10 +1,11 @@
 ﻿import React, { useEffect, useState } from 'react'
-import { Download, Layers, Loader2, RefreshCw, X } from 'lucide-react'
-import { getDecksState, type DeckState } from '../../db/decks'
+import { BookOpen, Download, Layers, Loader2, RefreshCw, X } from 'lucide-react'
+import { deckCardIds, getDecksState, type DeckState } from '../../db/decks'
 import {
   downloadBlock,
   fetchIndex,
   fetchManifest,
+  type DeckBlockMeta,
   type DeckManifest,
   type DeckSummary,
 } from '../../domain/deckDownloader'
@@ -16,6 +17,8 @@ interface DecksModalProps {
   onDownloaded?: () => void
   /** Vincula la sesión de Google (la API exige cookie de servidor). */
   onLogin?: () => void
+  /** Inicia un repaso con las tarjetas descargadas de un mazo. */
+  onStudyDeck?: (cardIds: string[]) => void
 }
 
 export const DecksModal: React.FC<DecksModalProps> = ({
@@ -23,6 +26,7 @@ export const DecksModal: React.FC<DecksModalProps> = ({
   onClose,
   onDownloaded,
   onLogin,
+  onStudyDeck,
 }) => {
   const [decks, setDecks] = useState<DeckSummary[]>([])
   const [manifests, setManifests] = useState<Record<string, DeckManifest>>({})
@@ -76,6 +80,28 @@ export const DecksModal: React.FC<DecksModalProps> = ({
       cancelled = true
     }
   }, [isOpen])
+
+  async function handleUpdateDeck(
+    deckId: string,
+    title: string,
+    blocks: DeckBlockMeta[],
+  ) {
+    setBusy(`deck:${deckId}`)
+    setError(null)
+    setMessage(null)
+    try {
+      for (const block of blocks) {
+        await downloadBlock(deckId, block.file, newPerDay, Date.now(), block.hash)
+      }
+      setState(await getDecksState())
+      setMessage(`${title}: ${blocks.length} bloque(s) actualizado(s)`)
+      onDownloaded?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al actualizar el mazo')
+    } finally {
+      setBusy(null)
+    }
+  }
 
   async function handleDownload(deckId: string, file: string, hash: string) {
     const key = `${deckId}/${file}`
@@ -150,6 +176,12 @@ export const DecksModal: React.FC<DecksModalProps> = ({
 
           {decks.map((deck) => {
             const manifest = manifests[deck.id]
+            const cardIds = deckCardIds(state, deck.id)
+            const outdated = (manifest?.blocks ?? []).filter((block) => {
+              const saved = state.blocks[`${deck.id}/${block.file}`]
+              return saved && saved.hash !== block.hash
+            })
+            const deckBusy = busy === `deck:${deck.id}`
             return (
               <section
                 key={deck.id}
@@ -161,6 +193,40 @@ export const DecksModal: React.FC<DecksModalProps> = ({
                     {deck.cards} tarjetas
                   </span>
                 </div>
+
+                {cardIds.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {onStudyDeck && (
+                      <button
+                        type="button"
+                        onClick={() => onStudyDeck(cardIds)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--ch-accent-solid)] px-2.5 py-1.5 text-xs font-semibold text-white"
+                      >
+                        <BookOpen className="h-3 w-3" />
+                        Estudiar este mazo ({cardIds.length})
+                      </button>
+                    )}
+                    {outdated.length > 0 && (
+                      <button
+                        type="button"
+                        disabled={deckBusy}
+                        onClick={() =>
+                          void handleUpdateDeck(deck.id, deck.title, outdated)
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--ch-border)] px-2.5 py-1.5 text-xs font-semibold hover:bg-[var(--ch-bg-muted)] disabled:opacity-60"
+                      >
+                        {deckBusy ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3" />
+                        )}
+                        {deckBusy
+                          ? 'Actualizando…'
+                          : `Actualizar mazo (${outdated.length})`}
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(manifest?.blocks ?? []).map((block) => {
