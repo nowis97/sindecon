@@ -1,7 +1,12 @@
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from './db'
-import { deckCardIds, getDecksState, saveDecksState } from './decks'
+import {
+  deckCardIds,
+  getDecksState,
+  pruneDeckState,
+  saveDecksState,
+} from './decks'
 
 describe('decks state', () => {
   beforeEach(async () => {
@@ -34,6 +39,45 @@ describe('decks state', () => {
     }
     expect(deckCardIds(state, 'pediatria')).toEqual(['a', 'b', 'c'])
     expect(deckCardIds(state, 'casos-ia')).toEqual([])
+  })
+
+  it('poda bloques viejos, mazos eliminados y conserva manifests fallidos', () => {
+    const state = {
+      blocks: {
+        'pediatria/clinica-01.json': { hash: 'new', cardIds: ['a'] },
+        'pediatria/01.json': { hash: 'old', cardIds: ['b'] },
+        'cirugia/01.json': { hash: 'c', cardIds: ['c1'] },
+        'ges/01.json': { hash: 'g', cardIds: ['g1'] },
+        'grade/01.json': { hash: 'r', cardIds: ['r1'] },
+      },
+      nextDayIndex: 7,
+    }
+
+    const pruned = pruneDeckState(state, {
+      pediatria: new Set(['clinica-01.json']),
+      cirugia: null,
+    })
+
+    expect(Object.keys(pruned.state.blocks).sort()).toEqual([
+      'cirugia/01.json',
+      'pediatria/clinica-01.json',
+    ])
+    expect(pruned.state.nextDayIndex).toBe(7)
+    expect(pruned.removedCardIds.sort()).toEqual(['b', 'g1', 'r1'])
+  })
+
+  it('no borra tarjetas que siguen en un bloque vigente', () => {
+    const state = {
+      blocks: {
+        'pediatria/clinica-01.json': { hash: 'new', cardIds: ['shared'] },
+        'pediatria/01.json': { hash: 'old', cardIds: ['shared'] },
+      },
+      nextDayIndex: 0,
+    }
+    const pruned = pruneDeckState(state, {
+      pediatria: new Set(['clinica-01.json']),
+    })
+    expect(pruned.removedCardIds).toEqual([])
   })
 
   it('ignora estado corrupto o del formato viejo', async () => {

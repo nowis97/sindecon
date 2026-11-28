@@ -16,6 +16,48 @@ export interface DeckState {
   nextDayIndex: number
 }
 
+export interface PrunedDeckState {
+  state: DeckState
+  /** Tarjetas que ya no pertenecen a ningún bloque vigente. */
+  removedCardIds: string[]
+}
+
+/**
+ * Quita del estado los bloques que ya no existen en el manifest.
+ *
+ * `validBlocks[deckId]`:
+ * - Set: archivos vigentes del mazo.
+ * - null: el manifest no cargó; se conserva el mazo para no borrar por error.
+ * - ausente: el mazo ya no está en el índice; se elimina.
+ */
+export function pruneDeckState(
+  state: DeckState,
+  validBlocks: Record<string, Set<string> | null>,
+): PrunedDeckState {
+  const blocks: Record<string, DeckBlockState> = {}
+  const removed: string[] = []
+
+  for (const [key, block] of Object.entries(state.blocks)) {
+    const slash = key.indexOf('/')
+    const deckId = slash >= 0 ? key.slice(0, slash) : key
+    const file = slash >= 0 ? key.slice(slash + 1) : ''
+    const valid = validBlocks[deckId]
+    const keep =
+      valid === undefined ? false : valid === null ? true : valid.has(file)
+    if (keep) {
+      blocks[key] = block
+    } else {
+      removed.push(...block.cardIds)
+    }
+  }
+
+  const keptIds = new Set(Object.values(blocks).flatMap((block) => block.cardIds))
+  return {
+    state: { ...state, blocks },
+    removedCardIds: removed.filter((id) => !keptIds.has(id)),
+  }
+}
+
 /** IDs de todas las tarjetas descargadas de un mazo. */
 export function deckCardIds(state: DeckState, deckId: string): string[] {
   const prefix = `${deckId}/`

@@ -1,6 +1,13 @@
 ﻿import React, { useEffect, useState } from 'react'
 import { BookOpen, Download, Layers, Loader2, RefreshCw, X } from 'lucide-react'
-import { deckCardIds, getDecksState, type DeckState } from '../../db/decks'
+import {
+  deckCardIds,
+  getDecksState,
+  pruneDeckState,
+  saveDecksState,
+  type DeckState,
+} from '../../db/decks'
+import { db } from '../../db/db'
 import {
   downloadBlock,
   fetchIndex,
@@ -60,7 +67,23 @@ export const DecksModal: React.FC<DecksModalProps> = ({
           if (m) byId[m.id] = m
         }
         setManifests(byId)
-        setState(await getDecksState())
+
+        // Poda tarjetas de bloques/mazos que ya no existen en el catálogo.
+        // Un manifest fallido (null) se conserva para no borrar por error.
+        const validBlocks: Record<string, Set<string> | null> = {}
+        for (const deck of index.decks) {
+          const manifest = byId[deck.id]
+          validBlocks[deck.id] = manifest
+            ? new Set(manifest.blocks.map((block) => block.file))
+            : null
+        }
+        const current = await getDecksState()
+        const pruned = pruneDeckState(current, validBlocks)
+        if (pruned.removedCardIds.length > 0) {
+          await db.flashcards.bulkDelete(pruned.removedCardIds)
+          await saveDecksState(pruned.state)
+        }
+        setState(pruned.state)
       } catch (e) {
         if (!cancelled) {
           const msg =
@@ -105,13 +128,14 @@ export const DecksModal: React.FC<DecksModalProps> = ({
 
   async function handleDownload(deckId: string, file: string, hash: string) {
     const key = `${deckId}/${file}`
+    const label = file.replace(/^clinica-/, '').replace(/\.json$/, '')
     setBusy(key)
     setMessage(null)
     try {
       const result = await downloadBlock(deckId, file, newPerDay, Date.now(), hash)
       setState(await getDecksState())
       setMessage(
-        `${deckId} ${file}: ${result.added} nuevas, ${result.removed} retiradas`,
+        `${deckId} bloque ${label}: ${result.added} nuevas, ${result.removed} retiradas`,
       )
       onDownloaded?.()
     } catch (e) {
@@ -231,6 +255,9 @@ export const DecksModal: React.FC<DecksModalProps> = ({
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(manifest?.blocks ?? []).map((block) => {
                     const key = `${deck.id}/${block.file}`
+                    const label = block.file
+                      .replace(/^clinica-/, '')
+                      .replace(/\.json$/, '')
                     const saved = state.blocks[key]
                     const upToDate = saved?.hash === block.hash
                     const isBusy = busy === key
@@ -252,10 +279,10 @@ export const DecksModal: React.FC<DecksModalProps> = ({
                         {isBusy
                           ? 'Descargando…'
                           : upToDate
-                            ? `${block.file} al día`
+                            ? `Bloque ${label} al día`
                             : saved
-                              ? `Actualizar ${block.file}`
-                              : `Bajar ${block.file} (${block.count})`}
+                              ? `Actualizar bloque ${label}`
+                              : `Bajar bloque ${label} (${block.count})`}
                       </button>
                     )
                   })}
